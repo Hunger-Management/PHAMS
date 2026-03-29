@@ -42,21 +42,30 @@ const recentActivities = [
   },
 ]
 
+import { useDarkMode } from '../hooks/useDarkMode'
+
 const statusClassMap = {
-  Completed: 'bg-emerald-100 text-emerald-700',
-  Received: 'bg-teal-100 text-teal-700',
-  Processed: 'bg-green-100 text-green-700',
-  Pending: 'bg-amber-100 text-amber-700',
+  Completed: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
+  Received: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300',
+  Processed: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+  Pending: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
 }
 
 function HomePage() {
+  const { isDarkMode, toggleDarkMode } = useDarkMode()
   return (
-    <main className="min-h-screen bg-[#eaf1ef] text-slate-900">
-      <header className="bg-[#f6f8f9] border-b border-slate-200 shadow-sm">
+    <main className={`min-h-screen transition-colors ${
+      isDarkMode ? 'bg-slate-950 text-slate-50' : 'bg-[#eaf1ef] text-slate-900'
+    }`}>
+      <header className={`transition-colors ${
+        isDarkMode ? 'bg-slate-900 border-b border-slate-700 shadow-md' : 'bg-[#f6f8f9] border-b border-slate-200 shadow-sm'
+      }`}>
         <div className="mx-auto w-[95%] max-w-7xl px-3 md:px-5 py-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="h-12 w-12 md:h-14 md:w-14 rounded-full border-2 border-blue-900/20 bg-white grid place-items-center overflow-hidden">
+              <div className={`h-12 w-12 md:h-14 md:w-14 rounded-full border-2 grid place-items-center overflow-hidden transition-colors ${
+                isDarkMode ? 'border-blue-400/20 bg-slate-800' : 'border-blue-900/20 bg-white'
+              }`}>
                 <img
                   src="/pateros-zero-hunger-logo.png"
                   alt="Pateros Zero Hunger logo"
@@ -64,12 +73,14 @@ function HomePage() {
                 />
               </div>
               <p
-                className="leading-tight uppercase tracking-[0.12em] text-[10px] md:text-xs"
+                className={`leading-tight uppercase tracking-[0.12em] text-[10px] md:text-xs transition-colors ${
+                  isDarkMode ? 'text-slate-300' : ''
+                }`}
                 style={{ fontFamily: 'Trebuchet MS, Segoe UI, sans-serif' }}
               >
-                <span className="text-slate-500">Pateros Hunger</span>
+                <span className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>Pateros Hunger</span>
                 <br />
-                <span className="text-blue-900 font-bold">and Management Systems</span>
+                <span className={`font-bold ${isDarkMode ? 'text-blue-300' : 'text-blue-900'}`}>and Management Systems</span>
               </p>
             </div>
 
@@ -79,34 +90,57 @@ function HomePage() {
                   type="search"
                   placeholder="Search"
                   aria-label="Search"
-                  className="w-64 rounded-md border border-slate-300 bg-white py-1.5 pl-3 pr-8 text-sm outline-none focus:ring-2 focus:ring-blue-500/40"
+                  className={`w-64 rounded-md border py-1.5 pl-3 pr-8 text-sm outline-none focus:ring-2 focus:ring-blue-500/40 transition-colors ${
+                    isDarkMode
+                      ? 'border-slate-600 bg-slate-800 text-slate-50 placeholder-slate-500'
+                      : 'border-slate-300 bg-white text-slate-900 placeholder-slate-500'
+                  }`}
                 />
-                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400">⌕</span>
+                <span className={`absolute right-2 top-1/2 -translate-y-1/2 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>⌕</span>
               </label>
-              <div className="h-8 w-8 rounded-md bg-blue-900 text-white text-[10px] font-bold grid place-items-center">PHP</div>
-              <div className="h-8 w-8 rounded-md bg-violet-200 text-violet-900 text-[10px] font-bold grid place-items-center">CSWD</div>
+              <button
+                onClick={toggleDarkMode}
+                className={`h-8 w-8 rounded-md transition-colors grid place-items-center text-[10px] font-bold ${
+                  isDarkMode ? 'bg-slate-700 text-yellow-300 hover:bg-slate-600' : 'bg-blue-900 text-white hover:bg-blue-800'
+                }`}
+                aria-label="Toggle dark mode"
+              >
+                {isDarkMode ? '☀️' : '🌙'}
+              </button>
+              <div className={`h-8 w-8 rounded-md text-white text-[10px] font-bold grid place-items-center transition-colors ${
+                isDarkMode ? 'bg-blue-700' : 'bg-blue-900'
+              }`}>PHP</div>
+              <div className={`h-8 w-8 rounded-md text-[10px] font-bold grid place-items-center transition-colors ${
+                isDarkMode ? 'bg-violet-900 text-violet-200' : 'bg-violet-200 text-violet-900'
+              }`}>CSWD</div>
             </div>
           </div>
         </div>
 
-        <nav className="bg-[#ececec] border-t border-slate-200">
+        <nav className={`border-t transition-colors ${
+          isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-[#ececec] border-slate-200'
+        }`}>
           <div className="mx-auto w-[95%] max-w-7xl px-3 md:px-5 py-3">
             <ul
               className="flex flex-wrap items-center justify-center gap-x-7 gap-y-2 text-[12px] md:text-[13px] font-semibold uppercase"
               style={{ fontFamily: 'Trebuchet MS, Segoe UI, sans-serif' }}
             >
-              <li><a href="#" className="text-blue-700 hover:text-blue-900">Home</a></li>
-              <li><a href="#" className="hover:text-blue-900">About Us ▾</a></li>
-              <li><a href="#" className="hover:text-blue-900">Barangays ▾</a></li>
-              <li><a href="#" className="hover:text-blue-900">Transparency ▾</a></li>
-              <li><a href="#" className="hover:text-blue-900">Contact Us ▾</a></li>
+              <li><a href="#" className={`transition-colors ${
+                isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-700 hover:text-blue-900'
+              }`}>Home</a></li>
+              <li><a href="#" className={`transition-colors ${isDarkMode ? 'hover:text-slate-200' : 'hover:text-blue-900'}`}>About Us ▾</a></li>
+              <li><a href="#" className={`transition-colors ${isDarkMode ? 'hover:text-slate-200' : 'hover:text-blue-900'}`}>Barangays ▾</a></li>
+              <li><a href="#" className={`transition-colors ${isDarkMode ? 'hover:text-slate-200' : 'hover:text-blue-900'}`}>Transparency ▾</a></li>
+              <li><a href="#" className={`transition-colors ${isDarkMode ? 'hover:text-slate-200' : 'hover:text-blue-900'}`}>Contact Us ▾</a></li>
             </ul>
           </div>
         </nav>
       </header>
 
       <section className="mx-auto w-[95%] max-w-7xl py-5 md:py-6">
-        <div className="relative overflow-hidden rounded-xl border border-slate-300 shadow-lg">
+        <div className={`relative overflow-hidden rounded-xl border shadow-lg transition-colors ${
+          isDarkMode ? 'border-slate-700 shadow-slate-900' : 'border-slate-300 shadow-lg'
+        }`}>
           <img
             src="https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=1600&q=80"
             alt="Community distribution market"
@@ -126,11 +160,19 @@ function HomePage() {
           </div>
         </div>
 
-        <div className="flex justify-center gap-2 py-3 text-slate-400">
-          <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-          <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
-          <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
-          <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
+        <div className="flex justify-center gap-2 py-3">
+          <span className={`h-1.5 w-1.5 rounded-full transition-colors ${
+            isDarkMode ? 'bg-slate-600' : 'bg-slate-400'
+          }`} />
+          <span className={`h-1.5 w-1.5 rounded-full transition-colors ${
+            isDarkMode ? 'bg-slate-700' : 'bg-slate-300'
+          }`} />
+          <span className={`h-1.5 w-1.5 rounded-full transition-colors ${
+            isDarkMode ? 'bg-slate-700' : 'bg-slate-300'
+          }`} />
+          <span className={`h-1.5 w-1.5 rounded-full transition-colors ${
+            isDarkMode ? 'bg-slate-700' : 'bg-slate-300'
+          }`} />
         </div>
       </section>
 
@@ -138,19 +180,27 @@ function HomePage() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h3
-              className="text-2xl font-extrabold text-slate-900"
+              className={`text-2xl font-extrabold transition-colors ${
+                isDarkMode ? 'text-slate-100' : 'text-slate-900'
+              }`}
               style={{ fontFamily: 'Arial Black, Trebuchet MS, sans-serif' }}
             >
               Dashboard Overview
             </h3>
-            <p className="text-xs text-slate-500 mt-1">Pateros Zero Hunger Management System</p>
+            <p className={`text-xs mt-1 transition-colors ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Pateros Zero Hunger Management System</p>
           </div>
 
           <div className="flex items-center gap-2">
-            <button className="rounded-md border border-slate-300 bg-white px-4 py-2 text-xs md:text-sm font-semibold text-slate-600 hover:bg-slate-50">
+            <button className={`rounded-md border px-4 py-2 text-xs md:text-sm font-semibold transition-colors ${
+              isDarkMode
+                ? 'border-slate-600 bg-slate-800 text-slate-200 hover:bg-slate-700'
+                : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+            }`}>
               Download Report
             </button>
-            <button className="rounded-md bg-blue-600 px-4 py-2 text-xs md:text-sm font-semibold text-white shadow hover:bg-blue-700">
+            <button className={`rounded-md px-4 py-2 text-xs md:text-sm font-semibold text-white shadow transition-colors ${
+              isDarkMode ? 'bg-blue-700 hover:bg-blue-600' : 'bg-blue-600 hover:bg-blue-700'
+            }`}>
               New Distribution
             </button>
           </div>
@@ -160,16 +210,24 @@ function HomePage() {
           {stats.map((item) => (
             <article
               key={item.label}
-              className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+              className={`rounded-xl border p-4 shadow-sm transition-colors ${
+                isDarkMode
+                  ? 'border-slate-700 bg-slate-800 '
+                  : 'border-slate-200 bg-white'
+              }`}
             >
               <div className="flex items-start justify-between gap-2">
-                <p className="text-xs text-slate-500 leading-snug">{item.label}</p>
-                <span className="h-8 w-8 rounded-lg bg-blue-50 text-blue-700 grid place-items-center text-sm">
+                <p className={`text-xs leading-snug transition-colors ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{item.label}</p>
+                <span className={`h-8 w-8 rounded-lg grid place-items-center text-sm transition-colors ${
+                  isDarkMode ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-50 text-blue-700'
+                }`}>
                   {item.icon}
                 </span>
               </div>
               <p
-                className="mt-4 text-3xl font-black text-slate-900"
+                className={`mt-4 text-3xl font-black transition-colors ${
+                  isDarkMode ? 'text-slate-100' : 'text-slate-900'
+                }`}
                 style={{ fontFamily: 'Arial Black, Trebuchet MS, sans-serif' }}
               >
                 {item.value}
@@ -179,18 +237,28 @@ function HomePage() {
         </div>
 
         <div className="mt-5 grid grid-cols-1 xl:grid-cols-[2fr_1fr] gap-4">
-          <article className="rounded-2xl border border-slate-200 bg-white p-4 md:p-6 shadow-sm">
+          <article className={`rounded-2xl border p-4 md:p-6 shadow-sm transition-colors ${
+            isDarkMode
+              ? 'border-slate-700 bg-slate-800'
+              : 'border-slate-200 bg-white'
+          }`}>
             <div className="flex items-center justify-between gap-3">
               <h4
-                className="text-2xl font-extrabold text-slate-900"
+                className={`text-2xl font-extrabold transition-colors ${
+                  isDarkMode ? 'text-slate-100' : 'text-slate-900'
+                }`}
                 style={{ fontFamily: 'Arial Black, Trebuchet MS, sans-serif' }}
               >
                 Monthly Food Distribution
               </h4>
-              <button className="text-sm text-slate-700 font-medium hover:text-slate-900">Last 6 Months ▾</button>
+              <button className={`text-sm font-medium transition-colors ${
+                isDarkMode ? 'text-slate-300 hover:text-slate-200' : 'text-slate-700 hover:text-slate-900'
+              }`}>Last 6 Months ▾</button>
             </div>
 
-            <div className="mt-4 rounded-xl border border-slate-100 bg-[#f9fcff] p-3 md:p-4">
+            <div className={`mt-4 rounded-xl border p-3 md:p-4 transition-colors ${
+              isDarkMode ? 'border-slate-700 bg-slate-900' : 'border-slate-100 bg-[#f9fcff]'
+            }`}>
               <div className="h-[300px] md:h-[340px] w-full">
                 <svg viewBox="0 0 860 340" className="h-full w-full" role="img" aria-label="Monthly food distribution line chart">
                   <g stroke="#e2e8f0" strokeDasharray="4 4">
@@ -237,20 +305,28 @@ function HomePage() {
             </div>
           </article>
 
-          <article className="rounded-2xl border border-slate-200 bg-white p-4 md:p-6 shadow-sm">
+          <article className={`rounded-2xl border p-4 md:p-6 shadow-sm transition-colors ${
+            isDarkMode
+              ? 'border-slate-700 bg-slate-800'
+              : 'border-slate-200 bg-white'
+          }`}>
             <h4
-              className="text-2xl font-extrabold text-slate-900"
+              className={`text-2xl font-extrabold transition-colors ${
+                isDarkMode ? 'text-slate-100' : 'text-slate-900'
+              }`}
               style={{ fontFamily: 'Arial Black, Trebuchet MS, sans-serif' }}
             >
               Priority Areas
             </h4>
-            <p className="text-slate-500 mt-1">Families needing assistance</p>
+            <p className={`mt-1 transition-colors ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Families needing assistance</p>
 
             <div className="mt-6 space-y-6">
               {priorityAreas.map((area) => (
                 <div key={area.name} className="grid grid-cols-[80px_1fr] items-center gap-3">
-                  <p className="text-slate-500 text-sm text-right leading-tight">{area.name}</p>
-                  <div className="h-9 w-full rounded-md bg-slate-50 border border-dashed border-slate-200 p-1">
+                  <p className={`text-sm text-right leading-tight transition-colors ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{area.name}</p>
+                  <div className={`h-9 w-full rounded-md border border-dashed p-1 transition-colors ${
+                    isDarkMode ? 'bg-slate-700 border-slate-600' : 'bg-slate-50 border-slate-200'
+                  }`}>
                     <div
                       className="h-full rounded bg-sky-500"
                       style={{ width: area.width }}
@@ -262,21 +338,37 @@ function HomePage() {
           </article>
         </div>
 
-        <article className="mt-4 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-200 bg-slate-50">
+        <article className={`mt-4 rounded-2xl border shadow-sm overflow-hidden transition-colors ${
+          isDarkMode
+            ? 'border-slate-700 bg-slate-800'
+            : 'border-slate-200 bg-white'
+        }`}>
+          <div className={`flex items-center justify-between gap-3 px-5 py-4 border-b transition-colors ${
+            isDarkMode
+              ? 'bg-slate-700/50 border-slate-700'
+              : 'bg-slate-50 border-slate-200'
+          }`}>
             <h4
-              className="text-2xl font-extrabold text-slate-900"
+              className={`text-2xl font-extrabold transition-colors ${
+                isDarkMode ? 'text-slate-100' : 'text-slate-900'
+              }`}
               style={{ fontFamily: 'Arial Black, Trebuchet MS, sans-serif' }}
             >
               Recent System Activity
             </h4>
-            <a href="#" className="text-blue-600 text-sm font-semibold hover:text-blue-700">View All</a>
+            <a href="#" className={`text-sm font-semibold transition-colors ${
+              isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'
+            }`}>View All</a>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full min-w-[760px] text-left">
-              <thead className="bg-slate-100 border-b border-slate-200">
-                <tr className="text-[11px] uppercase tracking-[0.08em] text-slate-500">
+              <thead className={`border-b transition-colors ${
+                isDarkMode ? 'bg-slate-700/50 border-slate-700' : 'bg-slate-100 border-slate-200'
+              }`}>
+                <tr className={`text-[11px] uppercase tracking-[0.08em] transition-colors ${
+                  isDarkMode ? 'text-slate-400' : 'text-slate-500'
+                }`}>
                   <th className="px-5 py-3 font-semibold">Type</th>
                   <th className="px-5 py-3 font-semibold">Description</th>
                   <th className="px-5 py-3 font-semibold">Time</th>
@@ -285,10 +377,18 @@ function HomePage() {
               </thead>
               <tbody>
                 {recentActivities.map((activity) => (
-                  <tr key={`${activity.type}-${activity.description}`} className="border-b border-slate-200 last:border-b-0">
-                    <td className="px-5 py-3.5 text-slate-900 font-semibold">{activity.type}</td>
-                    <td className="px-5 py-3.5 text-slate-600">{activity.description}</td>
-                    <td className="px-5 py-3.5 text-slate-500">{activity.time}</td>
+                  <tr key={`${activity.type}-${activity.description}`} className={`border-b last:border-b-0 transition-colors ${
+                    isDarkMode ? 'border-slate-700 hover:bg-slate-700/50' : 'border-slate-200 hover:bg-slate-50'
+                  }`}>
+                    <td className={`px-5 py-3.5 font-semibold transition-colors ${
+                      isDarkMode ? 'text-slate-200' : 'text-slate-900'
+                    }`}>{activity.type}</td>
+                    <td className={`px-5 py-3.5 transition-colors ${
+                      isDarkMode ? 'text-slate-300' : 'text-slate-600'
+                    }`}>{activity.description}</td>
+                    <td className={`px-5 py-3.5 transition-colors ${
+                      isDarkMode ? 'text-slate-400' : 'text-slate-500'
+                    }`}>{activity.time}</td>
                     <td className="px-5 py-3.5">
                       <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusClassMap[activity.status]}`}>
                         {activity.status}
