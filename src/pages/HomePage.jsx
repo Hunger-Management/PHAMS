@@ -1,107 +1,306 @@
+const stats = [
+  { label: 'Total Registered Families', value: '2,186', icon: '👥' },
+  { label: '4Ps (No Permanent Address)', value: '243', icon: '📍' },
+  { label: 'Active Food Supply (Tons)', value: '87', icon: '📦' },
+  { label: 'Pending Distributions', value: '29', icon: '🚚' },
+]
+
+const chartMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul']
+
+const priorityAreas = [
+  { name: 'Sto. Rosario', width: '72%' },
+  { name: 'Aguho', width: '54%' },
+  { name: 'San Roque', width: '49%' },
+  { name: 'Santa Ana', width: '37%' },
+  { name: 'San Pedro', width: '32%' },
+]
+
+const recentActivities = [
+  {
+    type: 'Distribution',
+    description: 'Food packs delivered to Aguho',
+    time: '2 hours ago',
+    status: 'Completed',
+  },
+  {
+    type: 'Donation',
+    description: 'Received 50 sacks of rice from Red Cross',
+    time: '4 hours ago',
+    status: 'Received',
+  },
+  {
+    type: 'Registration',
+    description: '12 new families registered in Sto. Rosario',
+    time: 'Yesterday',
+    status: 'Processed',
+  },
+  {
+    type: 'Distribution',
+    description: 'Pending delivery to San Roque',
+    time: 'Yesterday',
+    status: 'Pending',
+  },
+]
+
+const statusClassMap = {
+  Completed: 'bg-emerald-100 text-emerald-700',
+  Received: 'bg-teal-100 text-teal-700',
+  Processed: 'bg-green-100 text-green-700',
+  Pending: 'bg-amber-100 text-amber-700',
+}
+
 function HomePage() {
   return (
-    <main className="min-h-screen bg-stone-100">
-      {/* header area */}
-      <header className="bg-stone-100 border-b border-gray-300 shadow-sm">
-        {/* top row*/}
-        <div className="flex items-center justify-between gap-4 px-6 md:px-10 py-3 md:py-2">
-          {/* brand side */}
-          <div className="flex items-center gap-4 flex-1 min-w-0">
-            <img
-              src="/pateros-zero-hunger-logo.png"
-              alt="Pateros Zero Hunger Management System logo"
-              className="w-16 h-16 md:w-20 md:h-20 rounded-full object-cover flex-shrink-0"
-            />
-
-            {/* site name */}
-            <h1 className="flex-1 font-playfair font-bold leading-tight text-gray-900 text-xs md:text-sm lg:text-base min-w-0">
-              PATEROS
-              <br />
-              ZERO HUNGER
-              <br />
-              MANAGEMENT SYSTEM
-            </h1>
-          </div>
-
-          {/* right side actions */}
-          <div className="flex items-center gap-3 md:gap-4 flex-shrink-0">
-            {/* search */}
-            <div className="flex items-center gap-2 bg-gray-200 rounded-full px-3 md:px-4 py-2 border border-gray-300 shadow-sm whitespace-nowrap">
-              <input
-                id="site-search"
-                type="search"
-                placeholder="Search"
-                aria-label="Search"
-                className="bg-transparent border-0 outline-0 font-poppins text-xs md:text-sm w-24 md:w-32 text-gray-700 placeholder-gray-500"
-              />
-              <button type="submit" className="text-gray-600 text-base md:text-lg font-bold hover:text-gray-800 flex-shrink-0">
-                🔍
-              </button>
+    <main className="min-h-screen bg-[#eaf1ef] text-slate-900">
+      <header className="bg-[#f6f8f9] border-b border-slate-200 shadow-sm">
+        <div className="mx-auto w-[95%] max-w-7xl px-3 md:px-5 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="h-12 w-12 md:h-14 md:w-14 rounded-full border-2 border-blue-900/20 bg-white grid place-items-center overflow-hidden">
+                <img
+                  src="/pateros-zero-hunger-logo.png"
+                  alt="Pateros Zero Hunger logo"
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <p
+                className="leading-tight uppercase tracking-[0.12em] text-[10px] md:text-xs"
+                style={{ fontFamily: 'Trebuchet MS, Segoe UI, sans-serif' }}
+              >
+                <span className="text-slate-500">Pateros Hunger</span>
+                <br />
+                <span className="text-blue-900 font-bold">and Management Systems</span>
+              </p>
             </div>
 
-            <div className="flex items-center gap-0 flex-shrink-0">
-              <img
-                src="/nu-1900-logo-transparent.png"
-                alt="NU 1900 logo"
-                className="w-16 h-16 md:w-20 md:h-20 object-contain"
-              />
-              <img
-                src="/photo_2026-03-27_01-04-38.jpg"
-                alt="CCT logo"
-                className="-ml-2 md:-ml-3 w-28 h-28 md:w-32 md:h-24 object-contain mix-blend-multiply"
-              />
+            <div className="flex items-center gap-2 md:gap-3">
+              <label className="relative hidden sm:block">
+                <input
+                  type="search"
+                  placeholder="Search"
+                  aria-label="Search"
+                  className="w-64 rounded-md border border-slate-300 bg-white py-1.5 pl-3 pr-8 text-sm outline-none focus:ring-2 focus:ring-blue-500/40"
+                />
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400">⌕</span>
+              </label>
+              <div className="h-8 w-8 rounded-md bg-blue-900 text-white text-[10px] font-bold grid place-items-center">PHP</div>
+              <div className="h-8 w-8 rounded-md bg-violet-200 text-violet-900 text-[10px] font-bold grid place-items-center">CSWD</div>
             </div>
-
           </div>
         </div>
 
-        {/* menu bar */}
-        <nav className="bg-gray-300 border-t border-gray-400 flex items-center justify-between px-8 md:px-12 py-3 md:py-3.5">
-          <a href="#" className="font-playfair font-bold text-gray-900 text-base md:text-lg lg:text-xl tracking-tight whitespace-nowrap hover:text-gray-700">
-            HOME
-          </a>
-          <a href="#" className="font-playfair font-bold text-gray-900 text-base md:text-lg lg:text-xl tracking-tight whitespace-nowrap hover:text-gray-700">
-            ABOUT US ▾
-          </a>
-          <a href="#" className="font-playfair font-bold text-gray-900 text-base md:text-lg lg:text-xl tracking-tight whitespace-nowrap hover:text-gray-700">
-            BARANGAY ▾
-          </a>
-          <a href="#" className="font-playfair font-bold text-gray-900 text-base md:text-lg lg:text-xl tracking-tight whitespace-nowrap hover:text-gray-700">
-            TRANSPARENCY ▾
-          </a>
-          <a href="#" className="font-playfair font-bold text-gray-900 text-base md:text-lg lg:text-xl tracking-tight whitespace-nowrap hover:text-gray-700">
-            CONTACT US
-          </a>
+        <nav className="bg-[#ececec] border-t border-slate-200">
+          <div className="mx-auto w-[95%] max-w-7xl px-3 md:px-5 py-3">
+            <ul
+              className="flex flex-wrap items-center justify-center gap-x-7 gap-y-2 text-[12px] md:text-[13px] font-semibold uppercase"
+              style={{ fontFamily: 'Trebuchet MS, Segoe UI, sans-serif' }}
+            >
+              <li><a href="#" className="text-blue-700 hover:text-blue-900">Home</a></li>
+              <li><a href="#" className="hover:text-blue-900">About Us ▾</a></li>
+              <li><a href="#" className="hover:text-blue-900">Barangays ▾</a></li>
+              <li><a href="#" className="hover:text-blue-900">Transparency ▾</a></li>
+              <li><a href="#" className="hover:text-blue-900">Contact Us ▾</a></li>
+            </ul>
+          </div>
         </nav>
       </header>
 
-      {/* hero section */}
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-10 w-11/12 max-w-6xl mx-auto py-12 md:py-16 lg:py-20 items-center">
-        {/* big headline */}
-        <div>
-          <h2 className="font-playfair text-5xl md:text-6xl lg:text-7xl font-black leading-tight text-gray-900" style={{ letterSpacing: '-0.02em' }}>
-            PATEROS
-            <br />
-            ZERO HUNGER
-            <br />
-            MANAGEMENT
-            <br />
-            SYSTEM
-          </h2>
+      <section className="mx-auto w-[95%] max-w-7xl py-5 md:py-6">
+        <div className="relative overflow-hidden rounded-xl border border-slate-300 shadow-lg">
+          <img
+            src="https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=1600&q=80"
+            alt="Community distribution market"
+            className="h-[280px] md:h-[420px] w-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/72 via-slate-900/25 to-transparent" />
+          <div className="absolute bottom-0 left-0 p-5 md:p-7 max-w-2xl text-white">
+            <h2
+              className="text-3xl md:text-5xl font-black leading-[1.05]"
+              style={{ fontFamily: 'Arial Black, Trebuchet MS, sans-serif' }}
+            >
+              Pateros Zero Hunger Management
+            </h2>
+            <p className="mt-2 md:mt-3 text-sm md:text-lg text-slate-100">
+              Empowering communities, ensuring food security, and supporting our citizens.
+            </p>
+          </div>
         </div>
 
-        {/* image placeholder */}
-        <div className="h-64 md:h-80 lg:h-96 rounded-3xl bg-gradient-to-br from-gray-300 via-gray-250 to-gray-400 border-4 border-gray-400 shadow-lg" />
+        <div className="flex justify-center gap-2 py-3 text-slate-400">
+          <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+          <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
+          <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
+          <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
+        </div>
       </section>
 
-      {/* slider dots */}
-      <div className="flex justify-center gap-3 pb-8 md:pb-12">
-        <span className="w-4 h-3 rounded-full bg-gray-500" />
-        <span className="w-3 h-3 rounded-full bg-gray-500" />
-        <span className="w-3 h-3 rounded-full bg-gray-500" />
-        <span className="w-3 h-3 rounded-full bg-gray-500" />
-        <span className="w-4 h-3 rounded-full bg-gray-500" />
-      </div>
+      <section className="mx-auto w-[95%] max-w-7xl pb-10 md:pb-12">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h3
+              className="text-2xl font-extrabold text-slate-900"
+              style={{ fontFamily: 'Arial Black, Trebuchet MS, sans-serif' }}
+            >
+              Dashboard Overview
+            </h3>
+            <p className="text-xs text-slate-500 mt-1">Pateros Zero Hunger Management System</p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button className="rounded-md border border-slate-300 bg-white px-4 py-2 text-xs md:text-sm font-semibold text-slate-600 hover:bg-slate-50">
+              Download Report
+            </button>
+            <button className="rounded-md bg-blue-600 px-4 py-2 text-xs md:text-sm font-semibold text-white shadow hover:bg-blue-700">
+              New Distribution
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
+          {stats.map((item) => (
+            <article
+              key={item.label}
+              className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-xs text-slate-500 leading-snug">{item.label}</p>
+                <span className="h-8 w-8 rounded-lg bg-blue-50 text-blue-700 grid place-items-center text-sm">
+                  {item.icon}
+                </span>
+              </div>
+              <p
+                className="mt-4 text-3xl font-black text-slate-900"
+                style={{ fontFamily: 'Arial Black, Trebuchet MS, sans-serif' }}
+              >
+                {item.value}
+              </p>
+            </article>
+          ))}
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 xl:grid-cols-[2fr_1fr] gap-4">
+          <article className="rounded-2xl border border-slate-200 bg-white p-4 md:p-6 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <h4
+                className="text-2xl font-extrabold text-slate-900"
+                style={{ fontFamily: 'Arial Black, Trebuchet MS, sans-serif' }}
+              >
+                Monthly Food Distribution
+              </h4>
+              <button className="text-sm text-slate-700 font-medium hover:text-slate-900">Last 6 Months ▾</button>
+            </div>
+
+            <div className="mt-4 rounded-xl border border-slate-100 bg-[#f9fcff] p-3 md:p-4">
+              <div className="h-[300px] md:h-[340px] w-full">
+                <svg viewBox="0 0 860 340" className="h-full w-full" role="img" aria-label="Monthly food distribution line chart">
+                  <g stroke="#e2e8f0" strokeDasharray="4 4">
+                    <line x1="70" y1="35" x2="820" y2="35" />
+                    <line x1="70" y1="95" x2="820" y2="95" />
+                    <line x1="70" y1="155" x2="820" y2="155" />
+                    <line x1="70" y1="215" x2="820" y2="215" />
+                    <line x1="70" y1="275" x2="820" y2="275" />
+                  </g>
+
+                  <path
+                    d="M70 35 C130 65, 180 95, 195 112 C235 155, 280 185, 320 150 C360 118, 405 95, 445 128 C485 165, 525 210, 565 208 C610 205, 660 185, 695 160 C735 132, 770 95, 820 62 L820 275 L70 275 Z"
+                    fill="rgba(59,130,246,0.16)"
+                  />
+                  <path
+                    d="M70 35 C130 65, 180 95, 195 112 C235 155, 280 185, 320 150 C360 118, 405 95, 445 128 C485 165, 525 210, 565 208 C610 205, 660 185, 695 160 C735 132, 770 95, 820 62"
+                    stroke="#3b82f6"
+                    strokeWidth="3"
+                    fill="none"
+                  />
+
+                  <g fill="#64748b" fontSize="14" fontFamily="Trebuchet MS, Segoe UI, sans-serif">
+                    <text x="62" y="279" textAnchor="end">0</text>
+                    <text x="62" y="219" textAnchor="end">1000</text>
+                    <text x="62" y="159" textAnchor="end">2000</text>
+                    <text x="62" y="99" textAnchor="end">3000</text>
+                    <text x="62" y="39" textAnchor="end">4000</text>
+                  </g>
+
+                  <g fill="#64748b" fontSize="14" fontFamily="Trebuchet MS, Segoe UI, sans-serif">
+                    {chartMonths.map((month, index) => (
+                      <text
+                        key={month}
+                        x={70 + ((820 - 70) / (chartMonths.length - 1)) * index}
+                        y="315"
+                        textAnchor="middle"
+                      >
+                        {month}
+                      </text>
+                    ))}
+                  </g>
+                </svg>
+              </div>
+            </div>
+          </article>
+
+          <article className="rounded-2xl border border-slate-200 bg-white p-4 md:p-6 shadow-sm">
+            <h4
+              className="text-2xl font-extrabold text-slate-900"
+              style={{ fontFamily: 'Arial Black, Trebuchet MS, sans-serif' }}
+            >
+              Priority Areas
+            </h4>
+            <p className="text-slate-500 mt-1">Families needing assistance</p>
+
+            <div className="mt-6 space-y-6">
+              {priorityAreas.map((area) => (
+                <div key={area.name} className="grid grid-cols-[80px_1fr] items-center gap-3">
+                  <p className="text-slate-500 text-sm text-right leading-tight">{area.name}</p>
+                  <div className="h-9 w-full rounded-md bg-slate-50 border border-dashed border-slate-200 p-1">
+                    <div
+                      className="h-full rounded bg-sky-500"
+                      style={{ width: area.width }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </article>
+        </div>
+
+        <article className="mt-4 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-200 bg-slate-50">
+            <h4
+              className="text-2xl font-extrabold text-slate-900"
+              style={{ fontFamily: 'Arial Black, Trebuchet MS, sans-serif' }}
+            >
+              Recent System Activity
+            </h4>
+            <a href="#" className="text-blue-600 text-sm font-semibold hover:text-blue-700">View All</a>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px] text-left">
+              <thead className="bg-slate-100 border-b border-slate-200">
+                <tr className="text-[11px] uppercase tracking-[0.08em] text-slate-500">
+                  <th className="px-5 py-3 font-semibold">Type</th>
+                  <th className="px-5 py-3 font-semibold">Description</th>
+                  <th className="px-5 py-3 font-semibold">Time</th>
+                  <th className="px-5 py-3 font-semibold">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentActivities.map((activity) => (
+                  <tr key={`${activity.type}-${activity.description}`} className="border-b border-slate-200 last:border-b-0">
+                    <td className="px-5 py-3.5 text-slate-900 font-semibold">{activity.type}</td>
+                    <td className="px-5 py-3.5 text-slate-600">{activity.description}</td>
+                    <td className="px-5 py-3.5 text-slate-500">{activity.time}</td>
+                    <td className="px-5 py-3.5">
+                      <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusClassMap[activity.status]}`}>
+                        {activity.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </section>
     </main>
   )
 }
