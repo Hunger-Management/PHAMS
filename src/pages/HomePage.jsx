@@ -43,6 +43,8 @@ const recentActivities = [
 ]
 
 import { useDarkMode } from '../hooks/useDarkMode'
+import Footer from '../components/Footer'
+import SiteHeader from '../components/SiteHeader'
 
 const statusClassMap = {
   Completed: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
@@ -57,85 +59,7 @@ function HomePage() {
     <main className={`min-h-screen transition-colors ${
       isDarkMode ? 'bg-slate-950 text-slate-50' : 'bg-[#eaf1ef] text-slate-900'
     }`}>
-      <header className={`transition-colors ${
-        isDarkMode ? 'bg-slate-900 border-b border-slate-700 shadow-md' : 'bg-[#f6f8f9] border-b border-slate-200 shadow-sm'
-      }`}>
-        <div className="mx-auto w-[95%] max-w-7xl px-3 md:px-5 py-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className={`h-12 w-12 md:h-14 md:w-14 rounded-full border-2 grid place-items-center overflow-hidden transition-colors ${
-                isDarkMode ? 'border-blue-400/20 bg-slate-800' : 'border-blue-900/20 bg-white'
-              }`}>
-                <img
-                  src="/pateros-zero-hunger-logo.png"
-                  alt="Pateros Zero Hunger logo"
-                  className="h-full w-full object-cover"
-                />
-              </div>
-              <p
-                className={`leading-tight uppercase tracking-[0.12em] text-[10px] md:text-xs transition-colors ${
-                  isDarkMode ? 'text-slate-300' : ''
-                }`}
-                style={{ fontFamily: 'Trebuchet MS, Segoe UI, sans-serif' }}
-              >
-                <span className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>Pateros Hunger</span>
-                <br />
-                <span className={`font-bold ${isDarkMode ? 'text-blue-300' : 'text-blue-900'}`}>and Management Systems</span>
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2 md:gap-3">
-              <label className="relative hidden sm:block">
-                <input
-                  type="search"
-                  placeholder="Search"
-                  aria-label="Search"
-                  className={`w-64 rounded-md border py-1.5 pl-3 pr-8 text-sm outline-none focus:ring-2 focus:ring-blue-500/40 transition-colors ${
-                    isDarkMode
-                      ? 'border-slate-600 bg-slate-800 text-slate-50 placeholder-slate-500'
-                      : 'border-slate-300 bg-white text-slate-900 placeholder-slate-500'
-                  }`}
-                />
-                <span className={`absolute right-2 top-1/2 -translate-y-1/2 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>⌕</span>
-              </label>
-              <button
-                onClick={toggleDarkMode}
-                className={`h-8 w-8 rounded-md transition-colors grid place-items-center text-[10px] font-bold ${
-                  isDarkMode ? 'bg-slate-700 text-yellow-300 hover:bg-slate-600' : 'bg-blue-900 text-white hover:bg-blue-800'
-                }`}
-                aria-label="Toggle dark mode"
-              >
-                {isDarkMode ? '☀️' : '🌙'}
-              </button>
-              <div className={`h-8 w-8 rounded-md text-white text-[10px] font-bold grid place-items-center transition-colors ${
-                isDarkMode ? 'bg-blue-700' : 'bg-blue-900'
-              }`}>PHP</div>
-              <div className={`h-8 w-8 rounded-md text-[10px] font-bold grid place-items-center transition-colors ${
-                isDarkMode ? 'bg-violet-900 text-violet-200' : 'bg-violet-200 text-violet-900'
-              }`}>CSWD</div>
-            </div>
-          </div>
-        </div>
-
-        <nav className={`border-t transition-colors ${
-          isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-[#ececec] border-slate-200'
-        }`}>
-          <div className="mx-auto w-[95%] max-w-7xl px-3 md:px-5 py-3">
-            <ul
-              className="flex flex-wrap items-center justify-center gap-x-7 gap-y-2 text-[12px] md:text-[13px] font-semibold uppercase"
-              style={{ fontFamily: 'Trebuchet MS, Segoe UI, sans-serif' }}
-            >
-              <li><a href="#" className={`transition-colors ${
-                isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-700 hover:text-blue-900'
-              }`}>Home</a></li>
-              <li><a href="#" className={`transition-colors ${isDarkMode ? 'hover:text-slate-200' : 'hover:text-blue-900'}`}>About Us ▾</a></li>
-              <li><a href="#" className={`transition-colors ${isDarkMode ? 'hover:text-slate-200' : 'hover:text-blue-900'}`}>Barangays ▾</a></li>
-              <li><a href="#" className={`transition-colors ${isDarkMode ? 'hover:text-slate-200' : 'hover:text-blue-900'}`}>Transparency ▾</a></li>
-              <li><a href="#" className={`transition-colors ${isDarkMode ? 'hover:text-slate-200' : 'hover:text-blue-900'}`}>Contact Us ▾</a></li>
-            </ul>
-          </div>
-        </nav>
-      </header>
+      <SiteHeader isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />
 
       <section className="mx-auto w-[95%] max-w-7xl py-5 md:py-6">
         <div className={`relative overflow-hidden rounded-xl border shadow-lg transition-colors ${
@@ -401,6 +325,8 @@ function HomePage() {
           </div>
         </article>
       </section>
+
+      <Footer isDarkMode={isDarkMode} />
     </main>
   )
 }
