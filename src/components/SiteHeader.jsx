@@ -1,6 +1,43 @@
-import { Link } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link, NavLink, useLocation } from 'react-router-dom'
+
+const barangayOptions = [
+  { name: 'Aguho', path: '/barangays/aguho' },
+  { name: 'Magtanggol', path: '/barangays/magtanggol' },
+  { name: "Martires del '96", path: '/barangays/martires-del-96' },
+  { name: 'Poblacion', path: '/barangays/poblacion' },
+  { name: 'San Pedro', path: '/barangays/san-pedro' },
+  { name: 'San Roque', path: '/barangays/san-roque' },
+  { name: 'Santa Ana', path: '/barangays/santa-ana' },
+  { name: 'Santo Rosario-Kanluran', path: '/barangays/santo-rosario-kanluran' },
+  { name: 'Santo Rosario-Silangan', path: '/barangays/santo-rosario-silangan' },
+  { name: 'Tabacalera', path: '/barangays/tabacalera' },
+]
 
 function SiteHeader({ isDarkMode, toggleDarkMode }) {
+  const [isBarangaysOpen, setIsBarangaysOpen] = useState(false)
+  const dropdownRef = useRef(null)
+  const location = useLocation()
+  const isBarangaysRoute = location.pathname.startsWith('/barangays')
+
+  useEffect(() => {
+    setIsBarangaysOpen(false)
+  }, [location.pathname])
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsBarangaysOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
+
   return (
     <header
       className={`transition-colors ${
@@ -77,34 +114,123 @@ function SiteHeader({ isDarkMode, toggleDarkMode }) {
             style={{ fontFamily: 'Trebuchet MS, Segoe UI, sans-serif' }}
           >
             <li>
-              <Link
+              <NavLink
                 to="/"
-                className={`transition-colors ${
-                  isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-700 hover:text-blue-900'
-                }`}
+                end
+                className={({ isActive }) =>
+                  `transition-colors ${
+                    isActive
+                      ? isDarkMode
+                        ? 'text-blue-300'
+                        : 'text-blue-700'
+                      : isDarkMode
+                        ? 'text-slate-300 hover:text-slate-200'
+                        : 'text-slate-700 hover:text-blue-900'
+                  }`
+                }
               >
                 Home
-              </Link>
+              </NavLink>
             </li>
             <li>
-              <Link to="/about" className={`transition-colors ${isDarkMode ? 'hover:text-slate-200' : 'hover:text-blue-900'}`}>
+              <NavLink
+                to="/about"
+                className={({ isActive }) =>
+                  `transition-colors ${
+                    isActive
+                      ? isDarkMode
+                        ? 'text-blue-300'
+                        : 'text-blue-700'
+                      : isDarkMode
+                        ? 'text-slate-300 hover:text-slate-200'
+                        : 'text-slate-700 hover:text-blue-900'
+                  }`
+                }
+              >
                 About Us
-              </Link>
+              </NavLink>
             </li>
-            <li>
-              <Link to="/barangays" className={`transition-colors ${isDarkMode ? 'hover:text-slate-200' : 'hover:text-blue-900'}`}>
+            <li className="relative" ref={dropdownRef}>
+              <button
+                type="button"
+                onClick={() => setIsBarangaysOpen((prev) => !prev)}
+                className={`transition-colors ${
+                  isBarangaysRoute
+                    ? isDarkMode
+                      ? 'text-blue-300'
+                      : 'text-blue-700'
+                    : isDarkMode
+                      ? 'text-slate-300 hover:text-slate-200'
+                      : 'text-slate-700 hover:text-blue-900'
+                } text-[12px] md:text-[13px] font-semibold uppercase`}
+                aria-haspopup="menu"
+                aria-expanded={isBarangaysOpen}
+              >
                 Barangays ▾
-              </Link>
+              </button>
+
+              {isBarangaysOpen ? (
+                <div
+                  className={`absolute left-1/2 z-20 mt-2 w-64 -translate-x-1/2 rounded-md border shadow-lg normal-case ${
+                    isDarkMode
+                      ? 'border-slate-600 bg-slate-900'
+                      : 'border-slate-200 bg-white'
+                  }`}
+                >
+                  <ul className="max-h-72 overflow-y-auto py-1 text-sm font-semibold">
+                    {barangayOptions.map((barangay) => (
+                      <li key={barangay.path}>
+                        <Link
+                          to={barangay.path}
+                          className={`block px-4 py-2 transition-colors ${
+                            isDarkMode
+                              ? 'text-slate-200 hover:bg-slate-800 hover:text-blue-300'
+                              : 'text-slate-700 hover:bg-slate-100 hover:text-blue-700'
+                          }`}
+                        >
+                          {barangay.name}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </li>
             <li>
-              <Link to="/transparency" className={`transition-colors ${isDarkMode ? 'hover:text-slate-200' : 'hover:text-blue-900'}`}>
+              <NavLink
+                to="/transparency"
+                className={({ isActive }) =>
+                  `transition-colors ${
+                    isActive
+                      ? isDarkMode
+                        ? 'text-blue-300'
+                        : 'text-blue-700'
+                      : isDarkMode
+                        ? 'text-slate-300 hover:text-slate-200'
+                        : 'text-slate-700 hover:text-blue-900'
+                  }`
+                }
+              >
                 Transparency
-              </Link>
+              </NavLink>
             </li>
             <li>
-              <Link to="/contact" className={`transition-colors ${isDarkMode ? 'hover:text-slate-200' : 'hover:text-blue-900'}`}>
+              <NavLink
+                to="/contact"
+                className={({ isActive }) =>
+                  `transition-colors ${
+                    isActive
+                      ? isDarkMode
+                        ? 'text-blue-300'
+                        : 'text-blue-700'
+                      : isDarkMode
+                        ? 'text-slate-300 hover:text-slate-200'
+                        : 'text-slate-700 hover:text-blue-900'
+                  }`
+                }
+              >
                 Contact Us
-              </Link>
+              </NavLink>
             </li>
           </ul>
         </div>
