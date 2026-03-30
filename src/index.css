@@ -1,4 +1,10 @@
 @import "tailwindcss";
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap");
+
+:root {
+	--font-body: "IBM Plex Sans", "Segoe UI", sans-serif;
+	--font-display: "Space Grotesk", "Trebuchet MS", sans-serif;
+}
 
 html {
 	scrollbar-gutter: stable;
@@ -6,4 +12,17 @@ html {
 
 body {
 	overflow-y: scroll;
+	font-family: var(--font-body);
+	text-rendering: optimizeLegibility;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+.font-display {
+	font-family: var(--font-display);
+	letter-spacing: -0.02em;
+}
+
+.font-body {
+	font-family: var(--font-body);
 }
