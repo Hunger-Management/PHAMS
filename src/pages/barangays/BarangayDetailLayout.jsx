@@ -350,14 +350,6 @@ function BarangayDetailLayout({ barangayName }) {
 
         <div className="mt-5 md:mt-6 flex flex-wrap gap-3">
           <Link
-            to="/barangays"
-            className={`inline-flex items-center rounded-md px-4 py-2 text-sm font-semibold transition-colors ${
-              isDarkMode ? 'bg-slate-700 text-white hover:bg-slate-600' : 'bg-slate-200 text-slate-900 hover:bg-slate-300'
-            }`}
-          >
-            Back To Barangays
-          </Link>
-          <Link
             to="/"
             className={`inline-flex items-center rounded-md px-4 py-2 text-sm font-semibold transition-colors ${
               isDarkMode ? 'bg-blue-700 text-white hover:bg-blue-600' : 'bg-blue-600 text-white hover:bg-blue-700'
