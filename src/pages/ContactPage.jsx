@@ -1,44 +1,95 @@
 import { Link } from 'react-router-dom'
 import { useDarkMode } from '../hooks/useDarkMode'
 import SiteHeader from '../components/SiteHeader'
+import contactIcon from '../assets/contact-icon.png'
+import emailIcon from '../assets/email-icon.png'
+import locationIcon from '../assets/location-icon.png'
+import officeHoursIcon from '../assets/office-hours-icon.png'
 
 function ContactPage() {
   const { isDarkMode, toggleDarkMode } = useDarkMode()
 
   return (
-    <main className={`min-h-screen transition-colors ${
+   <main className={`min-h-screen transition-colors ${
       isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-[#eaf1ef] text-slate-900'
     }`}>
       <SiteHeader isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />
 
-      <section className="mx-auto w-[95%] max-w-4xl py-10 md:py-14">
-        <article className={`rounded-2xl border p-6 md:p-8 shadow-sm transition-colors ${
+      <section className="mx-auto w-[95%] max-w-5xl py-10 md:py-14">
+        <div className={`mb-6 md:mb-8 rounded-2xl border p-6 md:p-8 shadow-sm transition-colors ${
           isDarkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'
         }`}>
-          <h2 className="text-2xl md:text-3xl font-extrabold" style={{ fontFamily: 'Arial Black, Trebuchet MS, sans-serif' }}>
-            Get In Touch
+          <h2
+            className={`text-2xl md:text-3xl font-extrabold ${isDarkMode ? 'text-slate-100' : 'text-[#011d49]'}`}
+            style={{ fontFamily: 'Arial Black, Trebuchet MS, sans-serif' }}
+          >
+            GET IN TOUCH
           </h2>
-          <p className={`mt-4 leading-relaxed ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+          <p className={`mt-4 text-base md:text-lg leading-relaxed ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
             Reach out to the Pateros Zero Hunger Management team for support, feedback, and coordination concerns.
           </p>
+        </div>
 
-          <div className={`mt-6 space-y-2 text-sm ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
-            <p>Email: support@pateros-zerohunger.gov.ph</p>
-            <p>Phone: (02) 0000 0000</p>
-            <p>Office: Pateros Municipal Hall</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+         
+          <div className={`rounded-xl border p-8 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl flex flex-col items-center text-center ${
+            isDarkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'
+          }`}>
+           <img src={contactIcon} alt="Contact" className="h-12 w-12 mb-4" />
+
+            <h3 className="text-lg font-bold mb-3">Contact Number</h3>
+            <p className={`text-sm ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+              +63 917 863 5377<br />
+              (02) 944 3100
+            </p>
           </div>
 
-          <div className="mt-6">
-            <Link
-              to="/"
-              className={`inline-flex items-center rounded-md px-4 py-2 text-sm font-semibold transition-colors ${
-                isDarkMode ? 'bg-blue-700 text-white hover:bg-blue-600' : 'bg-blue-600 text-white hover:bg-blue-700'
-              }`}
-            >
-              Back To Home
-            </Link>
+      
+          <div className={`rounded-xl border p-8 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl flex flex-col items-center text-center ${
+            isDarkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'
+          }`}>
+           <img src={emailIcon} alt="Email" className="h-12 w-12 mb-4" />
+            <h3 className="text-lg font-bold mb-3">Email</h3>
+            <p className={`text-sm ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+              GoPateros@gmail.com<br />
+              PaterosHAMS@gmail.com
+            </p>
           </div>
-        </article>
+
+          
+          <div className={`rounded-xl border p-8 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl flex flex-col items-center text-center ${
+            isDarkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'
+          }`}>
+           <img src={locationIcon} alt="Location" className="h-12 w-12 mb-4" />
+            <h3 className="text-lg font-bold mb-3">Location</h3>
+            <p className={`text-sm ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+              841 G. de Borja Street, Pateros, 1620 Metro Manila, Philippines.
+            </p>
+          </div>
+
+       
+          <div className={`rounded-xl border p-8 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl flex flex-col items-center text-center ${
+            isDarkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'
+          }`}>
+           <img src={officeHoursIcon} alt="Office Hours" className="h-12 w-12 mb-4" />
+            <h3 className="text-lg font-bold mb-3">Office Hours</h3>
+            <p className={`text-sm ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+              Monday to Friday<br />
+              7:00AM - 5:00PM
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-10 text-center">
+          <Link
+            to="/"
+            className={`inline-flex items-center rounded-md px-6 py-2 text-sm font-semibold transition-colors ${
+              isDarkMode ? 'bg-blue-700 text-white hover:bg-blue-600' : 'bg-blue-600 text-white hover:bg-blue-700'
+            }`}
+          >
+            Back To Home
+          </Link>
+        </div>
       </section>
     </main>
   )
