@@ -104,23 +104,26 @@ function TransparencyPage() {
 
   return (
     <main className={`min-h-screen transition-colors ${
-      isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-[#eaf1ef] text-slate-900'
+      isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-[#eef5f2] text-slate-900'
     }`}>
       <SiteHeader isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />
 
-      <section className={`px-5 py-16 md:py-24 ${isDarkMode ? 'bg-gray-800' : 'bg-gray-600'}`}>
-        <div className="mx-auto max-w-6xl text-center">
-          <h2 className="font-display text-4xl md:text-5xl font-bold text-white">Transparency Dashboard</h2>
-          <p className="mx-auto mt-6 max-w-4xl text-base sm:text-lg md:text-2xl leading-relaxed text-emerald-50">
+      <section className="mx-auto w-[95%] max-w-7xl py-10 md:py-14">
+        <div className={`rounded-2xl border p-6 shadow-sm transition-colors md:p-8 ${
+          isDarkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'
+        }`}>
+          <h2 className={`font-display text-3xl font-black tracking-tight md:text-5xl ${isDarkMode ? 'text-slate-100' : 'text-[#011d49]'}`}>
+            Transparency Dashboard
+          </h2>
+          <p className={`mt-4 max-w-none text-base leading-relaxed sm:text-lg md:text-xl ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
             Complete visibility into our operations, resource allocation, and distribution data.
-            <br className="hidden md:block" />
             We believe in full transparency and accountability.
           </p>
         </div>
       </section>
 
-      <section className={`px-5 py-10 md:py-12 ${isDarkMode ? 'bg-slate-900' : 'bg-slate-100'}`}>
-        <div className="mx-auto max-w-7xl">
+      <section className="mx-auto w-[95%] max-w-7xl pb-10 md:pb-14">
+        <div className="space-y-6 md:space-y-8">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             {transparencyStats.map((item) => (
               <article
@@ -137,7 +140,7 @@ function TransparencyPage() {
           </div>
 
           <article
-            className={`mt-6 rounded-3xl border p-5 md:p-8 shadow-sm transition-colors ${
+            className={`rounded-3xl border p-5 md:p-8 shadow-sm transition-colors ${
               isDarkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'
             }`}
           >
@@ -257,7 +260,7 @@ function TransparencyPage() {
             </div>
           </article>
 
-          <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <article
               className={`rounded-3xl border p-5 md:p-8 shadow-sm transition-colors ${
                 isDarkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'
@@ -361,7 +364,7 @@ function TransparencyPage() {
           </div>
 
           <article
-            className={`mt-6 rounded-3xl border p-5 md:p-8 shadow-sm transition-colors ${
+            className={`rounded-3xl border p-5 md:p-8 shadow-sm transition-colors ${
               isDarkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'
             }`}
           >
@@ -415,17 +418,6 @@ function TransparencyPage() {
               </p>
             </div>
           </article>
-
-          <div className="mt-8 flex justify-center">
-            <Link
-              to="/"
-              className={`inline-flex items-center rounded-md px-4 py-2 text-sm font-semibold transition-colors ${
-                isDarkMode ? 'bg-blue-700 text-white hover:bg-blue-600' : 'bg-blue-600 text-white hover:bg-blue-700'
-              }`}
-            >
-              Back To Home
-            </Link>
-          </div>
         </div>
       </section>
     </main>
