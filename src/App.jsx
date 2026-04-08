@@ -12,6 +12,7 @@ import SantoRosarioKanluranPage from './pages/barangays/SantoRosarioKanluranPage
 import SantoRosarioSilanganPage from './pages/barangays/SantoRosarioSilanganPage'
 import TabacaleraPage from './pages/barangays/TabacaleraPage'
 import TransparencyPage from './pages/TransparencyPage'
+import DonationPage from './pages/DonationPage'
 import ContactPage from './pages/ContactPage'
 import StaffLoginPage from './pages/staff/StaffLoginPage'
 import StaffDashboardPage from './pages/staff/StaffDashboardPage'
@@ -35,6 +36,7 @@ function App() {
       <Route path="/barangays/santo-rosario-silangan" element={<SantoRosarioSilanganPage />} />
       <Route path="/barangays/tabacalera" element={<TabacaleraPage />} />
       <Route path="/transparency" element={<TransparencyPage />} />
+      <Route path="/donation" element={<DonationPage />} />
       <Route path="/contact" element={<ContactPage />} />
       <Route path="/staff/login" element={<StaffLoginPage />} />
       <Route element={<StaffProtectedRoute />}>

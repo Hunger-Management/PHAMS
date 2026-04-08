@@ -42,9 +42,19 @@ const recentActivities = [
   },
 ]
 
+import { useEffect, useState } from 'react'
 import { useDarkMode } from '../hooks/useDarkMode'
 import Footer from '../components/Footer'
 import SiteHeader from '../components/SiteHeader'
+import municipalHallHero from '../assets/Pateros_Municipal_Hall,_Mar_2024.jpg'
+import churchHero from '../assets/Pateros_Church,_Mar_2024.jpg'
+import pateros22Hero from '../assets/pateros22-sstring.jpg'
+
+const heroSlides = [
+  { src: municipalHallHero, alt: 'Pateros Municipal Hall' },
+  { src: churchHero, alt: 'Pateros Church' },
+  { src: pateros22Hero, alt: 'Pateros Community View' },
+]
 
 const statusClassMap = {
   Completed: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
@@ -55,6 +65,16 @@ const statusClassMap = {
 
 function HomePage() {
   const { isDarkMode, toggleDarkMode } = useDarkMode()
+  const [activeSlideIndex, setActiveSlideIndex] = useState(0)
+
+  useEffect(() => {
+    const slideInterval = setTimeout(() => {
+      setActiveSlideIndex((currentIndex) => (currentIndex + 1) % heroSlides.length)
+    }, 5000)
+
+    return () => clearTimeout(slideInterval)
+  }, [activeSlideIndex])
+
   return (
     <main className={`min-h-screen transition-colors ${
       isDarkMode ? 'bg-slate-950 text-slate-50' : 'bg-[#eaf1ef] text-slate-900'
@@ -66,9 +86,10 @@ function HomePage() {
           isDarkMode ? 'border-slate-700 shadow-slate-900' : 'border-slate-300 shadow-lg'
         }`}>
           <img
-            src="https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=1600&q=80"
-            alt="Community distribution market"
-            className="h-[280px] md:h-[420px] w-full object-cover"
+            key={heroSlides[activeSlideIndex].src}
+            src={heroSlides[activeSlideIndex].src}
+            alt={heroSlides[activeSlideIndex].alt}
+            className="h-[280px] md:h-[420px] w-full object-cover transition-opacity duration-500"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-900/72 via-slate-900/25 to-transparent" />
           <div className="absolute bottom-0 left-0 p-5 md:p-7 max-w-2xl text-white">
@@ -85,18 +106,23 @@ function HomePage() {
         </div>
 
         <div className="flex justify-center gap-2 py-3">
-          <span className={`h-1.5 w-1.5 rounded-full transition-colors ${
-            isDarkMode ? 'bg-slate-600' : 'bg-slate-400'
-          }`} />
-          <span className={`h-1.5 w-1.5 rounded-full transition-colors ${
-            isDarkMode ? 'bg-slate-700' : 'bg-slate-300'
-          }`} />
-          <span className={`h-1.5 w-1.5 rounded-full transition-colors ${
-            isDarkMode ? 'bg-slate-700' : 'bg-slate-300'
-          }`} />
-          <span className={`h-1.5 w-1.5 rounded-full transition-colors ${
-            isDarkMode ? 'bg-slate-700' : 'bg-slate-300'
-          }`} />
+          {heroSlides.map((slide, index) => (
+            <button
+              key={slide.alt}
+              type="button"
+              aria-label={`Show slide ${index + 1}`}
+              onClick={() => setActiveSlideIndex(index)}
+              className={`h-1.5 rounded-full transition-all ${
+                activeSlideIndex === index
+                  ? isDarkMode
+                    ? 'w-5 bg-slate-500'
+                    : 'w-5 bg-slate-500'
+                  : isDarkMode
+                    ? 'w-1.5 bg-slate-700'
+                    : 'w-1.5 bg-slate-300'
+              }`}
+            />
+          ))}
         </div>
       </section>
 
@@ -121,11 +147,6 @@ function HomePage() {
                 : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
             }`}>
               Download Report
-            </button>
-            <button className={`rounded-md px-4 py-2 text-xs md:text-sm font-semibold text-white shadow transition-colors ${
-              isDarkMode ? 'bg-blue-700 hover:bg-blue-600' : 'bg-blue-600 hover:bg-blue-700'
-            }`}>
-              New Distribution
             </button>
           </div>
         </div>

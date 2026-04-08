@@ -152,6 +152,8 @@ function BarangayDetailLayout({ barangayName }) {
     { label: 'Medical', value: 10, color: '#6366f1' },
   ]
 
+  const totalAssistance = assistanceTypes.reduce((sum, item) => sum + item.value, 0)
+
   const recentActivities = [
     { title: 'Food Pack Distribution', detail: 'Distributed to 50 families - 2 days ago', color: 'bg-blue-500' },
     { title: 'Rice Allocation Received', detail: '100 sacks received from municipal - 5 days ago', color: 'bg-emerald-500' },
@@ -165,13 +167,16 @@ function BarangayDetailLayout({ barangayName }) {
     { label: 'Hygiene Kits', value: '80 sets' },
   ]
 
-  const pieSegments = assistanceTypes
-    .map((item, index) => {
-      const start = assistanceTypes.slice(0, index).reduce((sum, current) => sum + current.value, 0)
-      const end = start + item.value
-      return `${item.color} ${start}% ${end}%`
-    })
-    .join(', ')
+  const pieSegments = totalAssistance > 0
+    ? assistanceTypes
+      .map((item, index) => {
+        const startValue = assistanceTypes.slice(0, index).reduce((sum, current) => sum + current.value, 0)
+        const start = (startValue / totalAssistance) * 100
+        const end = ((startValue + item.value) / totalAssistance) * 100
+        return `${item.color} ${start}% ${end}%`
+      })
+      .join(', ')
+    : '#cbd5e1 0% 100%'
 
   return (
     <main className={`min-h-screen transition-colors ${
@@ -268,7 +273,7 @@ function BarangayDetailLayout({ barangayName }) {
 
             <div className="mt-6 md:mt-8 flex flex-col items-center justify-center gap-5 md:gap-6 lg:flex-row">
               <div
-                className="h-56 w-56 rounded-full border"
+                className="h-56 w-56 shrink-0 aspect-square rounded-full border"
                 style={{
                   background: `conic-gradient(${pieSegments})`,
                   borderColor: isDarkMode ? '#334155' : '#cbd5e1',
