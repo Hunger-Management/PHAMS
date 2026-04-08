@@ -13,6 +13,9 @@ import SantoRosarioSilanganPage from './pages/barangays/SantoRosarioSilanganPage
 import TabacaleraPage from './pages/barangays/TabacaleraPage'
 import TransparencyPage from './pages/TransparencyPage'
 import ContactPage from './pages/ContactPage'
+import StaffLoginPage from './pages/staff/StaffLoginPage'
+import StaffDashboardPage from './pages/staff/StaffDashboardPage'
+import StaffProtectedRoute from './components/auth/StaffProtectedRoute'
 import { Route, Routes } from 'react-router-dom'
 
 function App() {
@@ -33,6 +36,10 @@ function App() {
       <Route path="/barangays/tabacalera" element={<TabacaleraPage />} />
       <Route path="/transparency" element={<TransparencyPage />} />
       <Route path="/contact" element={<ContactPage />} />
+      <Route path="/staff/login" element={<StaffLoginPage />} />
+      <Route element={<StaffProtectedRoute />}>
+        <Route path="/staff/dashboard" element={<StaffDashboardPage />} />
+      </Route>
     </Routes>
   )
 }

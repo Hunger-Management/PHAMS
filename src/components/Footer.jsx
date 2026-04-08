@@ -1,4 +1,10 @@
+import { Link } from 'react-router-dom'
+import { useStaffAuth } from '../context/StaffAuthContext'
+
 function Footer({ isDarkMode }) {
+  const { isAuthenticated } = useStaffAuth()
+  const staffRoute = isAuthenticated ? '/staff/dashboard' : '/staff/login'
+
   return (
     <footer
       className={`border-t transition-colors ${
@@ -10,16 +16,16 @@ function Footer({ isDarkMode }) {
           Pateros Zero Hunger Management System
         </p>
 
-        <a
-          href="/staff-login"
+        <Link
+          to={staffRoute}
           className={`inline-flex items-center rounded px-2 py-1 text-xs font-medium transition-colors ${
             isDarkMode
               ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
               : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
           }`}
         >
-          Staff Login
-        </a>
+          {isAuthenticated ? 'Staff Login' : 'Staff Dashboard'}
+        </Link>
       </div>
     </footer>
   )

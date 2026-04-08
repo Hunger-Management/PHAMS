@@ -165,17 +165,6 @@ function AboutPage() {
             </div>
           </div>
         </article>
-
-        <div className="mt-8 text-center">
-          <Link
-            to="/"
-            className={`inline-flex items-center rounded-md px-4 py-2 text-sm font-semibold transition-colors ${
-              isDarkMode ? 'bg-blue-700 text-white hover:bg-blue-600' : 'bg-blue-600 text-white hover:bg-blue-700'
-            }`}
-          >
-            Back To Home
-          </Link>
-        </div>
       </section>
     </main>
   )
