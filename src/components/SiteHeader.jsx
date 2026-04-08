@@ -80,15 +80,6 @@ function SiteHeader({ isDarkMode, toggleDarkMode }) {
               />
               <span className={`absolute right-2 top-1/2 -translate-y-1/2 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>⌕</span>
             </label>
-            <button
-              onClick={toggleDarkMode}
-              className={`h-8 w-8 rounded-md transition-colors grid place-items-center text-[10px] font-bold ${
-                isDarkMode ? 'bg-slate-700 text-yellow-300 hover:bg-slate-600' : 'bg-blue-900 text-white hover:bg-blue-800'
-              }`}
-              aria-label="Toggle dark mode"
-            >
-              {isDarkMode ? '☀️' : '🌙'}
-            </button>
             <img
               src="/nu-1900-logo-transparent.png"
               alt="NU 1900 logo"
@@ -249,6 +240,16 @@ function SiteHeader({ isDarkMode, toggleDarkMode }) {
           </ul>
         </div>
       </nav>
+
+      <button
+        onClick={toggleDarkMode}
+        className={`fixed bottom-5 right-5 z-50 h-12 w-12 rounded-full shadow-lg transition-colors grid place-items-center text-lg font-bold ${
+          isDarkMode ? 'bg-slate-700 text-yellow-300 hover:bg-slate-600' : 'bg-blue-900 text-white hover:bg-blue-800'
+        }`}
+        aria-label="Toggle dark mode"
+      >
+        {isDarkMode ? '☀️' : '🌙'}
+      </button>
     </header>
   )
 }

@@ -19,15 +19,6 @@ function StaffDashboardPage() {
           </h1>
           <div className="flex items-center gap-2">
             <button
-              onClick={toggleDarkMode}
-              className={`h-8 w-8 rounded-md grid place-items-center text-[10px] font-bold ${
-                isDarkMode ? 'bg-slate-700 text-yellow-300 hover:bg-slate-600' : 'bg-blue-900 text-white hover:bg-blue-800'
-              }`}
-              aria-label="Toggle dark mode"
-            >
-              {isDarkMode ? '☀️' : '🌙'}
-            </button>
-            <button
               onClick={logout}
               className={`rounded-md px-3 py-1.5 text-xs font-semibold ${
                 isDarkMode ? 'bg-slate-700 text-slate-100 hover:bg-slate-600' : 'bg-slate-800 text-white hover:bg-slate-700'
@@ -71,6 +62,16 @@ function StaffDashboardPage() {
           </div>
         </article>
       </section>
+
+      <button
+        onClick={toggleDarkMode}
+        className={`fixed bottom-5 right-5 z-50 h-12 w-12 rounded-full shadow-lg transition-colors grid place-items-center text-lg font-bold ${
+          isDarkMode ? 'bg-slate-700 text-yellow-300 hover:bg-slate-600' : 'bg-blue-900 text-white hover:bg-blue-800'
+        }`}
+        aria-label="Toggle dark mode"
+      >
+        {isDarkMode ? '☀️' : '🌙'}
+      </button>
     </main>
   )
 }
