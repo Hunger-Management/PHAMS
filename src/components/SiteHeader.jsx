@@ -21,10 +21,6 @@ function SiteHeader({ isDarkMode, toggleDarkMode }) {
   const isBarangaysRoute = location.pathname.startsWith('/barangays')
 
   useEffect(() => {
-    setIsBarangaysOpen(false)
-  }, [location.pathname])
-
-  useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsBarangaysOpen(false)

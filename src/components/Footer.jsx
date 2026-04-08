@@ -24,7 +24,7 @@ function Footer({ isDarkMode }) {
               : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
           }`}
         >
-          {isAuthenticated ? 'Staff Login' : 'Staff Dashboard'}
+          {isAuthenticated ? 'Staff Dashboard' : 'Staff Login'}
         </Link>
       </div>
     </footer>
