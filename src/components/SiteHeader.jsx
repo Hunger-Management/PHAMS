@@ -216,6 +216,24 @@ function SiteHeader({ isDarkMode, toggleDarkMode }) {
             </li>
             <li>
               <NavLink
+                to="/donation"
+                className={({ isActive }) =>
+                  `transition-colors ${
+                    isActive
+                      ? isDarkMode
+                        ? 'text-blue-300'
+                        : 'text-blue-700'
+                      : isDarkMode
+                        ? 'text-slate-300 hover:text-slate-200'
+                        : 'text-slate-700 hover:text-blue-900'
+                  }`
+                }
+              >
+                Donation
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
                 to="/contact"
                 className={({ isActive }) =>
                   `transition-colors ${
