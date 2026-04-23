@@ -118,7 +118,7 @@ export default function AdminDashboardPage() {
 
       {/* ================= MAIN ================= */}
       <main className="flex-1 p-10">
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-7xl mx-auto lg:origin-top lg:scale-[1.03]">
           
           {/* HEADER */}
           <div className="mb-10">

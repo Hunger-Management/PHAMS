@@ -10,18 +10,17 @@ function StaffLoginPage() {
   const { login: adminLogin, isAuthenticated: adminAuthenticated } = useAdminAuth()
   const navigate = useNavigate()
   const location = useLocation()
-
-  const redirectPath = location.state?.from?.pathname || '/staff/dashboard'
+  const forceRoleChoice = location.state?.forceRoleChoice === true
 
   const [formData, setFormData] = useState({ username: '', password: '' })
   const [errorMessage, setErrorMessage] = useState('')
   const [selectedRole, setSelectedRole] = useState(null)
 
-  if (staffAuthenticated) {
-  return <Navigate to="/staff/dashboard" replace />
+  if (staffAuthenticated && !forceRoleChoice) {
+    return <Navigate to="/staff/dashboard" replace />
   }
 
-  if (adminAuthenticated) {
+  if (adminAuthenticated && !forceRoleChoice) {
     return <Navigate to="/admin/dashboard" replace />
   }
 

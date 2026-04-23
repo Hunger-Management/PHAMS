@@ -3,7 +3,7 @@ import { useStaffAuth } from '../context/StaffAuthContext'
 
 function Footer({ isDarkMode }) {
   const { isAuthenticated } = useStaffAuth()
-  const staffRoute = isAuthenticated ? '/staff/dashboard' : '/staff/login'
+  const staffRoute = '/staff/login'
 
   return (
     <footer
@@ -18,6 +18,7 @@ function Footer({ isDarkMode }) {
 
         <Link
           to={staffRoute}
+          state={{ forceRoleChoice: true }}
           className={`inline-flex items-center rounded px-2 py-1 text-xs font-medium transition-colors ${
             isDarkMode
               ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
