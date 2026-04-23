@@ -17,6 +17,8 @@ import ContactPage from './pages/ContactPage'
 import StaffLoginPage from './pages/staff/StaffLoginPage'
 import StaffDashboardPage from './pages/staff/StaffDashboardPage'
 import StaffProtectedRoute from './components/auth/StaffProtectedRoute'
+import AdminDashboardPage from './pages/admin/AdminDashboardPage'
+import AdminProtectedRoute from './components/auth/AdminProtectedRoute'
 import { Route, Routes } from 'react-router-dom'
 
 function App() {
@@ -41,6 +43,9 @@ function App() {
       <Route path="/staff/login" element={<StaffLoginPage />} />
       <Route element={<StaffProtectedRoute />}>
         <Route path="/staff/dashboard" element={<StaffDashboardPage />} />
+      </Route>
+      <Route element={<AdminProtectedRoute />}>
+        <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
       </Route>
     </Routes>
   )

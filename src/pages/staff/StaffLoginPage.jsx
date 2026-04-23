@@ -2,10 +2,12 @@ import { useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useDarkMode } from '../../hooks/useDarkMode'
 import { useStaffAuth } from '../../context/StaffAuthContext'
+import { useAdminAuth } from '../../context/AdminAuthContext'
 
 function StaffLoginPage() {
   const { isDarkMode, toggleDarkMode } = useDarkMode()
-  const { login, isAuthenticated } = useStaffAuth()
+  const { login: staffLogin, isAuthenticated: staffAuthenticated } = useStaffAuth()
+  const { login: adminLogin, isAuthenticated: adminAuthenticated } = useAdminAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -15,8 +17,12 @@ function StaffLoginPage() {
   const [errorMessage, setErrorMessage] = useState('')
   const [selectedRole, setSelectedRole] = useState(null)
 
-  if (isAuthenticated) {
-    return <Navigate to={redirectPath} replace />
+  if (staffAuthenticated) {
+  return <Navigate to="/staff/dashboard" replace />
+  }
+
+  if (adminAuthenticated) {
+    return <Navigate to="/admin/dashboard" replace />
   }
 
   const handleChange = (event) => {
@@ -25,17 +31,30 @@ function StaffLoginPage() {
   }
 
   const handleSubmit = (event) => {
-    event.preventDefault()
-    setErrorMessage('')
+  event.preventDefault()
+  setErrorMessage('')
 
-    const result = login(formData.username, formData.password)
+  if (selectedRole === 'admin') {
+    const result = adminLogin(formData.username, formData.password)
+
     if (!result.ok) {
       setErrorMessage(result.message)
       return
     }
 
-    navigate(redirectPath, { replace: true })
+    navigate('/admin/dashboard', { replace: true })
+    return
   }
+
+  const result = staffLogin(formData.username, formData.password)
+
+  if (!result.ok) {
+    setErrorMessage(result.message)
+    return
+  }
+
+  navigate('/staff/dashboard', { replace: true })
+}
 
   return (
     <main className={`min-h-screen transition-colors ${
@@ -118,10 +137,108 @@ function StaffLoginPage() {
             </div>
 
             {selectedRole === 'admin' ? (
-              <p className={`mt-6 rounded-md border px-4 py-3 text-sm ${isDarkMode ? 'border-amber-500/40 bg-amber-500/10 text-amber-200' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
-                Administrator login is not available yet in this build.
-              </p>
-            ) : null}
+  <article className={`mt-6 rounded-2xl border p-6 shadow-sm md:p-8 ${
+    isDarkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'
+  }`}>
+    
+    <h3 className={`text-2xl font-black ${
+      isDarkMode ? 'text-slate-100' : 'text-[#011d49]'
+    }`}>
+      Administrator Login
+    </h3>
+
+    <p className={`mt-2 text-sm ${
+      isDarkMode ? 'text-slate-300' : 'text-slate-600'
+    }`}>
+      Enter admin credentials to access the internal dashboard.
+    </p>
+
+    <form onSubmit={handleSubmit} className="mt-6 grid gap-4 md:grid-cols-2">
+
+      {/* Username */}
+      <div>
+        <label
+          htmlFor="username"
+          className={`mb-1.5 block text-xs font-semibold uppercase tracking-[0.08em] ${
+            isDarkMode ? 'text-slate-300' : 'text-slate-600'
+          }`}
+        >
+          Username
+        </label>
+
+        <input
+          id="username"
+          name="username"
+          value={formData.username}
+          onChange={handleChange}
+          autoComplete="username"
+          required
+          className={`w-full rounded-md border px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/40 ${
+            isDarkMode
+              ? 'border-slate-600 bg-slate-900 text-slate-100 placeholder-slate-500'
+              : 'border-slate-300 bg-white text-slate-900 placeholder-slate-400'
+          }`}
+          placeholder="Enter username"
+        />
+      </div>
+
+      {/* Password */}
+      <div>
+        <label
+          htmlFor="password"
+          className={`mb-1.5 block text-xs font-semibold uppercase tracking-[0.08em] ${
+            isDarkMode ? 'text-slate-300' : 'text-slate-600'
+          }`}
+        >
+          Password
+        </label>
+
+        <input
+          id="password"
+          type="password"
+          name="password"
+          value={formData.password}
+          onChange={handleChange}
+          autoComplete="current-password"
+          required
+          className={`w-full rounded-md border px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/40 ${
+            isDarkMode
+              ? 'border-slate-600 bg-slate-900 text-slate-100 placeholder-slate-500'
+              : 'border-slate-300 bg-white text-slate-900 placeholder-slate-400'
+          }`}
+          placeholder="Enter password"
+        />
+      </div>
+
+      {/* Submit */}
+      <div className="md:col-span-2">
+        {errorMessage ? (
+          <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {errorMessage}
+          </p>
+        ) : null}
+
+        <button
+          type="submit"
+          className={`mt-3 w-full rounded-md px-4 py-2.5 text-sm font-semibold text-white transition-colors ${
+            isDarkMode
+              ? 'bg-blue-700 hover:bg-blue-600'
+              : 'bg-blue-600 hover:bg-blue-700'
+          }`}
+        >
+          Sign In
+        </button>
+
+        <p className={`mt-3 text-xs ${
+          isDarkMode ? 'text-slate-400' : 'text-slate-500'
+        }`}>
+          Demo account: <span className="font-semibold">admin</span> /{" "}
+          <span className="font-semibold">admin123</span>
+        </p>
+      </div>
+    </form>
+  </article>
+) : null}
 
             {selectedRole === 'staff' ? (
               <article className={`mt-6 rounded-2xl border p-6 shadow-sm md:p-8 ${isDarkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'}`}>
