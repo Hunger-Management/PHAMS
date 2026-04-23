@@ -308,7 +308,7 @@ function StaffLoginPage() {
                       Sign In
                     </button>
                     <p className={`mt-3 text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                      Demo account: <span className="font-semibold">staff</span> / <span className="font-semibold">staff123</span>
+                      Use demo: <span className="font-semibold">staff</span> / <span className="font-semibold">staff123</span> or any admin-created staff account.
                     </p>
                   </div>
                 </form>

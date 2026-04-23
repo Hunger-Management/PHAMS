@@ -2,6 +2,7 @@ import { Home, MapPin, Users, UserPlus, FileText, LogOut } from 'lucide-react'
 import { useAdminAuth } from '../../context/AdminAuthContext'
 import { useNavigate } from 'react-router-dom'
 import { useDarkMode } from '../../hooks/useDarkMode'
+import CreateStaffAccountSection from '../../components/admin/CreateStaffAccountSection'
 
 export default function AdminDashboardPage() {
   const { logout, adminUser } = useAdminAuth()
@@ -22,12 +23,24 @@ export default function AdminDashboardPage() {
       .toUpperCase()
   }
 
+  const handleSidebarNavClick = (itemName) => {
+    if (itemName !== 'Create Account') {
+      return
+    }
+
+    const section = document.getElementById('create-account-section')
+    if (section) {
+      section.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }
+
   const nav = [
     { name: 'Dashboard', icon: Home, active: true },
     { name: 'Barangays', icon: MapPin },
     { name: 'Add Family', icon: UserPlus },
     { name: 'User Management', icon: Users },
-    { name: 'Transparency', icon: FileText }
+    { name: 'Transparency', icon: FileText },
+    { name: 'Create Account', icon: UserPlus },
   ]
 
   const stats = [
@@ -82,6 +95,7 @@ export default function AdminDashboardPage() {
               return (
                 <div
                   key={i}
+                  onClick={() => handleSidebarNavClick(item.name)}
                   className={`flex items-center gap-3 px-4 py-2.5 rounded-lg cursor-pointer transition ${
                     item.name === 'Add Family'
                       ? 'bg-green-600 text-white font-medium'
@@ -214,6 +228,8 @@ export default function AdminDashboardPage() {
             </div>
 
           </div>
+
+          <CreateStaffAccountSection isDarkMode={isDarkMode} />
         </div>
       </main>
 

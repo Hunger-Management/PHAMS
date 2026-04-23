@@ -2,16 +2,36 @@
 import { createContext, useContext, useMemo, useState } from 'react'
 
 const STAFF_STORAGE_KEY = 'staff-auth-user'
+const STAFF_ACCOUNTS_STORAGE_KEY = 'staff-accounts'
 const DEMO_STAFF = {
   username: 'staff',
   password: 'staff123',
   name: 'Staff User',
   role: 'Operations Staff',
+  barangay: 'Poblacion',
 }
 
 const StaffAuthContext = createContext(null)
 
 export function StaffAuthProvider({ children }) {
+  const [staffAccounts, setStaffAccounts] = useState(() => {
+    if (typeof window === 'undefined') {
+      return []
+    }
+
+    const stored = localStorage.getItem(STAFF_ACCOUNTS_STORAGE_KEY)
+    if (!stored) {
+      return []
+    }
+
+    try {
+      const parsed = JSON.parse(stored)
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return []
+    }
+  })
+
   const [staffUser, setStaffUser] = useState(() => {
     if (typeof window === 'undefined') {
       return null
@@ -31,6 +51,39 @@ export function StaffAuthProvider({ children }) {
 
   const isAuthenticated = Boolean(staffUser)
 
+  const persistAccounts = (nextAccounts) => {
+    setStaffAccounts(nextAccounts)
+    localStorage.setItem(STAFF_ACCOUNTS_STORAGE_KEY, JSON.stringify(nextAccounts))
+  }
+
+  const createStaffAccount = ({ username, password, name, barangay }) => {
+    const normalizedUsername = username.trim().toLowerCase()
+
+    if (!normalizedUsername || !password.trim() || !name.trim() || !barangay.trim()) {
+      return { ok: false, message: 'All staff account fields are required.' }
+    }
+
+    const usernameTakenByDemo = normalizedUsername === DEMO_STAFF.username
+    const usernameTakenByCreated = staffAccounts.some(
+      (account) => account.username === normalizedUsername,
+    )
+
+    if (usernameTakenByDemo || usernameTakenByCreated) {
+      return { ok: false, message: 'Username already exists.' }
+    }
+
+    const nextAccount = {
+      username: normalizedUsername,
+      password,
+      name: name.trim(),
+      role: 'Operations Staff',
+      barangay: barangay.trim(),
+    }
+
+    persistAccounts([...staffAccounts, nextAccount])
+    return { ok: true }
+  }
+
   const login = (username, password) => {
     const normalizedUsername = username.trim().toLowerCase()
 
@@ -42,6 +95,25 @@ export function StaffAuthProvider({ children }) {
         username: DEMO_STAFF.username,
         name: DEMO_STAFF.name,
         role: DEMO_STAFF.role,
+        barangay: DEMO_STAFF.barangay,
+      }
+      setStaffUser(nextUser)
+      localStorage.setItem(STAFF_STORAGE_KEY, JSON.stringify(nextUser))
+      return { ok: true }
+    }
+
+    const matchedAccount = staffAccounts.find(
+      (account) =>
+        account.username === normalizedUsername &&
+        account.password === password,
+    )
+
+    if (matchedAccount) {
+      const nextUser = {
+        username: matchedAccount.username,
+        name: matchedAccount.name,
+        role: matchedAccount.role,
+        barangay: matchedAccount.barangay,
       }
       setStaffUser(nextUser)
       localStorage.setItem(STAFF_STORAGE_KEY, JSON.stringify(nextUser))
@@ -59,11 +131,13 @@ export function StaffAuthProvider({ children }) {
   const value = useMemo(
     () => ({
       staffUser,
+      staffAccounts,
       isAuthenticated,
+      createStaffAccount,
       login,
       logout,
     }),
-    [staffUser, isAuthenticated],
+    [staffUser, staffAccounts, isAuthenticated],
   )
 
   return <StaffAuthContext.Provider value={value}>{children}</StaffAuthContext.Provider>
