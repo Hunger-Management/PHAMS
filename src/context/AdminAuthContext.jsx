@@ -1,80 +1,69 @@
-/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useMemo, useState } from 'react'
+import { apiFetch } from '../api/api'
 
-const ADMIN_STORAGE_KEY = 'admin-auth-user'
-
-const DEMO_ADMIN = {
-  username: 'admin',
-  password: 'admin123',
-  name: 'Administrator',
-  role: 'System Admin',
-}
+const ADMIN_STORAGE_KEY = 'phams-token'
+const ADMIN_USER_KEY = 'phams-admin-user'
 
 const AdminAuthContext = createContext(null)
 
 export function AdminAuthProvider({ children }) {
-  const [adminUser, setAdminUser] = useState(() => {
-    const stored = localStorage.getItem(ADMIN_STORAGE_KEY)
-    if (!stored) return null
+    const [adminUser, setAdminUser] = useState(() => {
+        const stored = localStorage.getItem(ADMIN_USER_KEY)
+        if (!stored) return null
+        try {
+            return JSON.parse(stored)
+        } catch {
+            return null
+        }
+    })
 
-    try {
-      return JSON.parse(stored)
-    } catch {
-      return null
+    const isAuthenticated = Boolean(adminUser)
+
+    // Login - Calls POST /api/auth/login, stores JWT and user info.
+    const login = async (email, password) => {
+        try {
+            const data = await apiFetch('/api/auth/login', {
+                method: 'POST',
+                body: JSON.stringify({ email, password }),
+            })
+
+            // Only allow Admin role through this context
+            if (data.user.role !== 'Admin') {
+                return { ok: false, message: 'Access denied. Admin credentials required.' }
+            }
+
+            localStorage.setItem(ADMIN_STORAGE_KEY, data.token)
+            localStorage.setItem(ADMIN_USER_KEY, JSON.stringify(data.user))
+            setAdminUser(data.user)
+            return { ok: true }
+        } catch (err) {
+            return { ok: false, message: err.message || 'Login failed.' }
+        }
     }
-  })
 
-  const isAuthenticated = Boolean(adminUser)
-
-  const login = (username, password) => {
-    const normalizedUsername = username.trim().toLowerCase()
-
-    if (
-      normalizedUsername === DEMO_ADMIN.username &&
-      password === DEMO_ADMIN.password
-    ) {
-      const nextUser = {
-        username: DEMO_ADMIN.username,
-        name: DEMO_ADMIN.name,
-        role: DEMO_ADMIN.role,
-      }
-
-      setAdminUser(nextUser)
-      localStorage.setItem(ADMIN_STORAGE_KEY, JSON.stringify(nextUser))
-      return { ok: true }
+    // logout
+    const logout = () => {
+        localStorage.removeItem(ADMIN_STORAGE_KEY)
+        localStorage.removeItem(ADMIN_USER_KEY)
+        setAdminUser(null)
     }
 
-    return { ok: false, message: 'Invalid admin credentials' }
-  }
+    const value = useMemo(
+        () => ({ adminUser, isAuthenticated, login, logout }),
+        [adminUser, isAuthenticated],
+    )
 
-  const logout = () => {
-    setAdminUser(null)
-    localStorage.removeItem(ADMIN_STORAGE_KEY)
-  }
-
-  const value = useMemo(
-    () => ({
-      adminUser,
-      isAuthenticated,
-      login,
-      logout,
-    }),
-    [adminUser, isAuthenticated],
-  )
-
-  return (
-    <AdminAuthContext.Provider value={value}>
-      {children}
-    </AdminAuthContext.Provider>
-  )
+    return (
+        <AdminAuthContext.Provider value={value}>
+            {children}
+        </AdminAuthContext.Provider>
+    )
 }
 
 export function useAdminAuth() {
-  const context = useContext(AdminAuthContext)
-
-  if (!context) {
-    throw new Error('useAdminAuth must be used within AdminAuthProvider')
-  }
-
-  return context
+    const context = useContext(AdminAuthContext)
+    if (!context) {
+        throw new Error('useAdminAuth must be used within AdminAuthProvider')
+    }
+    return context
 }
