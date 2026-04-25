@@ -3,10 +3,8 @@ import { useAdminAuth } from '../../context/AdminAuthContext'
 import { useNavigate } from 'react-router-dom'
 import { useDarkMode } from '../../hooks/useDarkMode'
 import CreateStaffAccountSection from '../../components/admin/CreateStaffAccountSection'
-import BarangayManagementSection from '../../components/admin/BarangayManagementSection'
-import TransparencySection from '../../components/admin/TransparencySection'
 
-export default function AdminDashboardPage() {
+export default function AdminCreateAccountPage() {
   const { logout, adminUser } = useAdminAuth()
   const navigate = useNavigate()
   const { isDarkMode, toggleDarkMode } = useDarkMode()
@@ -26,36 +24,22 @@ export default function AdminDashboardPage() {
   }
 
   const handleSidebarNavClick = (itemName) => {
-    if (itemName === 'Create Account') {
-      const section = document.getElementById('create-account-section')
-      if (section) {
-        section.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      }
+    if (itemName === 'Dashboard') {
+      navigate('/admin/dashboard')
     } else if (itemName === 'Barangays') {
-      const section = document.getElementById('barangay-management-section')
-      if (section) {
-        section.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      }
+      navigate('/admin/barangays')
     } else if (itemName === 'Transparency') {
-      const section = document.getElementById('transparency-section')
-      if (section) {
-        section.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      }
+      navigate('/admin/transparency')
+    } else if (itemName === 'Create Account') {
+      navigate('/admin/create-account')
     }
   }
 
   const nav = [
-    { name: 'Create Account', icon: UserPlus },
+    { name: 'Dashboard', icon: Home },
     { name: 'Barangays', icon: MapPin },
     { name: 'Transparency', icon: FileText },
-    
-  ]
-
-  const stats = [
-    { title: 'Total Families', value: '2,847', sub: '+12% from last month' },
-    { title: 'Barangays Covered', value: '10', sub: 'All barangays active' },
-    { title: 'Families Assisted', value: '1,523', sub: '53.5% assistance rate' },
-    { title: 'Monthly Progress', value: '87%', sub: 'Target: 90%' }
+    { name: 'Create Account', icon: UserPlus, active: true },
   ]
 
   return (
@@ -65,10 +49,10 @@ export default function AdminDashboardPage() {
         : 'bg-[#e5e7eb] text-slate-900'
     }`}>
 
-      {/* ================= FIXED SIDEBAR ================= */}
-      <aside className="fixed left-0 top-0 h-screen w-64 bg-[#0a2f4f] text-white flex flex-col justify-between z-40">
+      {/* ================= SIDEBAR ================= */}
+      <aside className="w-64 bg-[#0a2f4f] text-white flex flex-col justify-between">
 
-        <div className="p-6 overflow-y-auto">
+        <div className="p-6">
 
           {/* LOGO */}
           <div className="flex items-center gap-3 mb-10">
@@ -120,8 +104,8 @@ export default function AdminDashboardPage() {
           </nav>
         </div>
 
-        {/* FOOTER (only logout now) */}
-        <div className="p-6 border-t border-white/10">
+        {/* FOOTER */}
+        <div className="p-6">
           <button
             onClick={handleLogout}
             className="w-full rounded-md px-3 py-2 text-xs font-semibold bg-slate-800 text-white hover:bg-slate-700 transition"
@@ -136,56 +120,10 @@ export default function AdminDashboardPage() {
         </div>
       </aside>
 
-      {/* ================= MAIN CONTENT (offset by sidebar) ================= */}
-      <main className="flex-1 ml-64 p-10">
-        <div className="max-w-7xl mx-auto lg:origin-top lg:scale-[1.03]">
-
-          {/* HEADER */}
-          <div className="mb-10">
-            <h2 className={`text-3xl font-bold ${
-              isDarkMode ? 'text-white' : 'text-slate-900'
-            }`}>
-              Welcome, {adminUser?.name || 'Administrator'}
-            </h2>
-            <p className={`text-sm ${
-              isDarkMode ? 'text-slate-400' : 'text-slate-500'
-            }`}>
-              Full system overview and management
-            </p>
-          </div>
-
-          {/* STATS */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-            {stats.map((s, i) => (
-              <div
-                key={i}
-                className={`p-6 rounded-2xl border shadow-sm transition ${
-                  isDarkMode
-                    ? 'bg-[#111c2e] border-white/10'
-                    : 'bg-white border-slate-200'
-                }`}
-              >
-                <p className={`text-sm ${
-                  isDarkMode ? 'text-slate-400' : 'text-slate-500'
-                }`}>
-                  {s.title}
-                </p>
-                <h3 className={`text-2xl font-bold mt-2 ${
-                  isDarkMode ? 'text-white' : 'text-slate-900'
-                }`}>
-                  {s.value}
-                </h3>
-                <p className="text-xs mt-1 text-slate-400">{s.sub}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* SECTIONS */}
+      {/* ================= MAIN ================= */}
+      <main className="flex-1 p-10">
+        <div className="max-w-7xl mx-auto">
           <CreateStaffAccountSection isDarkMode={isDarkMode} />
-
-          <BarangayManagementSection isDarkMode={isDarkMode} />
-
-          <TransparencySection isDarkMode={isDarkMode} />
         </div>
       </main>
 

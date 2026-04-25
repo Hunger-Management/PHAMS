@@ -15,7 +15,7 @@ const barangayOptions = [
 ]
 
 function CreateStaffAccountSection({ isDarkMode }) {
-  const { createStaffAccount, staffAccounts } = useStaffAuth()
+  const { createStaffAccount, deleteStaffAccount, staffAccounts } = useStaffAuth()
   const [staffFormData, setStaffFormData] = useState({
     name: '',
     username: '',
@@ -203,6 +203,7 @@ function CreateStaffAccountSection({ isDarkMode }) {
                   <th className="pb-2 font-semibold">Name</th>
                   <th className="pb-2 font-semibold">Username</th>
                   <th className="pb-2 font-semibold">Barangay</th>
+                  <th className="pb-2 font-semibold">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -216,6 +217,18 @@ function CreateStaffAccountSection({ isDarkMode }) {
                     </td>
                     <td className={`py-2 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
                       {staff.barangay}
+                    </td>
+                    <td className="py-2">
+                      <button
+                        onClick={() => {
+                          if (confirm(`Delete staff account "${staff.name}"?`)) {
+                            deleteStaffAccount(staff.username)
+                          }
+                        }}
+                        className="text-xs font-semibold px-3 py-1 rounded bg-red-600 hover:bg-red-700 text-white transition"
+                      >
+                        Delete
+                      </button>
                     </td>
                   </tr>
                 ))}

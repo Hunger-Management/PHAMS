@@ -84,6 +84,14 @@ export function StaffAuthProvider({ children }) {
     return { ok: true }
   }
 
+  const deleteStaffAccount = (username) => {
+    const nextAccounts = staffAccounts.filter(
+      (account) => account.username !== username
+    )
+    persistAccounts(nextAccounts)
+    return { ok: true, message: 'Staff account deleted successfully.' }
+  }
+
   const login = (username, password) => {
     const normalizedUsername = username.trim().toLowerCase()
 
@@ -134,6 +142,7 @@ export function StaffAuthProvider({ children }) {
       staffAccounts,
       isAuthenticated,
       createStaffAccount,
+      deleteStaffAccount,
       login,
       logout,
     }),

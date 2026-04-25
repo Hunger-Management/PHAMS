@@ -18,6 +18,9 @@ import StaffLoginPage from './pages/staff/StaffLoginPage'
 import StaffDashboardPage from './pages/staff/StaffDashboardPage'
 import StaffProtectedRoute from './components/auth/StaffProtectedRoute'
 import AdminDashboardPage from './pages/admin/AdminDashboardPage'
+import AdminBarangaysPage from './pages/admin/AdminBarangaysPage'
+import AdminTransparencyPage from './pages/admin/AdminTransparencyPage'
+import AdminCreateAccountPage from './pages/admin/AdminCreateAccountPage'
 import AdminProtectedRoute from './components/auth/AdminProtectedRoute'
 import { Route, Routes } from 'react-router-dom'
 
@@ -46,6 +49,9 @@ function App() {
       </Route>
       <Route element={<AdminProtectedRoute />}>
         <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+        <Route path="/admin/barangays" element={<AdminBarangaysPage />} />
+        <Route path="/admin/transparency" element={<AdminTransparencyPage />} />
+        <Route path="/admin/create-account" element={<AdminCreateAccountPage />} />
       </Route>
     </Routes>
   )
