@@ -23,6 +23,8 @@ import AdminTransparencyPage from './pages/admin/AdminTransparencyPage'
 import AdminCreateAccountPage from './pages/admin/AdminCreateAccountPage'
 import AdminProtectedRoute from './components/auth/AdminProtectedRoute'
 import { Route, Routes } from 'react-router-dom'
+import FamilyListPage from './pages/admin/FamilyListPage'
+import AddFamilyPage from './pages/admin/AddFamilyPage'
 
 function App() {
   return (
@@ -52,6 +54,8 @@ function App() {
         <Route path="/admin/barangays" element={<AdminBarangaysPage />} />
         <Route path="/admin/transparency" element={<AdminTransparencyPage />} />
         <Route path="/admin/create-account" element={<AdminCreateAccountPage />} />
+        <Route path="/admin/families" element={<FamilyListPage />} />
+        <Route path="/admin/families/add" element={<AddFamilyPage />} />
       </Route>
     </Routes>
   )
