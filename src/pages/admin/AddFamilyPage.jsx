@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { UserPlus, Trash2, AlertTriangle, CheckCircle } from 'lucide-react'
 import { useDarkMode } from '../../hooks/useDarkMode'
@@ -19,7 +19,7 @@ const BARANGAY_OPTIONS = [
 ]
 
 const FOOD_ASSISTANCE_OPTIONS = [
-    '4Ps', 'Solo Parent', 'PWD', 'Senior Citizen', 'Pregnant/Lactating', 'None'
+    '4Ps', 'Solo Parent', 'PWD Assistance', 'Senior Citizen', 'Pregnant/Lactating'
 ]
 
 const RELATIONSHIP_OPTIONS = [
@@ -38,6 +38,9 @@ const emptyMember = () => ({
     relationship: 'Head',
     is_pwd: false,
     nutritional_status: 'Unknown',
+    height_cm: '',
+    weight_kg: '',
+    _bmi: null,
 })
 
 function AddFamilyPage() {
@@ -56,30 +59,88 @@ function AddFamilyPage() {
         head_of_family: '',
         contact_number: '',
         monthly_income: '',
-        food_assistance_status: 'None',
+        food_assistance_status: [],
     })
 
     const [members, setMembers] = useState([emptyMember()])
 
+    useEffect(() => {
+        const headMember = members.find(m => m.relationship === 'Head')
+
+        if (headMember?.first_name) {
+            const fullName =
+                `${headMember.first_name} ${headMember.last_name}`.trim()
+
+            setFamilyData(prev => ({
+                ...prev,
+                head_of_family: fullName
+            }))
+        }
+    }, [members])
+
     // ── Family field handlers ────────────────────────────────
+    const handleAssistanceToggle = (opt) => {
+        setFamilyData((prev) => {
+            const current = prev.food_assistance_status
+            const updated = current.includes(opt)
+                ? current.filter((s) => s !== opt)
+                : [...current, opt]
+            return { ...prev, food_assistance_status: updated }
+        })
+    }
+
+    // ── Member field handlers ────────────────────────────────
+    const handleMemberChange = (index, e) => {
+        const { name, value, type, checked } = e.target
+        const updatedValue = type === 'checkbox' ? checked : value
+
+        setMembers((prev) => {
+            // Special case: only one member can be Head at a time
+            if (name === 'relationship' && updatedValue === 'Head') {
+                return prev.map((m, i) => {
+                    if (i === index) {
+                        return { ...m, relationship: 'Head' }
+                    }
+                    // Demote any other member currently marked as Head
+                    if (m.relationship === 'Head') {
+                        return { ...m, relationship: 'Other' }
+                    }
+                    return m
+                })
+            }
+
+            return prev.map((m, i) => {
+                if (i !== index) return m
+
+                const updated = { ...m, [name]: updatedValue }
+
+                if (name === 'height_cm' || name === 'weight_kg') {
+                    const h = name === 'height_cm' ? updatedValue : m.height_cm
+                    const w = name === 'weight_kg' ? updatedValue : m.weight_kg
+                    const bmi = computeBMI(h, w)
+                    const autoStatus = bmiToNutritionalStatus(bmi, updated.date_of_birth)
+                    updated.nutritional_status = autoStatus || 'Unknown'
+                    updated._bmi = bmi ? bmi.toFixed(1) : null
+                }
+
+                if (name === 'date_of_birth' && m.height_cm && m.weight_kg) {
+                    const bmi = computeBMI(m.height_cm, m.weight_kg)
+                    const autoStatus = bmiToNutritionalStatus(bmi, updatedValue)
+                    updated.nutritional_status = autoStatus || m.nutritional_status
+                    updated._bmi = bmi ? bmi.toFixed(1) : null
+                }
+
+                return updated
+            })
+        })
+    }
+
     const handleFamilyChange = (e) => {
         const { name, value, type, checked } = e.target
         setFamilyData((prev) => ({
             ...prev,
             [name]: type === 'checkbox' ? checked : value,
         }))
-    }
-
-    // ── Member field handlers ────────────────────────────────
-    const handleMemberChange = (index, e) => {
-        const { name, value, type, checked } = e.target
-        setMembers((prev) =>
-            prev.map((m, i) =>
-                i === index
-                    ? { ...m, [name]: type === 'checkbox' ? checked : value }
-                    : m
-            )
-        )
     }
 
     const addMember = () => setMembers((prev) => [...prev, emptyMember()])
@@ -104,10 +165,16 @@ function AddFamilyPage() {
                     ? null
                     : parseFloat(familyData.monthly_income),
                 is_npa: familyData.is_npa ? 1 : 0,
-                members: members.map((m) => ({
+                // MySQL SET type accepts comma-separated string
+                food_assistance_status: familyData.food_assistance_status.length > 0
+                    ? familyData.food_assistance_status.join(',')
+                    : 'None',
+                members: members.map(({ _bmi, ...m }) => ({
                     ...m,
                     is_pwd: m.is_pwd ? 1 : 0,
                     date_of_birth: m.date_of_birth || null,
+                    height_cm: m.height_cm === '' ? null : parseFloat(m.height_cm),
+                    weight_kg: m.weight_kg === '' ? null : parseFloat(m.weight_kg),
                 })),
             }
 
@@ -117,7 +184,7 @@ function AddFamilyPage() {
             })
 
             setSuccessMessage(
-                `Family "${familyData.family_name}" registered successfully (ID: ${data.family_id}).`
+                `Family "${familyData.family_name}" registered successfully. Household ID: ${data.household_id} (DB ID: ${data.family_id}).`
             )
 
             // Reset form
@@ -129,7 +196,7 @@ function AddFamilyPage() {
                 head_of_family: '',
                 contact_number: '',
                 monthly_income: '',
-                food_assistance_status: 'None',
+                food_assistance_status: [],
             })
             setMembers([emptyMember()])
 
@@ -160,6 +227,57 @@ function AddFamilyPage() {
 
     const cardClass = `rounded-2xl border p-6 shadow-sm ${isDarkMode ? 'border-white/10 bg-[#111c2e]' : 'border-slate-200 bg-white'
         }`
+    
+    // ── BMI Calculator ───────────────────────────────────────
+    const getAgeInYears = (dateOfBirth) => {
+        if (!dateOfBirth) return null
+        const today = new Date()
+        const dob = new Date(dateOfBirth)
+        let age = today.getFullYear() - dob.getFullYear()
+        const m = today.getMonth() - dob.getMonth()
+        if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--
+        return age
+    }
+
+    const computeBMI = (heightCm, weightKg) => {
+        const h = parseFloat(heightCm)
+        const w = parseFloat(weightKg)
+        if (!h || !w || h <= 0 || w <= 0) return null
+        return w / Math.pow(h / 100, 2)
+    }
+
+    const bmiToNutritionalStatus = (bmi, dateOfBirth) => {
+        if (bmi === null) return null
+        const age = getAgeInYears(dateOfBirth)
+
+        // Under 5: simplified weight-for-age proxy
+        // lower BMI thresholds as children naturally have lower BMI
+        if (age !== null && age < 5) {
+            if (bmi < 13.0) return 'Severely Underweight'
+            if (bmi < 15.0) return 'Underweight'
+            if (bmi < 18.0) return 'Normal'
+            if (bmi < 20.0) return 'Overweight'
+            return 'Obese'
+        }
+
+        // School-age and adolescents (5–17)
+        // WHO BMI-for-age simplified ranges
+        if (age !== null && age < 18) {
+            if (bmi < 14.0) return 'Severely Underweight'
+            if (bmi < 16.5) return 'Underweight'
+            if (bmi < 23.0) return 'Normal'
+            if (bmi < 27.5) return 'Overweight'
+            return 'Obese'
+        }
+
+        // Adults 18+ — Filipino/Asian cutoffs (lower than Western standards)
+        // Based on DOH/NNC Philippine Dietary Reference Intakes
+        if (bmi < 16.0) return 'Severely Underweight'
+        if (bmi < 18.5) return 'Underweight'
+        if (bmi < 23.0) return 'Normal'
+        if (bmi < 25.0) return 'Overweight'
+        return 'Obese'
+    }
 
     return (
         <div className={`flex min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-[#0b1220] text-slate-100' : 'bg-[#e5e7eb] text-slate-900'
@@ -316,20 +434,56 @@ function AddFamilyPage() {
                                         placeholder="Leave blank if unknown"
                                         className={inputClass}
                                     />
+                                    <p className={`mt-1 text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                                        NCR poverty threshold: ₱12,082/month. Affects priority score.
+                                    </p>
                                 </div>
 
-                                <div>
-                                    <label className={labelClass}>Food Assistance Status</label>
-                                    <select
-                                        name="food_assistance_status"
-                                        value={familyData.food_assistance_status}
-                                        onChange={handleFamilyChange}
-                                        className={inputClass}
-                                    >
-                                        {FOOD_ASSISTANCE_OPTIONS.map((opt) => (
-                                            <option key={opt} value={opt}>{opt}</option>
+                                <div className="md:col-span-2">
+                                    <label className={labelClass}>Food Assistance Program Enrollment</label>
+                                    <p className={`mb-2 text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                                        Select all programs this family is currently enrolled in.
+                                    </p>
+                                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                                        {FOOD_ASSISTANCE_OPTIONS.filter(opt => opt !== 'None').map((opt) => (
+                                            <label
+                                                key={opt}
+                                                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer transition ${familyData.food_assistance_status.includes(opt)
+                                                        ? isDarkMode
+                                                            ? 'border-blue-500 bg-blue-500/10 text-blue-300'
+                                                            : 'border-blue-500 bg-blue-50 text-blue-700'
+                                                        : isDarkMode
+                                                            ? 'border-white/10 bg-[#0b1220] text-slate-300 hover:border-white/20'
+                                                            : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300'
+                                                    }`}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={familyData.food_assistance_status.includes(opt)}
+                                                    onChange={() => handleAssistanceToggle(opt)}
+                                                    className="sr-only"
+                                                />
+                                                <span className={`h-4 w-4 rounded border flex items-center justify-center flex-shrink-0 ${familyData.food_assistance_status.includes(opt)
+                                                        ? 'bg-blue-500 border-blue-500'
+                                                        : isDarkMode
+                                                            ? 'border-slate-600'
+                                                            : 'border-slate-300'
+                                                    }`}>
+                                                    {familyData.food_assistance_status.includes(opt) && (
+                                                        <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                                        </svg>
+                                                    )}
+                                                </span>
+                                                {opt}
+                                            </label>
                                         ))}
-                                    </select>
+                                    </div>
+                                    {familyData.food_assistance_status.length === 0 && (
+                                        <p className={`mt-1.5 text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                                            No program selected — family will be marked as not enrolled in any assistance program.
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -363,10 +517,17 @@ function AddFamilyPage() {
                                             }`}
                                     >
                                         <div className="flex items-center justify-between mb-3">
-                                            <p className={`text-xs font-semibold uppercase tracking-wide ${isDarkMode ? 'text-slate-400' : 'text-slate-500'
-                                                }`}>
-                                                Member {index + 1}
-                                            </p>
+                                            <div className="flex items-center gap-2">
+                                                <p className={`text-xs font-semibold uppercase tracking-wide ${isDarkMode ? 'text-slate-400' : 'text-slate-500'
+                                                    }`}>
+                                                    Member {index + 1}
+                                                </p>
+                                                {member.relationship === 'Head' && (
+                                                    <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">
+                                                        Head of Family
+                                                    </span>
+                                                )}
+                                            </div>
                                             {members.length > 1 ? (
                                                 <button
                                                     type="button"
@@ -416,6 +577,36 @@ function AddFamilyPage() {
                                             </div>
 
                                             <div>
+                                                <label className={labelClass}>Height (cm)</label>
+                                                <input
+                                                    name="height_cm"
+                                                    type="number"
+                                                    min="30"
+                                                    max="250"
+                                                    step="0.1"
+                                                    value={member.height_cm}
+                                                    onChange={(e) => handleMemberChange(index, e)}
+                                                    placeholder="e.g. 165"
+                                                    className={inputClass}
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className={labelClass}>Weight (kg)</label>
+                                                <input
+                                                    name="weight_kg"
+                                                    type="number"
+                                                    min="1"
+                                                    max="300"
+                                                    step="0.1"
+                                                    value={member.weight_kg}
+                                                    onChange={(e) => handleMemberChange(index, e)}
+                                                    placeholder="e.g. 55"
+                                                    className={inputClass}
+                                                />
+                                            </div>
+
+                                            <div>
                                                 <label className={labelClass}>Gender *</label>
                                                 <select
                                                     name="gender"
@@ -428,6 +619,23 @@ function AddFamilyPage() {
                                                     <option value="Other">Other</option>
                                                 </select>
                                             </div>
+
+                                            {member._bmi ? (
+                                                <div className={`sm:col-span-2 lg:col-span-3 rounded-lg px-3 py-2 text-xs ${isDarkMode ? 'bg-blue-500/10 text-blue-300' : 'bg-blue-50 text-blue-700'
+                                                    }`}>
+                                                    <span className="font-semibold">BMI: {member._bmi}</span>
+                                                    {member.date_of_birth && (
+                                                        <span className="ml-2 opacity-75">
+                                                            ({getAgeInYears(member.date_of_birth) < 5
+                                                                ? 'Under-5 classification'
+                                                                : getAgeInYears(member.date_of_birth) < 18
+                                                                    ? 'Adolescent classification'
+                                                                    : 'Adult/Asian cutoff classification'})
+                                                        </span>
+                                                    )}
+                                                    <span className="ml-2">— Nutritional status auto-set. You may override if needed.</span>
+                                                </div>
+                                            ) : null}
 
                                             <div>
                                                 <label className={labelClass}>Relationship</label>

@@ -144,6 +144,7 @@ function FamilyListPage() {
                                                 : 'border-slate-200 text-slate-500'
                                             }`}>
                                             <th className="px-6 py-4 text-left font-semibold">Family</th>
+                                            <th className="px-6 py-4 text-left font-semibold">ID</th>
                                             <th className="px-6 py-4 text-left font-semibold">Barangay</th>
                                             <th className="px-6 py-4 text-left font-semibold">Members</th>
                                             <th className="px-6 py-4 text-left font-semibold">Priority Score</th>
@@ -167,6 +168,10 @@ function FamilyListPage() {
                                                     <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                                                         {family.address || '—'}
                                                     </p>
+                                                </td>
+
+                                                <td className={`px-6 py-4 font-mono text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                                    {family.household_id || '—'}
                                                 </td>
 
                                                 {/* Barangay */}

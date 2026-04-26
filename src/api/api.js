@@ -36,6 +36,14 @@ export async function apiFetch(path, options = {}) {
     if (!response.ok) {
         const error = new Error(data.message || 'Request failed')
         error.status = response.status
+
+        // Auto-logout on expired/invalid token
+        if (response.status === 401) {
+            localStorage.removeItem('phams-token')
+            localStorage.removeItem('phams-admin-user')
+            window.location.href = '/staff/login'
+        }
+
         throw error
     }
 
