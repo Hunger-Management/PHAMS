@@ -3,6 +3,8 @@ import { useAdminAuth } from '../../context/AdminAuthContext'
 import { useNavigate } from 'react-router-dom'
 import { useDarkMode } from '../../hooks/useDarkMode'
 import CreateStaffAccountSection from '../../components/admin/CreateStaffAccountSection'
+import BarangayManagementSection from '../../components/admin/BarangayManagementSection'
+import TransparencySection from '../../components/admin/TransparencySection'
 
 export default function AdminDashboardPage() {
     const { adminUser } = useAdminAuth()
@@ -165,6 +167,12 @@ export default function AdminDashboardPage() {
 
                     {/* CREATE STAFF ACCOUNT */}
                     <CreateStaffAccountSection isDarkMode={isDarkMode} />
+
+                    {/* BARANGAY MANAGEMENT */}
+                    <BarangayManagementSection isDarkMode={isDarkMode} />
+
+                    {/* TRANSPARENCY */}
+                    <TransparencySection isDarkMode={isDarkMode} />
                 </div>
             </main>
 
