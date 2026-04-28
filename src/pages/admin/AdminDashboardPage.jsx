@@ -16,8 +16,33 @@ export default function AdminDashboardPage() {
     const location = useLocation()
 
     useEffect(() => {
+        const root = document.documentElement
+        const body = document.body
+        const previousHtmlBg = root.style.backgroundColor
+        const previousBodyBg = body.style.backgroundColor
+        const previousOverflowX = body.style.overflowX
+
+        root.style.backgroundColor = isDarkMode ? '#0b1220' : '#e5e7eb'
+        body.style.backgroundColor = isDarkMode ? '#0b1220' : '#e5e7eb'
+        body.style.overflowX = 'hidden'
+
         if (location?.state?.scrollToTop) {
             window.scrollTo({ top: 0, behavior: 'smooth' })
+        }
+
+        if (location?.state?.scrollTo) {
+            const id = location.state.scrollTo
+            const el = document.getElementById(id)
+            if (el) {
+                const top = el.getBoundingClientRect().top + window.pageYOffset - 24
+                window.scrollTo({ top, behavior: 'smooth' })
+            }
+        }
+
+        return () => {
+            root.style.backgroundColor = previousHtmlBg
+            body.style.backgroundColor = previousBodyBg
+            body.style.overflowX = previousOverflowX
         }
     }, [location])
 
@@ -30,7 +55,7 @@ export default function AdminDashboardPage() {
 
     return (
         <div
-            className={`flex min-h-screen transition-colors duration-300 ${isDarkMode
+            className={`min-h-screen transition-colors duration-300 ${isDarkMode
                     ? 'bg-[#0b1220] text-slate-100'
                     : 'bg-[#e5e7eb] text-slate-900'
                 }`}
@@ -39,7 +64,7 @@ export default function AdminDashboardPage() {
             <AdminSidebar isDarkMode={isDarkMode} />
 
             {/* MAIN */}
-            <main className="flex-1 p-10 ml-64">
+            <main className="ml-64 p-10">
                 <div className="max-w-7xl mx-auto lg:origin-top lg:scale-[1.03]">
 
                     {/* HEADER */}

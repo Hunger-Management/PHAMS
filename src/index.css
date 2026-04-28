@@ -7,10 +7,11 @@
 }
 
 html {
-	scrollbar-gutter: stable;
+	min-height: 100%;
 }
 
 body {
+	margin: 0;
 	overflow-y: scroll;
 	font-family: var(--font-body);
 	text-rendering: optimizeLegibility;

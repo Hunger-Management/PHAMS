@@ -1,11 +1,17 @@
 import { Home, MapPin, Users, UserPlus, FileText, LogOut } from 'lucide-react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import { useAdminAuth } from '../../context/AdminAuthContext'
 
 function AdminSidebar({ isDarkMode }) {
     const { logout, adminUser } = useAdminAuth()
     const navigate = useNavigate()
     const location = useLocation()
+    const [selectedNav, setSelectedNav] = useState(() => location.state?.selectedNav || null)
+
+    useEffect(() => {
+        setSelectedNav(location.state?.selectedNav || null)
+    }, [location.pathname, location.state])
 
     const handleLogout = () => {
         logout()
@@ -19,10 +25,16 @@ function AdminSidebar({ isDarkMode }) {
 
     const navItems = [
         { name: 'Dashboard', icon: Home, path: '/admin/dashboard' },
-        { name: 'Barangays', icon: MapPin, path: '/admin/barangays' },
+        {
+            name: 'Barangays',
+            icon: MapPin,
+            path: '/admin/barangays',
+            children: [
+                { name: 'Add Family', icon: UserPlus, path: '/admin/families/add' },
+            ],
+        },
         { name: 'Manage Families', icon: Users, path: '/admin/families' },
-        { name: 'Add Family', icon: UserPlus, path: '/admin/families/add' },
-        { name: 'User Management', icon: Users, path: '/admin/users' },
+        { name: 'User Management', icon: Users, path: '/admin/create-account' },
         { name: 'Transparency', icon: FileText, path: '/admin/transparency' },
     ]
 
@@ -58,22 +70,24 @@ function AdminSidebar({ isDarkMode }) {
                 <nav className="space-y-1 text-sm">
                     {navItems.map((item) => {
                         const Icon = item.icon
-                        const isActive = location.pathname === item.path
+                        const isActive = selectedNav
+                            ? selectedNav === item.name
+                            : location.pathname === item.path
+
                         const handleNavClick = () => {
-                            // Special-case: Dashboard — if already on dashboard, scroll to top;
-                            // otherwise navigate and request scroll-to-top on the target page.
                             if (item.path === '/admin/dashboard') {
+                                setSelectedNav('Dashboard')
                                 if (location.pathname === '/admin/dashboard') {
                                     window.scrollTo({ top: 0, behavior: 'smooth' })
                                     return
                                 }
 
-                                navigate(item.path, { state: { scrollToTop: true } })
+                                navigate(item.path, { state: { scrollToTop: true, selectedNav: 'Dashboard' } })
                                 return
                             }
 
-                            // Special-case: if Barangays and the section exists on this page, scroll instead of navigating
                             if (item.path === '/admin/barangays') {
+                                setSelectedNav('Barangays')
                                 const el = document.getElementById('barangay-management-section')
                                 if (el) {
                                     const top = el.getBoundingClientRect().top + window.pageYOffset - 24
@@ -81,26 +95,75 @@ function AdminSidebar({ isDarkMode }) {
                                     return
                                 }
 
-                                // otherwise navigate and let the target page scroll on mount
-                                navigate(item.path, { state: { scrollTo: 'barangay-management-section' } })
+                                navigate('/admin/dashboard', {
+                                    state: {
+                                        scrollTo: 'barangay-management-section',
+                                        selectedNav: 'Barangays',
+                                    },
+                                })
                                 return
                             }
 
-                            navigate(item.path)
+                            if (item.path === '/admin/transparency') {
+                                setSelectedNav('Transparency')
+                                const el = document.getElementById('transparency-section')
+                                if (el) {
+                                    const top = el.getBoundingClientRect().top + window.pageYOffset - 24
+                                    window.scrollTo({ top, behavior: 'smooth' })
+                                    return
+                                }
+
+                                navigate('/admin/dashboard', {
+                                    state: {
+                                        scrollTo: 'transparency-section',
+                                        selectedNav: 'Transparency',
+                                    },
+                                })
+                                return
+                            }
+
+                            setSelectedNav(item.name)
+                            navigate(item.path, { state: { selectedNav: item.name } })
                         }
 
                         return (
-                            <button
-                                key={item.path}
-                                onClick={handleNavClick}
-                                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition text-left ${isActive
+                            <div key={item.path}>
+                                <button
+                                    onClick={handleNavClick}
+                                    className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition text-left ${isActive
                                         ? 'bg-green-600 text-white font-medium'
                                         : 'text-white/80 hover:bg-white/10'
                                     }`}
-                            >
-                                <Icon size={18} />
-                                {item.name}
-                            </button>
+                                >
+                                    <Icon size={18} />
+                                    {item.name}
+                                </button>
+
+                                {item.children && item.children.map((child) => {
+                                    const childIsActive = selectedNav
+                                        ? selectedNav === child.name
+                                        : location.pathname === child.path
+
+                                    const handleChildClick = () => {
+                                        setSelectedNav(child.name)
+                                        navigate(child.path, { state: { selectedNav: child.name } })
+                                    }
+
+                                    return (
+                                        <button
+                                            key={child.path}
+                                            onClick={handleChildClick}
+                                            className={`w-full flex items-center gap-3 px-8 py-2 rounded-lg transition text-left text-sm ${childIsActive
+                                                ? 'bg-green-600 text-white font-medium'
+                                                : 'text-white/70 hover:bg-white/10'
+                                            }`}
+                                        >
+                                            <child.icon size={14} />
+                                            {child.name}
+                                        </button>
+                                    )
+                                })}
+                            </div>
                         )
                     })}
                 </nav>
