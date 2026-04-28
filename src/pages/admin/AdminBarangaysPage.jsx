@@ -3,6 +3,8 @@ import { useAdminAuth } from '../../context/AdminAuthContext'
 import { useNavigate } from 'react-router-dom'
 import { useDarkMode } from '../../hooks/useDarkMode'
 import BarangayManagementSection from '../../components/admin/BarangayManagementSection'
+import { useLocation } from 'react-router-dom'
+import { useEffect } from 'react'
 
 export default function AdminBarangaysPage() {
   const { logout, adminUser } = useAdminAuth()
@@ -34,6 +36,21 @@ export default function AdminBarangaysPage() {
       navigate('/admin/create-account')
     }
   }
+
+  const location = useLocation()
+
+  useEffect(() => {
+    // if navigation passed a scroll target, scroll there smoothly
+    if (location?.state?.scrollTo) {
+      const id = location.state.scrollTo
+      const el = document.getElementById(id)
+      if (el) {
+        // offset for fixed sidebar/top padding
+        const top = el.getBoundingClientRect().top + window.pageYOffset - 24
+        window.scrollTo({ top, behavior: 'smooth' })
+      }
+    }
+  }, [location])
 
   const nav = [
     { name: 'Dashboard', icon: Home },
@@ -121,7 +138,7 @@ export default function AdminBarangaysPage() {
       </aside>
 
       {/* ================= MAIN ================= */}
-      <main className="flex-1 p-10">
+      <main className="flex-1 p-10 ml-64">
         <div className="max-w-7xl mx-auto">
           <BarangayManagementSection isDarkMode={isDarkMode} />
         </div>

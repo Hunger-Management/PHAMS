@@ -1,4 +1,6 @@
 import AdminSidebar from '../../components/admin/AdminSidebar'
+import { useLocation } from 'react-router-dom'
+import { useEffect } from 'react'
 import { useAdminAuth } from '../../context/AdminAuthContext'
 import { useNavigate } from 'react-router-dom'
 import { useDarkMode } from '../../hooks/useDarkMode'
@@ -10,6 +12,14 @@ export default function AdminDashboardPage() {
     const { adminUser } = useAdminAuth()
     const navigate = useNavigate()
     const { isDarkMode, toggleDarkMode } = useDarkMode()
+
+    const location = useLocation()
+
+    useEffect(() => {
+        if (location?.state?.scrollToTop) {
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+        }
+    }, [location])
 
     const stats = [
         { title: 'Total Families', value: '2,847', sub: '+12% from last month' },
@@ -29,7 +39,7 @@ export default function AdminDashboardPage() {
             <AdminSidebar isDarkMode={isDarkMode} />
 
             {/* MAIN */}
-            <main className="flex-1 p-10">
+            <main className="flex-1 p-10 ml-64">
                 <div className="max-w-7xl mx-auto lg:origin-top lg:scale-[1.03]">
 
                     {/* HEADER */}

@@ -67,7 +67,7 @@ function FamilyListPage() {
             }`}>
             <AdminSidebar isDarkMode={isDarkMode} />
 
-            <main className="flex-1 p-8 overflow-auto">
+            <main className="flex-1 p-8 overflow-auto ml-64">
                 <div className="max-w-7xl mx-auto">
 
                     {/* Header */}

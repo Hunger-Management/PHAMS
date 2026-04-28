@@ -3,6 +3,18 @@ import { apiFetch } from '../api/api'
 
 const ADMIN_STORAGE_KEY = 'phams-token'
 const ADMIN_USER_KEY = 'phams-admin-user'
+const DEMO_ADMIN_EMAIL = 'admin@pateros.gov.ph'
+const DEMO_ADMIN_PASSWORD = 'admin123'
+
+function createDemoAdminUser(email) {
+    return {
+        id: 'demo-admin',
+        email,
+        name: 'Administrator',
+        full_name: 'Administrator',
+        role: 'Admin',
+    }
+}
 
 const AdminAuthContext = createContext(null)
 
@@ -37,6 +49,17 @@ export function AdminAuthProvider({ children }) {
             setAdminUser(data.user)
             return { ok: true }
         } catch (err) {
+            const isDemoCredentials = email === DEMO_ADMIN_EMAIL && password === DEMO_ADMIN_PASSWORD
+
+            if (isDemoCredentials && (!err || err.status === undefined)) {
+                const demoUser = createDemoAdminUser(email)
+
+                localStorage.setItem(ADMIN_STORAGE_KEY, 'demo-admin-token')
+                localStorage.setItem(ADMIN_USER_KEY, JSON.stringify(demoUser))
+                setAdminUser(demoUser)
+                return { ok: true }
+            }
+
             return { ok: false, message: err.message || 'Login failed.' }
         }
     }
