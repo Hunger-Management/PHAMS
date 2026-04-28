@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { Users, UserPlus, Search, AlertTriangle } from 'lucide-react'
 import { useDarkMode } from '../../hooks/useDarkMode'
 import { useAdminAuth } from '../../context/AdminAuthContext'
@@ -18,9 +18,28 @@ function FamilyListPage() {
     const [deactivating, setDeactivating] = useState(null)
     const [confirmId, setConfirmId] = useState(null)
 
-    // fetching families on mount
+    const location = useLocation()
+
+    const LOCAL_KEY = 'phams-local-families'
+    const loadLocal = () => {
+        try {
+            return JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]') || []
+        } catch (e) {
+            return []
+        }
+    }
+
+    // fetching families on mount — preload local families and accept `newFamily` passed via navigation state
     useEffect(() => {
         if (!isAuthenticated) return
+
+        // show local-saved families immediately
+        const local = loadLocal()
+        if (local.length) setFamilies(local)
+
+        const newFamily = location.state?.newFamily
+        if (newFamily) setFamilies((prev) => [newFamily, ...prev])
+
         fetchFamilies()
     }, [isAuthenticated])
 
@@ -31,6 +50,16 @@ function FamilyListPage() {
             const data = await apiFetch('/api/families')
             setFamilies(data.families)
         } catch (err) {
+            const local = loadLocal()
+            if (local.length) {
+                // keep showing local families and show a recoverable error
+                setFamilies(local)
+                setError(err.message || 'Failed to fetch full list; showing local data.')
+                setLoading(false)
+                return
+            }
+
+            // no local data — show the error normally
             setError(err.message || 'Failed to load families.')
         } finally {
             setLoading(false)
@@ -41,10 +70,18 @@ function FamilyListPage() {
     const handleDeactivate = async (familyId) => {
         setDeactivating(familyId)
         try {
-            await apiFetch(`/api/families/${familyId}`, { method: 'DELETE' })
-            // Remove from local state immediately for snappy UX
-            setFamilies((prev) => prev.filter((f) => f.family_id !== familyId))
-            setConfirmId(null)
+            // If family is a locally stored entry, remove from localStorage
+            if (typeof familyId === 'string' && familyId.startsWith('local-')) {
+                const local = loadLocal().filter((f) => f.family_id !== familyId)
+                localStorage.setItem(LOCAL_KEY, JSON.stringify(local))
+                setFamilies((prev) => prev.filter((f) => f.family_id !== familyId))
+                setConfirmId(null)
+            } else {
+                await apiFetch(`/api/families/${familyId}`, { method: 'DELETE' })
+                // Remove from local state immediately for snappy UX
+                setFamilies((prev) => prev.filter((f) => f.family_id !== familyId))
+                setConfirmId(null)
+            }
         } catch (err) {
             setError(err.message || 'Failed to deactivate family.')
         } finally {
@@ -90,10 +127,30 @@ function FamilyListPage() {
                     </div>
 
                     {/* Error */}
-                    {error ? (
-                        <div className="mb-6 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                            <AlertTriangle size={16} />
-                            {error}
+                    {error && families.length === 0 ? (
+                        <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                            <div className="flex items-start gap-3">
+                                <AlertTriangle size={20} />
+                                <div className="flex-1">
+                                    <p className="font-semibold">Failed to fetch families</p>
+                                    <p className="mt-1">{error}</p>
+                                    <div className="mt-3 flex items-center gap-3">
+                                        <button
+                                            onClick={() => fetchFamilies()}
+                                            className="rounded-md bg-red-600 text-white px-3 py-1.5 text-sm font-semibold hover:bg-red-700 transition"
+                                        >
+                                            Retry
+                                        </button>
+                                        <button
+                                            onClick={() => navigate('/admin/families/add')}
+                                            className="rounded-md bg-green-600 text-white px-3 py-1.5 text-sm font-semibold hover:bg-green-700 transition"
+                                        >
+                                            Register New Family
+                                        </button>
+                                        <span className="text-xs text-slate-500">(Check API server, CORS, and network connection)</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     ) : null}
 

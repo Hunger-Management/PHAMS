@@ -64,6 +64,24 @@ function AddFamilyPage() {
 
     const [members, setMembers] = useState([emptyMember()])
 
+    // Local storage helpers for offline/no-database mode
+    const LOCAL_KEY = 'phams-local-families'
+    const loadLocalFamilies = () => {
+        try {
+            return JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]') || []
+        } catch (e) {
+            return []
+        }
+    }
+
+    const saveLocalFamily = (familyObj) => {
+        const list = loadLocalFamilies()
+        list.unshift(familyObj)
+        localStorage.setItem(LOCAL_KEY, JSON.stringify(list))
+    }
+
+    const makeLocalId = () => `local-${Date.now()}`
+
     useEffect(() => {
         const headMember = members.find(m => m.relationship === 'Head')
 
@@ -202,8 +220,57 @@ function AddFamilyPage() {
 
             // Scroll to top to show success message
             window.scrollTo({ top: 0, behavior: 'smooth' })
+            // After a short delay, navigate to Manage Families so user sees the list
+            setTimeout(() => {
+                // Pass created family back so list can show it immediately if fetch fails
+                navigate('/admin/families', { state: { selectedNav: 'Manage Families', newFamily: data } })
+            }, 900)
 
         } catch (err) {
+            // If API is down (no DB), fall back to localStorage so user can continue
+            const isNetwork = !err.status || /failed to fetch/i.test(err.message || '')
+            if (isNetwork) {
+                const localId = makeLocalId()
+                const localFamily = {
+                    family_id: localId,
+                    household_id: `H-${localId}`,
+                    family_name: familyData.family_name || 'Unnamed',
+                    address: familyData.address || null,
+                    barangay_id: familyData.barangay_id,
+                    barangay_name: BARANGAY_OPTIONS.find(b => b.id === parseInt(familyData.barangay_id))?.name || 'Unknown',
+                    member_count: members.length,
+                    priority_score: 0,
+                    food_assistance_status: familyData.food_assistance_status.join(',') || 'None',
+                    is_npa: familyData.is_npa ? 1 : 0,
+                    _local: true,
+                }
+
+                saveLocalFamily(localFamily)
+
+                setSuccessMessage(`Family "${localFamily.family_name}" saved locally.`)
+
+                // Reset form
+                setFamilyData({
+                    family_name: '',
+                    barangay_id: 1,
+                    address: '',
+                    is_npa: false,
+                    head_of_family: '',
+                    contact_number: '',
+                    monthly_income: '',
+                    food_assistance_status: [],
+                })
+                setMembers([emptyMember()])
+
+                window.scrollTo({ top: 0, behavior: 'smooth' })
+
+                setTimeout(() => {
+                    navigate('/admin/families', { state: { selectedNav: 'Manage Families', newFamily: localFamily } })
+                }, 600)
+
+                return
+            }
+
             if (err.status === 409) {
                 setErrorMessage(
                     'A family with this name and address already exists in this barangay. Please check for duplicates.'
