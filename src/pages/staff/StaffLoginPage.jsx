@@ -137,9 +137,29 @@ function StaffLoginPage() {
                             </article>
                         </div>
 
+                        {selectedRole && (
+                            <div className="mt-6">
+                                <button
+                                    type="button"
+                                    onClick={() => navigate('/')}
+                                    className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition-colors ${isDarkMode ? 'bg-slate-700 text-slate-100 hover:bg-slate-600' : 'bg-white text-slate-700 hover:bg-slate-50'}`}
+                                >
+                                    ← Back to public view
+                                </button>
+                            </div>
+                        )}
+
                         {selectedRole === 'admin' ? (
                             <article className={`mt-6 rounded-2xl border p-6 shadow-sm md:p-8 ${isDarkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'
                                 }`}>
+
+                                <button
+                                    type="button"
+                                    onClick={() => navigate('/')}
+                                    className={`mb-4 inline-flex items-center gap-2 text-sm font-semibold transition-colors ${isDarkMode ? 'text-slate-300 hover:text-slate-200' : 'text-slate-600 hover:text-slate-800'}`}
+                                >
+                                    ← Back to public view
+                                </button>
 
                                 <h3 className={`text-2xl font-black ${isDarkMode ? 'text-slate-100' : 'text-[#011d49]'
                                     }`}>
@@ -234,6 +254,14 @@ function StaffLoginPage() {
 
                         {selectedRole === 'staff' ? (
                             <article className={`mt-6 rounded-2xl border p-6 shadow-sm md:p-8 ${isDarkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'}`}>
+
+                                <button
+                                    type="button"
+                                    onClick={() => navigate('/')}
+                                    className={`mb-4 inline-flex items-center gap-2 text-sm font-semibold transition-colors ${isDarkMode ? 'text-slate-300 hover:text-slate-200' : 'text-slate-600 hover:text-slate-800'}`}
+                                >
+                                    ← Back to public view
+                                </button>
                                 <h3 className={`text-2xl font-black ${isDarkMode ? 'text-slate-100' : 'text-[#011d49]'}`}>Staff Login</h3>
                                 <p className={`mt-2 text-sm ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
                                     Enter staff credentials to access the internal dashboard.

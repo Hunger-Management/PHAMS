@@ -351,7 +351,7 @@ function BarangayDetailLayout({ barangayName }) {
               ))}
             </div>
           </article>
-        npm install lucide-react        </div>
+           </div>
       </section>
     </main>
   )
