@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { Users, UserPlus, Search, AlertTriangle } from 'lucide-react'
 import { useDarkMode } from '../../hooks/useDarkMode'
 import { useAdminAuth } from '../../context/AdminAuthContext'
-import AdminSidebar from '../../components/admin/AdminSidebar'
+import AdminSidebar from '../components/AdminSidebar'
 import { apiFetch } from '../../api/api'
 
 function FamilyListPage() {
@@ -215,8 +215,7 @@ function FamilyListPage() {
                                             <tr
                                                 key={family.family_id}
                                                 className={`transition ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-slate-50'
-                                                    }`}
-                                            >
+                                                    }`}>
                                                 {/* Family name + address */}
                                                 <td className="px-6 py-4">
                                                     <p className={`font-semibold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>

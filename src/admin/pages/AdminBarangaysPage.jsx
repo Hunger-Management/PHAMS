@@ -2,7 +2,7 @@ import { Home, MapPin, Users, UserPlus, FileText, LogOut } from 'lucide-react'
 import { useAdminAuth } from '../../context/AdminAuthContext'
 import { useNavigate } from 'react-router-dom'
 import { useDarkMode } from '../../hooks/useDarkMode'
-import BarangayManagementSection from '../../components/admin/BarangayManagementSection'
+import BarangayManagementSection from '../components/BarangayManagementSection'
 import { useLocation } from 'react-router-dom'
 import { useEffect } from 'react'
 

@@ -11,12 +11,12 @@ admin auth system from a hardcoded demo to real backend login.
   `apiFetch()` from this file. Never write raw `fetch()` calls in components.
   Automatically attaches the JWT token from localStorage to every request.
   Auto-redirects to login on 401 (expired token).
-- `src/components/admin/AdminSidebar.jsx` — Shared sidebar component used by
+- `src/admin/components/AdminSidebar.jsx` — Shared sidebar component used by
   all admin pages. Highlights the active route using `useLocation()`. All nav
   items are clickable and route-aware.
-- `src/pages/admin/FamilyListPage.jsx` — View and manage all registered
+- `src/admin/pages/FamilyListPage.jsx` — View and manage all registered
   families at `/admin/families`
-- `src/pages/admin/AddFamilyPage.jsx` — Register new families at
+- `src/admin/pages/AddFamilyPage.jsx` — Register new families at
   `/admin/families/add`
 
 ### Modified files
@@ -24,7 +24,7 @@ admin auth system from a hardcoded demo to real backend login.
   with real JWT login via `POST /api/auth/login`
 - `src/pages/staff/StaffLoginPage.jsx` — Admin login form changed from
   username to email field to match backend
-- `src/pages/admin/AdminDashboardPage.jsx` — Uses shared `AdminSidebar`,
+- `src/admin/pages/AdminDashboardPage.jsx` — Uses shared `AdminSidebar`,
   Quick Action buttons navigate to real routes
 - `src/App.jsx` — Added `/admin/families` and `/admin/families/add` routes
 

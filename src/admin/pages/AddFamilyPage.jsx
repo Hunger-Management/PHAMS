@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { UserPlus, Trash2, AlertTriangle, CheckCircle } from 'lucide-react'
 import { useDarkMode } from '../../hooks/useDarkMode'
-import AdminSidebar from '../../components/admin/AdminSidebar'
+import AdminSidebar from '../components/AdminSidebar'
 import { apiFetch } from '../../api/api'
 
 const BARANGAY_OPTIONS = [

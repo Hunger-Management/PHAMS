@@ -1,8 +1,8 @@
-import AdminSidebar from '../../components/admin/AdminSidebar'
+import AdminSidebar from '../components/AdminSidebar'
 import { useDarkMode } from '../../hooks/useDarkMode'
-import TransparencySection from '../../components/admin/TransparencySection'
+import CreateStaffAccountSection from '../components/CreateStaffAccountSection'
 
-export default function AdminTransparencyPage() {
+export default function AdminCreateAccountPage() {
   const { isDarkMode, toggleDarkMode } = useDarkMode()
 
   return (
@@ -15,7 +15,7 @@ export default function AdminTransparencyPage() {
 
       <main className="ml-64 p-10">
         <div className="max-w-7xl mx-auto">
-          <TransparencySection isDarkMode={isDarkMode} />
+          <CreateStaffAccountSection isDarkMode={isDarkMode} />
         </div>
       </main>
 

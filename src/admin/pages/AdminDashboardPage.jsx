@@ -1,12 +1,12 @@
-import AdminSidebar from '../../components/admin/AdminSidebar'
+import AdminSidebar from '../components/AdminSidebar'
 import { useLocation } from 'react-router-dom'
 import { useEffect } from 'react'
 import { useAdminAuth } from '../../context/AdminAuthContext'
 import { useNavigate } from 'react-router-dom'
 import { useDarkMode } from '../../hooks/useDarkMode'
-import CreateStaffAccountSection from '../../components/admin/CreateStaffAccountSection'
-import BarangayManagementSection from '../../components/admin/BarangayManagementSection'
-import TransparencySection from '../../components/admin/TransparencySection'
+import CreateStaffAccountSection from '../components/CreateStaffAccountSection'
+import BarangayManagementSection from '../components/BarangayManagementSection'
+import TransparencySection from '../components/TransparencySection'
 
 export default function AdminDashboardPage() {
     const { adminUser } = useAdminAuth()
@@ -56,9 +56,9 @@ export default function AdminDashboardPage() {
     return (
         <div
             className={`min-h-screen transition-colors duration-300 ${isDarkMode
-                    ? 'bg-[#0b1220] text-slate-100'
-                    : 'bg-[#e5e7eb] text-slate-900'
-                }`}
+                ? 'bg-[#0b1220] text-slate-100'
+                : 'bg-[#e5e7eb] text-slate-900'
+            }`}
         >
             {/* SIDEBAR */}
             <AdminSidebar isDarkMode={isDarkMode} />

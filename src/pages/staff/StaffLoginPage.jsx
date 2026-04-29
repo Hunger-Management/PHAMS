@@ -33,26 +33,30 @@ function StaffLoginPage() {
         event.preventDefault()
         setErrorMessage('')
 
+        const intendedPath = location.state?.from?.pathname
+
         if (selectedRole === 'admin') {
-            const result = await adminLogin(formData.email, formData.password)
+                const result = await adminLogin(formData.email, formData.password)
+
+                if (!result.ok) {
+                    setErrorMessage(result.message)
+                    return
+                }
+
+                const redirectTo = intendedPath || '/admin/dashboard'
+                navigate(redirectTo, { replace: true })
+                return
+            }
+
+            const result = staffLogin(formData.username, formData.password)
 
             if (!result.ok) {
                 setErrorMessage(result.message)
                 return
             }
 
-            navigate('/admin/dashboard', { replace: true })
-            return
-        }
-
-        const result = staffLogin(formData.username, formData.password)
-
-        if (!result.ok) {
-            setErrorMessage(result.message)
-            return
-        }
-
-        navigate('/staff/dashboard', { replace: true })
+            const redirectTo = intendedPath || '/staff/dashboard'
+            navigate(redirectTo, { replace: true })
     }
 
     return (
