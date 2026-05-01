@@ -1,23 +1,78 @@
+import { useEffect, useMemo, useState } from 'react'
 import { useStaffAuth } from '../../context/StaffAuthContext'
 import { useBarangay } from '../../context/BarangayContext'
 
 export default function BarangayManagementSection({ isDarkMode }) {
   const { staffAccounts } = useStaffAuth()
   const { getAllBarangays } = useBarangay()
+  const [apiBarangays, setApiBarangays] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   const allBarangays = getAllBarangays()
+
+  useEffect(() => {
+    fetch('/api/barangays')
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to fetch barangays')
+        return res.json()
+      })
+      .then((data) => {
+        setApiBarangays(Array.isArray(data) ? data : [])
+        setLoading(false)
+      })
+      .catch((err) => {
+        setError(err.message || 'Failed to load barangays.')
+        setLoading(false)
+      })
+  }, [])
+
+  const normalizeName = (value) =>
+    String(value || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '')
+
+  const apiMappedBarangays = useMemo(() => {
+    if (!apiBarangays.length) return allBarangays
+
+    const contextMap = allBarangays.reduce((acc, barangay) => {
+      acc[normalizeName(barangay.name)] = barangay
+      return acc
+    }, {})
+
+    return apiBarangays.map((barangay) => {
+      const match = contextMap[normalizeName(barangay.name)] || {}
+      return {
+        name: barangay.name,
+        barangay_id: barangay.barangay_id,
+        residents: match.residents || '0',
+        households: match.households || '0',
+        registeredFamilies: match.registeredFamilies || '0',
+        iwpaCount: match.iwpaCount || '0',
+        activeDistributions: match.activeDistributions || '0',
+        captain: match.captain || '—',
+      }
+    })
+  }, [apiBarangays, allBarangays])
 
   const getStaffForBarangay = (barangayName) => {
     return staffAccounts.filter((staff) => staff.barangay === barangayName)
   }
 
+  const parseCount = (value) => {
+    if (value === null || value === undefined) return 0
+    const normalized = String(value).replace(/,/g, '')
+    const parsed = Number(normalized)
+    return Number.isFinite(parsed) ? parsed : 0
+  }
+
   const getTotalData = () => {
-    return allBarangays.reduce(
+    return apiMappedBarangays.reduce(
       (totals, barangay) => ({
-        residents: totals.residents + parseInt(barangay.residents.replace(/,/g, '')),
-        families: totals.families + parseInt(barangay.registeredFamilies),
-        iwpa: totals.iwpa + parseInt(barangay.iwpaCount),
-        distributions: totals.distributions + parseInt(barangay.activeDistributions),
+        residents: totals.residents + parseCount(barangay.residents),
+        families: totals.families + parseCount(barangay.registeredFamilies),
+        iwpa: totals.iwpa + parseCount(barangay.iwpaCount),
+        distributions: totals.distributions + parseCount(barangay.activeDistributions),
       }),
       { residents: 0, families: 0, iwpa: 0, distributions: 0 },
     )
@@ -35,6 +90,14 @@ export default function BarangayManagementSection({ isDarkMode }) {
         <p className={`text-sm mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
           Overview of all barangays and assigned staff
         </p>
+        {loading && (
+          <p className={`mt-2 text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+            Loading barangays...
+          </p>
+        )}
+        {error && (
+          <p className="mt-2 text-xs text-red-500">Error: {error}</p>
+        )}
       </div>
 
       {/* SUMMARY STATS */}
@@ -151,7 +214,7 @@ export default function BarangayManagementSection({ isDarkMode }) {
             </tr>
           </thead>
           <tbody>
-            {allBarangays.map((barangay) => {
+            {apiMappedBarangays.map((barangay) => {
               const assignedStaff = getStaffForBarangay(barangay.name)
               return (
                 <tr

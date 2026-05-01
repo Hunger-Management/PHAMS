@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useDarkMode } from '../../hooks/useDarkMode'
 import { useStaffAuth } from '../../context/StaffAuthContext'
 import StaffSidebar from './StaffSidebar'
@@ -7,13 +7,111 @@ import StaffSidebar from './StaffSidebar'
 function StaffDashboardPage() {
   const { isDarkMode, toggleDarkMode } = useDarkMode()
   const { staffUser } = useStaffAuth()
+  const [families, setFamilies] = useState([])
+  const [distributions, setDistributions] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
-  const summaryCards = [
-    { label: 'Families in Barangay', value: '156', sub: `Barangay ${staffUser?.barangay || 'San Jose'}`, iconBg: 'bg-blue-100', iconText: 'text-blue-600', icon: '👥' },
-    { label: 'Assisted Families', value: '89', sub: '57% coverage', iconBg: 'bg-emerald-100', iconText: 'text-emerald-600', icon: '🍃' },
-    { label: 'Pending Verification', value: '12', sub: 'Awaiting review', iconBg: 'bg-amber-100', iconText: 'text-amber-600', icon: '⏳' },
-    { label: 'Verified This Month', value: '28', sub: 'Recently processed', iconBg: 'bg-violet-100', iconText: 'text-violet-600', icon: '◉' },
-  ]
+  const staffBarangay = staffUser?.barangay || 'San Jose'
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/families'),
+      fetch('/api/distributions'),
+    ])
+      .then(async ([familiesRes, distributionsRes]) => {
+        if (!familiesRes.ok) throw new Error('Failed to fetch families')
+        if (!distributionsRes.ok) throw new Error('Failed to fetch distributions')
+
+        const [familiesData, distributionsData] = await Promise.all([
+          familiesRes.json(),
+          distributionsRes.json(),
+        ])
+
+        setFamilies(Array.isArray(familiesData) ? familiesData : [])
+        setDistributions(Array.isArray(distributionsData) ? distributionsData : [])
+        setLoading(false)
+      })
+      .catch((err) => {
+        setError(err.message || 'Failed to load staff dashboard data.')
+        setLoading(false)
+      })
+  }, [])
+
+  const filteredFamilies = useMemo(
+    () => families.filter((family) => (family.barangay_name || '').toLowerCase() === staffBarangay.toLowerCase()),
+    [families, staffBarangay],
+  )
+
+  const filteredDistributions = useMemo(
+    () => distributions.filter((dist) => (dist.barangay_name || '').toLowerCase() === staffBarangay.toLowerCase()),
+    [distributions, staffBarangay],
+  )
+
+  const assistedFamilyIds = useMemo(() => {
+    const ids = new Set()
+    filteredDistributions.forEach((dist) => {
+      if (dist.family_id !== null && dist.family_id !== undefined) {
+        ids.add(dist.family_id)
+      }
+    })
+    return ids
+  }, [filteredDistributions])
+
+  const thisMonthCompleted = useMemo(() => {
+    const now = new Date()
+    const currentMonth = now.getMonth()
+    const currentYear = now.getFullYear()
+
+    return filteredDistributions.filter((dist) => {
+      if (!dist.date_given) return false
+      const date = new Date(dist.date_given)
+      if (Number.isNaN(date.getTime())) return false
+      return date.getMonth() === currentMonth && date.getFullYear() === currentYear
+    }).length
+  }, [filteredDistributions])
+
+  const pendingDistributions = useMemo(
+    () => filteredDistributions.filter((dist) => String(dist.status || '').toLowerCase() === 'pending').length,
+    [filteredDistributions],
+  )
+
+  const summaryCards = useMemo(() => ([
+    {
+      label: 'Families in Barangay',
+      value: filteredFamilies.length.toString(),
+      sub: `Barangay ${staffBarangay}`,
+      iconBg: 'bg-blue-100',
+      iconText: 'text-blue-600',
+      icon: '👥',
+    },
+    {
+      label: 'Assisted Families',
+      value: assistedFamilyIds.size.toString(),
+      sub: filteredFamilies.length
+        ? `${Math.round((assistedFamilyIds.size / filteredFamilies.length) * 100)}% coverage`
+        : '0% coverage',
+      iconBg: 'bg-emerald-100',
+      iconText: 'text-emerald-600',
+      icon: '🍃',
+    },
+    {
+      label: 'Pending Verification',
+      value: pendingDistributions.toString(),
+      sub: 'Awaiting review',
+      iconBg: 'bg-amber-100',
+      iconText: 'text-amber-600',
+      icon: '⏳',
+    },
+    {
+      label: 'Verified This Month',
+      value: thisMonthCompleted.toString(),
+      sub: 'Recently processed',
+      iconBg: 'bg-violet-100',
+      iconText: 'text-violet-600',
+      icon: '◉',
+    },
+  ]), [assistedFamilyIds.size, filteredFamilies.length, pendingDistributions, staffBarangay, thisMonthCompleted])
 
   const quickActions = [
     { label: 'Add family record', to: '/staff/dashboard', tone: 'bg-blue-600 hover:bg-blue-700' },
@@ -21,12 +119,24 @@ function StaffDashboardPage() {
     { label: 'Open reports', to: '/transparency', tone: 'bg-slate-700 hover:bg-slate-600' },
   ]
 
-  const activityFeed = [
-    'Checked new family submission from Poblacion',
-    'Updated assistance status for 3 households',
-    'Reviewed pending verification for senior citizens',
-    'Logged today\'s field visit notes',
-  ]
+  const activityFeed = useMemo(() => {
+    if (filteredDistributions.length === 0) {
+      return [
+        'Checked new family submission from Poblacion',
+        'Updated assistance status for 3 households',
+        'Reviewed pending verification for senior citizens',
+        'Logged today\'s field visit notes',
+      ]
+    }
+
+    return filteredDistributions
+      .slice(0, 4)
+      .map((dist) => {
+        const recipient = dist.family_name || dist.individual_name || 'recipient'
+        const status = dist.status ? dist.status.toLowerCase() : 'updated'
+        return `Distribution ${status} for ${recipient}`
+      })
+  }, [filteredDistributions])
 
   const nutritionalSlices = [
     { label: 'Normal 42%', width: '42%', color: '#27c18d' },
@@ -92,7 +202,7 @@ function StaffDashboardPage() {
               Welcome, {staffUser?.name || 'Staff User'}
             </h2>
             <p className={`mt-2 text-lg ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
-              Managing data for Barangay {staffUser?.barangay || 'San Jose'}
+              Managing data for Barangay {staffBarangay}
             </p>
           </div>
 
@@ -103,10 +213,22 @@ function StaffDashboardPage() {
               </div>
               <div>
                 <p className={`text-2xl font-bold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>Staff Access</p>
-                <p className={`${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Limited to Barangay {staffUser?.barangay || 'San Jose'} data management</p>
+                <p className={`${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Limited to Barangay {staffBarangay} data management</p>
               </div>
             </div>
           </section>
+
+          {error && (
+            <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
+          {loading && (
+            <p className={`mb-6 text-sm ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+              Loading staff dashboard data...
+            </p>
+          )}
 
           <section id="summary-section" className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
             {summaryCards.map((card) => (

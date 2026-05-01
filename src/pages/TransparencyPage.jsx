@@ -1,9 +1,48 @@
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useDarkMode } from '../hooks/useDarkMode'
 import SiteHeader from '../components/SiteHeader'
 
 function TransparencyPage() {
   const { isDarkMode, toggleDarkMode } = useDarkMode()
+  const [distributions, setDistributions] = useState([])
+  const [foodSupplies, setFoodSupplies] = useState([])
+  const [stats, setStats] = useState(null)
+  const [barangays, setBarangays] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/distributions'),
+      fetch('/api/food-supplies'),
+      fetch('/api/stats'),
+      fetch('/api/barangays'),
+    ])
+      .then(async ([distRes, supplyRes, statsRes, barangaysRes]) => {
+        if (!distRes.ok) throw new Error('Failed to fetch distributions')
+        if (!supplyRes.ok) throw new Error('Failed to fetch food supplies')
+        if (!statsRes.ok) throw new Error('Failed to fetch stats')
+        if (!barangaysRes.ok) throw new Error('Failed to fetch barangays')
+
+        const [distData, supplyData, statsData, barangaysData] = await Promise.all([
+          distRes.json(),
+          supplyRes.json(),
+          statsRes.json(),
+          barangaysRes.json(),
+        ])
+
+        setDistributions(Array.isArray(distData) ? distData : [])
+        setFoodSupplies(Array.isArray(supplyData) ? supplyData : [])
+        setStats(statsData || null)
+        setBarangays(Array.isArray(barangaysData) ? barangaysData : [])
+        setLoading(false)
+      })
+      .catch((err) => {
+        setError(err.message || 'Failed to load transparency data.')
+        setLoading(false)
+      })
+  }, [])
   const transparencyStats = [
     {
       label: 'Total Packages',
@@ -80,8 +119,65 @@ function TransparencyPage() {
     { label: 'Fresh Produce', value: 1350 },
   ]
 
-  const totalBarangayDistribution = barangayDistribution.reduce((sum, item) => sum + item.value, 0)
-  const barangayDistributionPercentages = barangayDistribution.map((item) => ({
+  const resolvedTransparencyStats = useMemo(() => {
+    if (loading || error) return transparencyStats
+
+    const totalFoodSupply = stats?.totalFoodSupply
+      ?? foodSupplies.reduce((sum, item) => sum + (Number(item.total_quantity) || 0), 0)
+    const totalFamilies = stats?.totalFamilies ?? 0
+    const totalDistributions = distributions.length
+    const completedDistributions = distributions.filter((item) => item.status !== 'Pending').length
+    const distributionRate = totalDistributions > 0
+      ? Math.round((completedDistributions / totalDistributions) * 100)
+      : 0
+    const activeBarangays = barangays.length > 0
+      ? barangays.length
+      : new Set(distributions.map((item) => item.barangay_name).filter(Boolean)).size
+
+    return [
+      { ...transparencyStats[0], value: totalFoodSupply.toLocaleString() },
+      { ...transparencyStats[1], value: totalFamilies.toLocaleString() },
+      { ...transparencyStats[2], value: `${distributionRate}%` },
+      { ...transparencyStats[3], value: activeBarangays.toString() },
+    ]
+  }, [loading, error, stats, foodSupplies, distributions, barangays, transparencyStats])
+
+  const resolvedBarangayDistribution = useMemo(() => {
+    if (loading || error || distributions.length === 0) return barangayDistribution
+
+    const counts = distributions.reduce((acc, item) => {
+      const key = item.barangay_name || 'Unknown'
+      acc[key] = (acc[key] || 0) + 1
+      return acc
+    }, {})
+
+    const total = Object.values(counts).reduce((sum, value) => sum + value, 0)
+    const palette = ['#2563eb', '#ea580c', '#16a34a', '#f59e0b', '#ec4899', '#8b5cf6', '#14b8a6', '#84cc16', '#06b6d4', '#ef4444']
+
+    return Object.entries(counts)
+      .map(([name, value], index) => ({
+        name,
+        value,
+        color: palette[index % palette.length],
+      }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 10)
+  }, [loading, error, distributions, barangayDistribution])
+
+  const resolvedAllocationData = useMemo(() => {
+    if (loading || error || foodSupplies.length === 0) return allocationData
+
+    return foodSupplies
+      .map((item) => ({
+        label: item.food_name || 'Food Supply',
+        value: Number(item.total_quantity) || 0,
+      }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 4)
+  }, [loading, error, foodSupplies, allocationData])
+
+  const totalBarangayDistribution = resolvedBarangayDistribution.reduce((sum, item) => sum + item.value, 0)
+  const barangayDistributionPercentages = resolvedBarangayDistribution.map((item) => ({
     ...item,
     percentage: totalBarangayDistribution > 0 ? (item.value / totalBarangayDistribution) * 100 : 0,
   }))
@@ -94,12 +190,12 @@ function TransparencyPage() {
     })
     .join(', ')
 
-  const totalAllocation = allocationData.reduce((sum, item) => sum + item.value, 0)
-  const allocationBreakdown = allocationData.map((item) => ({
+  const totalAllocation = resolvedAllocationData.reduce((sum, item) => sum + item.value, 0)
+  const allocationBreakdown = resolvedAllocationData.map((item) => ({
     ...item,
     percentage: totalAllocation > 0 ? Math.round((item.value / totalAllocation) * 1000) / 10 : 0,
   }))
-  const maxAllocationValue = Math.max(...allocationData.map((item) => item.value), 1)
+  const maxAllocationValue = Math.max(...resolvedAllocationData.map((item) => item.value), 1)
   const allocationAxisMax = Math.ceil(maxAllocationValue / 1000) * 1000
 
   return (
@@ -125,7 +221,7 @@ function TransparencyPage() {
       <section className="mx-auto w-[95%] max-w-7xl pb-10 md:pb-14">
         <div className="space-y-6 md:space-y-8">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {transparencyStats.map((item) => (
+            {resolvedTransparencyStats.map((item) => (
               <article
                 key={item.label}
                 className={`rounded-3xl border p-8 text-center shadow-sm transition-colors ${
@@ -332,7 +428,7 @@ function TransparencyPage() {
                     </text>
                   ))}
 
-                  {allocationData.map((item, index) => {
+                  {resolvedAllocationData.map((item, index) => {
                     const x = 86 + index * 155
                     const barWidth = 120
                     const barHeight = (item.value / allocationAxisMax) * 270

@@ -31,6 +31,8 @@ function AdminSidebar({ isDarkMode }) {
             path: '/admin/barangays',
             children: [
                 { name: 'Add Family', icon: UserPlus, path: '/admin/families/add' },
+                { name: 'Add Individual', icon: UserPlus, path: '/admin/individuals/add' },
+                { name: 'Add Distribution', icon: FileText, path: '/admin/distributions/add' },
             ],
         },
         { name: 'Manage Families', icon: Users, path: '/admin/families' },

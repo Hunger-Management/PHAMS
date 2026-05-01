@@ -1,28 +1,33 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { AlertTriangle, CheckCircle } from 'lucide-react'
-import AdminSidebar from '../components/AdminSidebar'
 import { useDarkMode } from '../../hooks/useDarkMode'
+import AdminSidebar from '../components/AdminSidebar'
 import { apiFetch } from '../../api/api'
 
-export default function AdminCreateAccountPage() {
+const DEFAULT_FORM = {
+  name: '',
+  age: '',
+  gender: 'Male',
+  barangay_id: '',
+  status: 'Registered',
+}
+
+function AddIndividualPage() {
   const { isDarkMode, toggleDarkMode } = useDarkMode()
+  const navigate = useNavigate()
+
+  const [formData, setFormData] = useState(DEFAULT_FORM)
   const [barangays, setBarangays] = useState([])
-  const [loadingBarangays, setLoadingBarangays] = useState(true)
+  const [loading, setLoading] = useState(true)
   const [loadingError, setLoadingError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    role: 'Staff',
-    barangay_id: '',
-  })
 
   useEffect(() => {
     const loadBarangays = async () => {
-      setLoadingBarangays(true)
+      setLoading(true)
       setLoadingError('')
       try {
         const data = await apiFetch('/api/barangays')
@@ -30,7 +35,7 @@ export default function AdminCreateAccountPage() {
       } catch (err) {
         setLoadingError(err.message || 'Failed to load barangays.')
       } finally {
-        setLoadingBarangays(false)
+        setLoading(false)
       }
     }
 
@@ -39,16 +44,6 @@ export default function AdminCreateAccountPage() {
 
   const handleChange = (event) => {
     const { name, value } = event.target
-
-    if (name === 'role') {
-      setFormData((prev) => ({
-        ...prev,
-        role: value,
-        barangay_id: value === 'Staff' ? prev.barangay_id : '',
-      }))
-      return
-    }
-
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
@@ -57,7 +52,7 @@ export default function AdminCreateAccountPage() {
     setErrorMessage('')
     setSuccessMessage('')
 
-    if (!formData.name || !formData.email || !formData.password || !formData.role) {
+    if (!formData.name || !formData.age || !formData.gender || !formData.barangay_id || !formData.status) {
       setErrorMessage('Please complete all required fields before submitting.')
       return
     }
@@ -67,28 +62,26 @@ export default function AdminCreateAccountPage() {
     try {
       const payload = {
         name: formData.name,
-        email: formData.email,
-        password: formData.password,
-        role: formData.role,
-        barangay_id: formData.barangay_id ? Number(formData.barangay_id) : null,
+        age: Number(formData.age),
+        gender: formData.gender,
+        barangay_id: Number(formData.barangay_id),
+        status: formData.status,
       }
 
-      await apiFetch('/api/auth/register', {
+      await apiFetch('/api/individuals', {
         method: 'POST',
         body: JSON.stringify(payload),
       })
 
-      setSuccessMessage('User account created successfully.')
-      setFormData({
-        name: '',
-        email: '',
-        password: '',
-        role: 'Staff',
-        barangay_id: '',
-      })
+      setSuccessMessage('Individual registered successfully.')
+      setFormData(DEFAULT_FORM)
       window.scrollTo({ top: 0, behavior: 'smooth' })
+
+      setTimeout(() => {
+        navigate('/admin/families')
+      }, 700)
     } catch (err) {
-      setErrorMessage(err.message || 'Failed to create user account.')
+      setErrorMessage(err.message || 'Failed to register individual.')
     } finally {
       setSubmitting(false)
     }
@@ -110,29 +103,36 @@ export default function AdminCreateAccountPage() {
   }`
 
   return (
-    <div
-      className={`min-h-screen transition-colors duration-300 ${
-        isDarkMode ? 'bg-[#0b1220] text-slate-100' : 'bg-[#e5e7eb] text-slate-900'
-      }`}
-    >
+    <div className={`flex min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-[#0b1220] text-slate-100' : 'bg-[#e5e7eb] text-slate-900'}`}>
       <AdminSidebar isDarkMode={isDarkMode} />
 
-      <main className="ml-64 p-10">
-        <div className="max-w-4xl mx-auto">
-          <div className="mb-8">
-            <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-              Create User Account
-            </h2>
-            <p className={`text-sm mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-              Add a new admin or staff user for the system.
-            </p>
+      <main className="flex-1 p-8 overflow-auto ml-64">
+        <div className="max-w-3xl mx-auto">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                Register Individual
+              </h2>
+              <p className={`text-sm mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                Add a new individual beneficiary record.
+              </p>
+            </div>
+            <button
+              onClick={() => navigate('/admin/families')}
+              className={`text-sm font-medium px-4 py-2 rounded-lg transition ${isDarkMode
+                ? 'text-slate-300 hover:bg-white/10'
+                : 'text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              ← Back to Families
+            </button>
           </div>
 
           {successMessage ? (
             <div className="mb-6 flex items-start gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
               <CheckCircle size={16} className="mt-0.5 shrink-0" />
               <div>
-                <p className="font-semibold">Account created</p>
+                <p className="font-semibold">Individual registered</p>
                 <p className="mt-0.5">{successMessage}</p>
               </div>
             </div>
@@ -155,7 +155,7 @@ export default function AdminCreateAccountPage() {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className={cardClass}>
               <h3 className={`font-semibold mb-5 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                Account Details
+                Individual Details
               </h3>
 
               <div className="grid gap-4 md:grid-cols-2">
@@ -166,55 +166,45 @@ export default function AdminCreateAccountPage() {
                     value={formData.name}
                     onChange={handleChange}
                     className={inputClass}
-                    placeholder="e.g. Juan Dela Cruz"
+                    placeholder="e.g. Maria Santos"
                   />
                 </div>
 
                 <div>
-                  <label className={labelClass}>Email *</label>
+                  <label className={labelClass}>Age *</label>
                   <input
-                    name="email"
-                    type="email"
-                    value={formData.email}
+                    name="age"
+                    type="number"
+                    min="0"
+                    value={formData.age}
                     onChange={handleChange}
                     className={inputClass}
-                    placeholder="name@example.com"
+                    placeholder="Enter age"
                   />
                 </div>
 
                 <div>
-                  <label className={labelClass}>Password *</label>
-                  <input
-                    name="password"
-                    type="password"
-                    value={formData.password}
-                    onChange={handleChange}
-                    className={inputClass}
-                    placeholder="Create a password"
-                  />
-                </div>
-
-                <div>
-                  <label className={labelClass}>Role *</label>
+                  <label className={labelClass}>Gender *</label>
                   <select
-                    name="role"
-                    value={formData.role}
+                    name="gender"
+                    value={formData.gender}
                     onChange={handleChange}
                     className={inputClass}
                   >
-                    <option value="Admin">Admin</option>
-                    <option value="Staff">Staff</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className={labelClass}>Barangay (optional)</label>
+                  <label className={labelClass}>Barangay *</label>
                   <select
                     name="barangay_id"
                     value={formData.barangay_id}
                     onChange={handleChange}
                     className={inputClass}
-                    disabled={loadingBarangays || formData.role !== 'Staff'}
+                    disabled={loading}
                   >
                     <option value="">Select barangay</option>
                     {barangays.map((barangay) => (
@@ -224,9 +214,22 @@ export default function AdminCreateAccountPage() {
                     ))}
                   </select>
                 </div>
+
+                <div>
+                  <label className={labelClass}>Status *</label>
+                  <select
+                    name="status"
+                    value={formData.status}
+                    onChange={handleChange}
+                    className={inputClass}
+                  >
+                    <option value="Registered">Registered</option>
+                    <option value="Received">Received</option>
+                  </select>
+                </div>
               </div>
 
-              {loadingBarangays ? (
+              {loading ? (
                 <p className={`mt-4 text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                   Loading barangays...
                 </p>
@@ -235,11 +238,21 @@ export default function AdminCreateAccountPage() {
 
             <div className="flex items-center justify-end gap-3">
               <button
+                type="button"
+                onClick={() => navigate('/admin/families')}
+                className={`rounded-full px-5 py-2 text-sm ${isDarkMode
+                  ? 'bg-slate-800 border border-slate-700 text-slate-300'
+                  : 'bg-slate-100 border border-slate-200 text-slate-900'
+                }`}
+              >
+                Cancel
+              </button>
+              <button
                 type="submit"
                 disabled={submitting}
                 className="rounded-full bg-emerald-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60"
               >
-                {submitting ? 'Saving...' : 'Create Account'}
+                {submitting ? 'Saving...' : 'Register Individual'}
               </button>
             </div>
           </form>
@@ -248,8 +261,9 @@ export default function AdminCreateAccountPage() {
 
       <button
         onClick={toggleDarkMode}
-        className={`fixed bottom-5 right-5 z-50 h-12 w-12 rounded-full shadow-lg transition-colors grid place-items-center text-lg font-bold ${
-          isDarkMode ? 'bg-slate-700 text-yellow-300 hover:bg-slate-600' : 'bg-blue-900 text-white hover:bg-blue-800'
+        className={`fixed bottom-5 right-5 z-50 h-12 w-12 rounded-full shadow-lg transition-colors grid place-items-center text-lg font-bold ${isDarkMode
+          ? 'bg-slate-700 text-yellow-300 hover:bg-slate-600'
+          : 'bg-blue-900 text-white hover:bg-blue-800'
         }`}
         aria-label="Toggle dark mode"
       >
@@ -258,3 +272,5 @@ export default function AdminCreateAccountPage() {
     </div>
   )
 }
+
+export default AddIndividualPage

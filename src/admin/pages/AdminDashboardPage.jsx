@@ -1,6 +1,6 @@
 import AdminSidebar from '../components/AdminSidebar'
 import { useLocation } from 'react-router-dom'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useAdminAuth } from '../../context/AdminAuthContext'
 import { useNavigate } from 'react-router-dom'
 import { useDarkMode } from '../../hooks/useDarkMode'
@@ -12,6 +12,12 @@ export default function AdminDashboardPage() {
     const { adminUser } = useAdminAuth()
     const navigate = useNavigate()
     const { isDarkMode, toggleDarkMode } = useDarkMode()
+    const [stats, setStats] = useState(null)
+    const [statsLoading, setStatsLoading] = useState(true)
+    const [statsError, setStatsError] = useState(null)
+    const [barangays, setBarangays] = useState([])
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState(null)
 
     const location = useLocation()
 
@@ -45,13 +51,46 @@ export default function AdminDashboardPage() {
             body.style.overflowX = previousOverflowX
         }
     }, [location])
+    useEffect(() => {
+        fetch('/api/barangays')
+            .then((res) => {
+                if (!res.ok) throw new Error('Failed to fetch barangays')
+                return res.json()
+            })
+            .then((data) => {
+                setBarangays(data)
+                setLoading(false)
+            })
+            .catch((err) => {
+                setError(err.message)
+                setLoading(false)
+            })
+    }, [])
 
-    const stats = [
-        { title: 'Total Families', value: '2,847', sub: '+12% from last month' },
-        { title: 'Barangays Covered', value: '24', sub: 'All barangays active' },
-        { title: 'Families Assisted', value: '1,523', sub: '53.5% assistance rate' },
-        { title: 'Monthly Progress', value: '87%', sub: 'Target: 90%' }
-    ]
+    useEffect(() => {
+        fetch('/api/stats')
+            .then((res) => {
+                if (!res.ok) throw new Error('Failed to fetch stats')
+                return res.json()
+            })
+            .then((data) => {
+                setStats(data)
+                setStatsLoading(false)
+            })
+            .catch((err) => {
+                setStatsError(err.message)
+                setStatsLoading(false)
+            })
+    }, [])
+
+    const statCards = stats
+        ? [
+            { title: 'Total Families', value: stats.totalFamilies, sub: 'All registered households' },
+            { title: 'Total Individuals', value: stats.totalIndividuals, sub: 'All registered individuals' },
+            { title: 'Pending Distributions', value: stats.pendingDistributions, sub: 'Awaiting delivery' },
+            { title: 'Total Food Supply', value: stats.totalFoodSupply, sub: 'Units in stock' },
+        ]
+        : []
 
     return (
         <div
@@ -87,39 +126,101 @@ export default function AdminDashboardPage() {
                     </div>
 
                     {/* STATS */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-                        {stats.map((s, i) => (
-                            <div
-                                key={i}
-                                className={`p-6 rounded-2xl border shadow-sm transition ${isDarkMode
-                                        ? 'bg-[#111c2e] border-white/10'
-                                        : 'bg-white border-slate-200'
+                    <section className="mb-10">
+                        {statsLoading && (
+                            <p className={`${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                                Loading stats...
+                            </p>
+                        )}
+                        {statsError && (
+                            <p className="text-red-500">Error: {statsError}</p>
+                        )}
+                        {!statsLoading && !statsError && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                {statCards.map((s) => (
+                                    <div
+                                        key={s.title}
+                                        className={`p-6 rounded-2xl border shadow-sm transition ${isDarkMode
+                                                ? 'bg-[#111c2e] border-white/10'
+                                                : 'bg-white border-slate-200'
+                                            }`}
+                                    >
+                                        <p
+                                            className={`text-sm ${isDarkMode
+                                                    ? 'text-slate-400'
+                                                    : 'text-slate-500'
+                                                }`}
+                                        >
+                                            {s.title}
+                                        </p>
+
+                                        <h3
+                                            className={`text-2xl font-bold mt-2 ${isDarkMode
+                                                    ? 'text-white'
+                                                    : 'text-slate-900'
+                                                }`}
+                                        >
+                                            {s.value}
+                                        </h3>
+
+                                        <p className="text-xs mt-1 text-slate-400">
+                                            {s.sub}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </section>
+
+                    <section
+                        className={`mb-10 rounded-2xl border shadow-sm ${isDarkMode
+                                ? 'bg-[#111c2e] border-white/10'
+                                : 'bg-white border-slate-200'
+                            }`}
+                    >
+                        <div className="border-b px-6 py-4">
+                            <h3
+                                className={`text-xl font-semibold ${isDarkMode
+                                        ? 'text-white'
+                                        : 'text-slate-900'
                                     }`}
                             >
-                                <p
-                                    className={`text-sm ${isDarkMode
-                                            ? 'text-slate-400'
-                                            : 'text-slate-500'
-                                        }`}
-                                >
-                                    {s.title}
-                                </p>
+                                Barangays
+                            </h3>
+                        </div>
 
-                                <h3
-                                    className={`text-2xl font-bold mt-2 ${isDarkMode
-                                            ? 'text-white'
-                                            : 'text-slate-900'
-                                        }`}
-                                >
-                                    {s.value}
-                                </h3>
-
-                                <p className="text-xs mt-1 text-slate-400">
-                                    {s.sub}
+                        <div className="px-6 py-4">
+                            {loading && (
+                                <p className={`${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                                    Loading barangays...
                                 </p>
-                            </div>
-                        ))}
-                    </div>
+                            )}
+                            {error && (
+                                <p className="text-red-500">Error: {error}</p>
+                            )}
+
+                            {!loading && !error && (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full border-collapse">
+                                        <thead>
+                                            <tr className="bg-emerald-600 text-white">
+                                                <th className="p-3 text-left">ID</th>
+                                                <th className="p-3 text-left">Barangay Name</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {barangays.map((b) => (
+                                                <tr key={b.barangay_id} className="border-b hover:bg-emerald-50">
+                                                    <td className="p-3">{b.barangay_id}</td>
+                                                    <td className="p-3">{b.name}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    </section>
 
                     {/* LOWER SECTION */}
                     <div className="grid md:grid-cols-2 gap-6">
