@@ -177,22 +177,16 @@ function AddFamilyPage() {
 
         try {
             const payload = {
-                ...familyData,
+                family_name: familyData.family_name,
                 barangay_id: parseInt(familyData.barangay_id),
-                monthly_income: familyData.monthly_income === ''
-                    ? null
-                    : parseFloat(familyData.monthly_income),
-                is_npa: familyData.is_npa ? 1 : 0,
-                // MySQL SET type accepts comma-separated string
-                food_assistance_status: familyData.food_assistance_status.length > 0
-                    ? familyData.food_assistance_status.join(',')
-                    : 'None',
+                address: familyData.address,
+                head_of_family: familyData.head_of_family,
+                phone: familyData.contact_number,
                 members: members.map(({ _bmi, ...m }) => ({
-                    ...m,
-                    is_pwd: m.is_pwd ? 1 : 0,
-                    date_of_birth: m.date_of_birth || null,
-                    height_cm: m.height_cm === '' ? null : parseFloat(m.height_cm),
-                    weight_kg: m.weight_kg === '' ? null : parseFloat(m.weight_kg),
+                    first_name: m.first_name,
+                    last_name: m.last_name,
+                    age: getAgeInYears(m.date_of_birth),
+                    gender: m.gender,
                 })),
             }
 
@@ -202,7 +196,7 @@ function AddFamilyPage() {
             })
 
             setSuccessMessage(
-                `Family "${familyData.family_name}" registered successfully. Household ID: ${data.household_id} (DB ID: ${data.family_id}).`
+                `Family "${familyData.family_name}" registered successfully. DB ID: ${data.family_id}.`
             )
 
             // Reset form

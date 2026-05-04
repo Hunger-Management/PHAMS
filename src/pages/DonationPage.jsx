@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useDarkMode } from '../hooks/useDarkMode'
 import Footer from '../components/Footer'
 import SiteHeader from '../components/SiteHeader'
+import { apiFetch } from '../api/api'
 
 const donationChannels = [
   {
@@ -30,19 +31,204 @@ const donationChannels = [
   },
 ]
 
-const recentDonors = []
-
 function DonationPage() {
   const { isDarkMode, toggleDarkMode } = useDarkMode()
   const [selectedChannel, setSelectedChannel] = useState('monetary')
   const [selectedAmount, setSelectedAmount] = useState(500)
   const [customAmount, setCustomAmount] = useState('')
+  const [recentDonors, setRecentDonors] = useState([])
+  const [donorError, setDonorError] = useState('')
+  const [foodSupplies, setFoodSupplies] = useState([])
+  const [foodSuppliesError, setFoodSuppliesError] = useState('')
+  const [foodSubmitting, setFoodSubmitting] = useState(false)
+  const [foodSuccess, setFoodSuccess] = useState('')
+  const [foodError, setFoodError] = useState('')
+  const [foodForm, setFoodForm] = useState({
+    foodId: '',
+    quantity: '',
+    donorName: '',
+    contactInfo: '',
+    dateGiven: '',
+    deliveryMethod: 'I will drop off at the municipal office',
+    pickupAddress: '',
+  })
+  const [suppliesSubmitting, setSuppliesSubmitting] = useState(false)
+  const [suppliesSuccess, setSuppliesSuccess] = useState('')
+  const [suppliesError, setSuppliesError] = useState('')
+  const [suppliesForm, setSuppliesForm] = useState({
+    foodId: '',
+    quantity: '',
+    donorName: '',
+    contactInfo: '',
+    dateGiven: '',
+    condition: 'Brand New',
+    notes: '',
+  })
 
   const donationAmounts = [500, 1000, 2500, 5000, 10000]
   const resolvedAmount = Number(customAmount) > 0 ? Number(customAmount) : selectedAmount
 
   function formatPhpAmount(amount) {
     return new Intl.NumberFormat('en-PH').format(amount)
+  }
+
+  const formatDonationDate = (value) => {
+    const parsed = new Date(value)
+    if (Number.isNaN(parsed.getTime())) return 'Recently'
+    return parsed.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+  }
+
+  const loadRecentDonors = () => {
+    fetch('/api/donations')
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to fetch donors')
+        return res.json()
+      })
+      .then((data) => {
+        const list = Array.isArray(data) ? data : []
+        const mapped = list.slice(0, 6).map((item, index) => ({
+          name: item.donor_name || 'Anonymous',
+          type: item.food_name ? `Donation: ${item.food_name}` : 'Donation',
+          amount: item.quantity ? `${item.quantity} ${item.unit || ''}`.trim() : '—',
+          when: formatDonationDate(item.date_given),
+          id: item.donation_id || `${item.donor_name || 'donor'}-${index}`,
+        }))
+        setRecentDonors(mapped)
+        setDonorError('')
+      })
+      .catch((err) => {
+        setDonorError(err.message || 'Unable to load donors.')
+        setRecentDonors([])
+      })
+  }
+
+  const loadFoodSupplies = () => {
+    fetch('/api/food-supplies')
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to fetch food supplies')
+        return res.json()
+      })
+      .then((data) => {
+        setFoodSupplies(Array.isArray(data) ? data : [])
+        setFoodSuppliesError('')
+      })
+      .catch((err) => {
+        setFoodSupplies([])
+        setFoodSuppliesError(err.message || 'Unable to load food supplies.')
+      })
+  }
+
+  useEffect(() => {
+    loadRecentDonors()
+    loadFoodSupplies()
+  }, [])
+
+  const handleFoodChange = (event) => {
+    const { name, value } = event.target
+    setFoodForm((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleSuppliesChange = (event) => {
+    const { name, value } = event.target
+    setSuppliesForm((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleFoodSubmit = async (event) => {
+    event.preventDefault()
+    setFoodSuccess('')
+    setFoodError('')
+
+    if (!foodForm.donorName || !foodForm.contactInfo || !foodForm.foodId || !foodForm.quantity || !foodForm.dateGiven) {
+      setFoodError('Please complete all required fields before submitting.')
+      return
+    }
+
+    setFoodSubmitting(true)
+
+    try {
+      const donor = await apiFetch('/api/donors', {
+        method: 'POST',
+        body: JSON.stringify({
+          donor_name: foodForm.donorName,
+          contact_info: foodForm.contactInfo,
+        }),
+      })
+
+      await apiFetch('/api/donations', {
+        method: 'POST',
+        body: JSON.stringify({
+          donor_id: donor.donor_id,
+          food_id: Number(foodForm.foodId),
+          quantity: Number(foodForm.quantity),
+          date_given: foodForm.dateGiven,
+        }),
+      })
+
+      setFoodSuccess('Thank you! Your food donation has been recorded.')
+      setFoodForm({
+        foodId: '',
+        quantity: '',
+        donorName: '',
+        contactInfo: '',
+        dateGiven: '',
+        deliveryMethod: 'I will drop off at the municipal office',
+        pickupAddress: '',
+      })
+      loadRecentDonors()
+    } catch (err) {
+      setFoodError(err.message || 'Unable to record donation right now.')
+    } finally {
+      setFoodSubmitting(false)
+    }
+  }
+
+  const handleSuppliesSubmit = async (event) => {
+    event.preventDefault()
+    setSuppliesSuccess('')
+    setSuppliesError('')
+
+    if (!suppliesForm.donorName || !suppliesForm.contactInfo || !suppliesForm.foodId || !suppliesForm.quantity || !suppliesForm.dateGiven) {
+      setSuppliesError('Please complete all required fields before submitting.')
+      return
+    }
+
+    setSuppliesSubmitting(true)
+
+    try {
+      const donor = await apiFetch('/api/donors', {
+        method: 'POST',
+        body: JSON.stringify({
+          donor_name: suppliesForm.donorName,
+          contact_info: suppliesForm.contactInfo,
+        }),
+      })
+
+      await apiFetch('/api/donations', {
+        method: 'POST',
+        body: JSON.stringify({
+          donor_id: donor.donor_id,
+          food_id: Number(suppliesForm.foodId),
+          quantity: Number(suppliesForm.quantity),
+          date_given: suppliesForm.dateGiven,
+        }),
+      })
+
+      setSuppliesSuccess('Thank you! Your supplies donation has been recorded.')
+      setSuppliesForm({
+        foodId: '',
+        quantity: '',
+        donorName: '',
+        contactInfo: '',
+        dateGiven: '',
+        condition: 'Brand New',
+        notes: '',
+      })
+      loadRecentDonors()
+    } catch (err) {
+      setSuppliesError(err.message || 'Unable to record donation right now.')
+    } finally {
+      setSuppliesSubmitting(false)
+    }
   }
 
   return (
@@ -311,7 +497,23 @@ function DonationPage() {
               Donate rice, canned goods, vegetables, or other food items
             </p>
 
-            <form className="mt-7 space-y-4">
+            {foodSuccess && (
+              <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                {foodSuccess}
+              </div>
+            )}
+            {foodError && (
+              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {foodError}
+              </div>
+            )}
+            {foodSuppliesError && (
+              <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                {foodSuppliesError}
+              </div>
+            )}
+
+            <form className="mt-7 space-y-4" onSubmit={handleFoodSubmit}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="food-type" className={`mb-1 block text-base md:text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
@@ -319,7 +521,9 @@ function DonationPage() {
                   </label>
                   <select
                     id="food-type"
-                    defaultValue=""
+                    name="foodId"
+                    value={foodForm.foodId}
+                    onChange={handleFoodChange}
                     className={`w-full max-w-xs rounded-lg border px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-blue-500/40 ${
                       isDarkMode
                         ? 'border-slate-600 bg-slate-800 text-slate-100'
@@ -327,10 +531,11 @@ function DonationPage() {
                     }`}
                   >
                     <option value="" disabled>Select food type</option>
-                    <option>Rice</option>
-                    <option>Canned Goods</option>
-                    <option>Vegetables</option>
-                    <option>Mixed Goods</option>
+                    {foodSupplies.map((item) => (
+                      <option key={item.food_id} value={item.food_id}>
+                        {item.food_name}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -339,7 +544,11 @@ function DonationPage() {
                   </label>
                   <input
                     id="estimated-quantity"
-                    type="text"
+                    name="quantity"
+                    type="number"
+                    min="1"
+                    value={foodForm.quantity}
+                    onChange={handleFoodChange}
                     placeholder="e.g., 50kg, 100 cans"
                     className={`w-full rounded-lg border px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-blue-500/40 ${
                       isDarkMode
@@ -354,7 +563,10 @@ function DonationPage() {
                   </label>
                   <input
                     id="food-fullname"
+                    name="donorName"
                     type="text"
+                    value={foodForm.donorName}
+                    onChange={handleFoodChange}
                     placeholder="Name or organization"
                     className={`w-full rounded-lg border px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-blue-500/40 ${
                       isDarkMode
@@ -369,7 +581,10 @@ function DonationPage() {
                   </label>
                   <input
                     id="food-contact"
+                    name="contactInfo"
                     type="text"
+                    value={foodForm.contactInfo}
+                    onChange={handleFoodChange}
                     placeholder="09XX XXX XXXX"
                     className={`w-full rounded-lg border px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-blue-500/40 ${
                       isDarkMode
@@ -379,12 +594,31 @@ function DonationPage() {
                   />
                 </div>
                 <div>
+                  <label htmlFor="food-date" className={`mb-1 block text-base md:text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
+                    Date Given
+                  </label>
+                  <input
+                    id="food-date"
+                    name="dateGiven"
+                    type="date"
+                    value={foodForm.dateGiven}
+                    onChange={handleFoodChange}
+                    className={`w-full max-w-xs rounded-lg border px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-blue-500/40 ${
+                      isDarkMode
+                        ? 'border-slate-600 bg-slate-800 text-slate-100'
+                        : 'border-slate-300 bg-[#f5f7f9] text-slate-900'
+                    }`}
+                  />
+                </div>
+                <div>
                   <label htmlFor="delivery-method" className={`mb-1 block text-base md:text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
                     Delivery Method
                   </label>
                   <select
                     id="delivery-method"
-                    defaultValue="I will drop off at the municipal office"
+                    name="deliveryMethod"
+                    value={foodForm.deliveryMethod}
+                    onChange={handleFoodChange}
                     className={`w-full max-w-md rounded-lg border px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-blue-500/40 ${
                       isDarkMode
                         ? 'border-slate-600 bg-slate-800 text-slate-100'
@@ -404,6 +638,9 @@ function DonationPage() {
                 <textarea
                   id="pickup-address"
                   rows="3"
+                  name="pickupAddress"
+                  value={foodForm.pickupAddress}
+                  onChange={handleFoodChange}
                   placeholder="Full address for pickup..."
                   className={`w-full rounded-lg border px-4 py-3 text-base outline-none focus:ring-2 focus:ring-blue-500/40 ${
                     isDarkMode
@@ -414,10 +651,11 @@ function DonationPage() {
               </div>
 
               <button
-                type="button"
-                className="mt-2 w-full rounded-lg bg-blue-700 px-5 py-3 text-base md:text-lg font-semibold text-white transition-colors hover:bg-blue-800"
+                type="submit"
+                disabled={foodSubmitting}
+                className="mt-2 w-full rounded-lg bg-blue-700 px-5 py-3 text-base md:text-lg font-semibold text-white transition-colors hover:bg-blue-800 disabled:opacity-60"
               >
-                📦 Submit Food Donation
+                {foodSubmitting ? 'Submitting...' : '📦 Submit Food Donation'}
               </button>
             </form>
           </article>
@@ -437,7 +675,23 @@ function DonationPage() {
               Donate cooking equipment, containers, or distribution materials
             </p>
 
-            <form className="mt-7 space-y-4">
+            {suppliesSuccess && (
+              <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                {suppliesSuccess}
+              </div>
+            )}
+            {suppliesError && (
+              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {suppliesError}
+              </div>
+            )}
+            {foodSuppliesError && (
+              <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                {foodSuppliesError}
+              </div>
+            )}
+
+            <form className="mt-7 space-y-4" onSubmit={handleSuppliesSubmit}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="supplies-type" className={`mb-1 block text-base md:text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
@@ -445,7 +699,9 @@ function DonationPage() {
                   </label>
                   <select
                     id="supplies-type"
-                    defaultValue=""
+                    name="foodId"
+                    value={suppliesForm.foodId}
+                    onChange={handleSuppliesChange}
                     className={`w-full max-w-xs rounded-lg border px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-blue-500/40 ${
                       isDarkMode
                         ? 'border-slate-600 bg-slate-800 text-slate-100'
@@ -453,10 +709,11 @@ function DonationPage() {
                     }`}
                   >
                     <option value="" disabled>Select supplies type</option>
-                    <option>Containers</option>
-                    <option>Cooking Equipment</option>
-                    <option>Distribution Materials</option>
-                    <option>Other Supplies</option>
+                    {foodSupplies.map((item) => (
+                      <option key={item.food_id} value={item.food_id}>
+                        {item.food_name}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -466,7 +723,11 @@ function DonationPage() {
                   </label>
                   <input
                     id="supplies-quantity"
-                    type="text"
+                    name="quantity"
+                    type="number"
+                    min="1"
+                    value={suppliesForm.quantity}
+                    onChange={handleSuppliesChange}
                     placeholder="e.g., 10 large pots, 50 containers"
                     className={`w-full rounded-lg border px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-blue-500/40 ${
                       isDarkMode
@@ -482,7 +743,10 @@ function DonationPage() {
                   </label>
                   <input
                     id="supplies-donor"
+                    name="donorName"
                     type="text"
+                    value={suppliesForm.donorName}
+                    onChange={handleSuppliesChange}
                     placeholder="Name or organization"
                     className={`w-full rounded-lg border px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-blue-500/40 ${
                       isDarkMode
@@ -498,7 +762,10 @@ function DonationPage() {
                   </label>
                   <input
                     id="supplies-contact"
+                    name="contactInfo"
                     type="text"
+                    value={suppliesForm.contactInfo}
+                    onChange={handleSuppliesChange}
                     placeholder="09XX XXX XXXX"
                     className={`w-full rounded-lg border px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-blue-500/40 ${
                       isDarkMode
@@ -509,12 +776,32 @@ function DonationPage() {
                 </div>
 
                 <div>
+                  <label htmlFor="supplies-date" className={`mb-1 block text-base md:text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
+                    Date Given
+                  </label>
+                  <input
+                    id="supplies-date"
+                    name="dateGiven"
+                    type="date"
+                    value={suppliesForm.dateGiven}
+                    onChange={handleSuppliesChange}
+                    className={`w-full max-w-xs rounded-lg border px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-blue-500/40 ${
+                      isDarkMode
+                        ? 'border-slate-600 bg-slate-800 text-slate-100'
+                        : 'border-slate-300 bg-[#f5f7f9] text-slate-900'
+                    }`}
+                  />
+                </div>
+
+                <div>
                   <label htmlFor="supplies-condition" className={`mb-1 block text-base md:text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
                     Item Condition
                   </label>
                   <select
                     id="supplies-condition"
-                    defaultValue="Brand New"
+                    name="condition"
+                    value={suppliesForm.condition}
+                    onChange={handleSuppliesChange}
                     className={`w-full max-w-xs rounded-lg border px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-blue-500/40 ${
                       isDarkMode
                         ? 'border-slate-600 bg-slate-800 text-slate-100'
@@ -535,6 +822,9 @@ function DonationPage() {
                 <textarea
                   id="supplies-notes"
                   rows="3"
+                  name="notes"
+                  value={suppliesForm.notes}
+                  onChange={handleSuppliesChange}
                   placeholder="Any additional details about the supplies..."
                   className={`w-full rounded-lg border px-4 py-3 text-base outline-none focus:ring-2 focus:ring-blue-500/40 ${
                     isDarkMode
@@ -545,10 +835,11 @@ function DonationPage() {
               </div>
 
               <button
-                type="button"
-                className="mt-2 w-full rounded-lg bg-blue-700 px-5 py-3 text-base md:text-lg font-semibold text-white transition-colors hover:bg-blue-800"
+                type="submit"
+                disabled={suppliesSubmitting}
+                className="mt-2 w-full rounded-lg bg-blue-700 px-5 py-3 text-base md:text-lg font-semibold text-white transition-colors hover:bg-blue-800 disabled:opacity-60"
               >
-                📦 Submit Supplies Donation
+                {suppliesSubmitting ? 'Submitting...' : '📦 Submit Supplies Donation'}
               </button>
             </form>
           </article>
@@ -577,7 +868,7 @@ function DonationPage() {
             <div className="mt-6 space-y-3">
               {recentDonors.map((donor) => (
                 <div
-                  key={`${donor.name}-${donor.when}`}
+                  key={donor.id}
                   className={`flex items-center justify-between rounded-xl border px-4 py-3 md:px-5 md:py-4 ${
                     isDarkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-[#e8edf1]'
                   }`}
@@ -615,7 +906,7 @@ function DonationPage() {
             <div className={`mt-6 rounded-xl border px-4 py-5 text-sm md:text-base ${
               isDarkMode ? 'border-slate-700 bg-slate-800 text-slate-300' : 'border-slate-200 bg-[#e8edf1] text-slate-700'
             }`}>
-              Recent donor entries will appear here once real donation records are available.
+              {donorError || 'Recent donor entries will appear here once real donation records are available.'}
             </div>
           )}
 

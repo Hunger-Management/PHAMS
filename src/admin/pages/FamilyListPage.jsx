@@ -48,7 +48,7 @@ function FamilyListPage() {
         setError('')
         try {
             const data = await apiFetch('/api/families')
-            setFamilies(data.families)
+            setFamilies(Array.isArray(data) ? data : (data.families || []))
         } catch (err) {
             const local = loadLocal()
             if (local.length) {
@@ -211,7 +211,11 @@ function FamilyListPage() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-white/5">
-                                        {filtered.map((family) => (
+                                        {filtered.map((family) => {
+                                            const priorityScore = Number(family.priority_score)
+                                            const hasPriorityScore = Number.isFinite(priorityScore)
+
+                                            return (
                                             <tr
                                                 key={family.family_id}
                                                 className={`transition ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-slate-50'
@@ -232,24 +236,30 @@ function FamilyListPage() {
 
                                                 {/* Barangay */}
                                                 <td className={`px-6 py-4 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
-                                                    {family.barangay_name}
+                                                    {family.barangay_name || '—'}
                                                 </td>
 
                                                 {/* Member count */}
                                                 <td className={`px-6 py-4 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
-                                                    {family.member_count}
+                                                    {family.member_count ?? '—'}
                                                 </td>
 
                                                 {/* Priority score */}
                                                 <td className="px-6 py-4">
-                                                    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${parseFloat(family.priority_score) >= 60
-                                                            ? 'bg-red-100 text-red-700'
-                                                            : parseFloat(family.priority_score) >= 30
-                                                                ? 'bg-amber-100 text-amber-700'
-                                                                : 'bg-green-100 text-green-700'
-                                                        }`}>
-                                                        {parseFloat(family.priority_score).toFixed(1)}
-                                                    </span>
+                                                    {hasPriorityScore ? (
+                                                        <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${priorityScore >= 60
+                                                                ? 'bg-red-100 text-red-700'
+                                                                : priorityScore >= 30
+                                                                    ? 'bg-amber-100 text-amber-700'
+                                                                    : 'bg-green-100 text-green-700'
+                                                            }`}>
+                                                            {priorityScore.toFixed(1)}
+                                                        </span>
+                                                    ) : (
+                                                        <span className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                                            —
+                                                        </span>
+                                                    )}
                                                 </td>
 
                                                 {/* Food assistance status */}
@@ -301,7 +311,8 @@ function FamilyListPage() {
                                                     )}
                                                 </td>
                                             </tr>
-                                        ))}
+                                            )
+                                        })}
                                     </tbody>
                                 </table>
                             </div>

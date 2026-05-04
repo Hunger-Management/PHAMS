@@ -1,8 +1,10 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useMemo, useState } from 'react'
+import { apiFetch } from '../api/api'
 
 const STAFF_STORAGE_KEY = 'staff-auth-user'
 const STAFF_ACCOUNTS_STORAGE_KEY = 'staff-accounts'
+const STAFF_TOKEN_KEY = 'phams-token'
 const DEMO_STAFF = {
   username: 'staff',
   password: 'staff123',
@@ -92,43 +94,61 @@ export function StaffAuthProvider({ children }) {
     return { ok: true, message: 'Staff account deleted successfully.' }
   }
 
-  const login = (username, password) => {
-    const normalizedUsername = username.trim().toLowerCase()
+  const login = async (emailOrUsername, password) => {
+    const normalizedUsername = emailOrUsername.trim().toLowerCase()
 
-    if (
-      normalizedUsername === DEMO_STAFF.username &&
-      password === DEMO_STAFF.password
-    ) {
-      const nextUser = {
-        username: DEMO_STAFF.username,
-        name: DEMO_STAFF.name,
-        role: DEMO_STAFF.role,
-        barangay: DEMO_STAFF.barangay,
+    try {
+      const data = await apiFetch('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email: emailOrUsername, password }),
+      })
+
+      if (data.user.role !== 'Staff') {
+        return { ok: false, message: 'Access denied. Staff credentials required.' }
       }
-      setStaffUser(nextUser)
-      localStorage.setItem(STAFF_STORAGE_KEY, JSON.stringify(nextUser))
+
+      localStorage.setItem(STAFF_TOKEN_KEY, data.token)
+      localStorage.setItem(STAFF_STORAGE_KEY, JSON.stringify(data.user))
+      setStaffUser(data.user)
       return { ok: true }
-    }
-
-    const matchedAccount = staffAccounts.find(
-      (account) =>
-        account.username === normalizedUsername &&
-        account.password === password,
-    )
-
-    if (matchedAccount) {
-      const nextUser = {
-        username: matchedAccount.username,
-        name: matchedAccount.name,
-        role: matchedAccount.role,
-        barangay: matchedAccount.barangay,
+    } catch (err) {
+      if (
+        normalizedUsername === DEMO_STAFF.username &&
+        password === DEMO_STAFF.password
+      ) {
+        const nextUser = {
+          username: DEMO_STAFF.username,
+          name: DEMO_STAFF.name,
+          role: DEMO_STAFF.role,
+          barangay: DEMO_STAFF.barangay,
+        }
+        setStaffUser(nextUser)
+        localStorage.setItem(STAFF_TOKEN_KEY, 'demo-staff-token')
+        localStorage.setItem(STAFF_STORAGE_KEY, JSON.stringify(nextUser))
+        return { ok: true }
       }
-      setStaffUser(nextUser)
-      localStorage.setItem(STAFF_STORAGE_KEY, JSON.stringify(nextUser))
-      return { ok: true }
-    }
 
-    return { ok: false, message: 'Invalid username or password.' }
+      const matchedAccount = staffAccounts.find(
+        (account) =>
+          account.username === normalizedUsername &&
+          account.password === password,
+      )
+
+      if (matchedAccount) {
+        const nextUser = {
+          username: matchedAccount.username,
+          name: matchedAccount.name,
+          role: matchedAccount.role,
+          barangay: matchedAccount.barangay,
+        }
+        setStaffUser(nextUser)
+        localStorage.setItem(STAFF_TOKEN_KEY, 'demo-staff-token')
+        localStorage.setItem(STAFF_STORAGE_KEY, JSON.stringify(nextUser))
+        return { ok: true }
+      }
+
+      return { ok: false, message: err.message || 'Invalid email or password.' }
+    }
   }
 
   const logout = () => {

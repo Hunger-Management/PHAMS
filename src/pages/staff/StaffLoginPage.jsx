@@ -12,7 +12,7 @@ function StaffLoginPage() {
     const location = useLocation()
     const forceRoleChoice = location.state?.forceRoleChoice === true
 
-    const [formData, setFormData] = useState({ username: '', email: '', password: '' })
+    const [formData, setFormData] = useState({ email: '', password: '' })
     const [errorMessage, setErrorMessage] = useState('')
     const [selectedRole, setSelectedRole] = useState(null)
 
@@ -48,7 +48,7 @@ function StaffLoginPage() {
                 return
             }
 
-            const result = staffLogin(formData.username, formData.password)
+            const result = await staffLogin(formData.email, formData.password)
 
             if (!result.ok) {
                 setErrorMessage(result.message)
@@ -273,22 +273,23 @@ function StaffLoginPage() {
 
                                 <form onSubmit={handleSubmit} className="mt-6 grid gap-4 md:grid-cols-2">
                                     <div>
-                                        <label htmlFor="username" className={`mb-1.5 block text-xs font-semibold uppercase tracking-[0.08em] ${isDarkMode ? 'text-slate-300' : 'text-slate-600'
+                                        <label htmlFor="email" className={`mb-1.5 block text-xs font-semibold uppercase tracking-[0.08em] ${isDarkMode ? 'text-slate-300' : 'text-slate-600'
                                             }`}>
-                                            Username
+                                            Email
                                         </label>
                                         <input
-                                            id="username"
-                                            name="username"
-                                            value={formData.username}
+                                            id="email"
+                                            name="email"
+                                            type="email"
+                                            value={formData.email}
                                             onChange={handleChange}
-                                            autoComplete="username"
+                                            autoComplete="email"
                                             required
                                             className={`w-full rounded-md border px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/40 ${isDarkMode
                                                     ? 'border-slate-600 bg-slate-900 text-slate-100 placeholder-slate-500'
                                                     : 'border-slate-300 bg-white text-slate-900 placeholder-slate-400'
                                                 }`}
-                                            placeholder="Enter username"
+                                            placeholder="Enter email"
                                         />
                                     </div>
 
@@ -328,7 +329,7 @@ function StaffLoginPage() {
                                             Sign In
                                         </button>
                                         <p className={`mt-3 text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                                            Use demo: <span className="font-semibold">staff</span> / <span className="font-semibold">staff123</span> or any admin-created staff account.
+                                            Use your staff email and password. Demo: <span className="font-semibold">staff</span> / <span className="font-semibold">staff123</span>
                                         </p>
                                     </div>
                                 </form>

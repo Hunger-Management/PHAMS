@@ -1,9 +1,29 @@
 import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import { useDarkMode } from '../hooks/useDarkMode'
 import SiteHeader from '../components/SiteHeader'
 
 function BarangaysPage() {
   const { isDarkMode, toggleDarkMode } = useDarkMode()
+  const [barangays, setBarangays] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    fetch('/api/barangays')
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to fetch barangays')
+        return res.json()
+      })
+      .then((data) => {
+        setBarangays(data)
+        setLoading(false)
+      })
+      .catch((err) => {
+        setError(err.message)
+        setLoading(false)
+      })
+  }, [])
 
   return (
     <main className={`min-h-screen transition-colors ${
@@ -21,6 +41,38 @@ function BarangaysPage() {
           <p className={`mt-4 leading-relaxed ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
             View barangay-level records, monitor food supply requests, and track assistance distribution across local areas.
           </p>
+
+          <div className="mt-6">
+            {loading && (
+              <p className={`${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                Loading barangays...
+              </p>
+            )}
+            {error && (
+              <p className="text-red-500">Error: {error}</p>
+            )}
+
+            {!loading && !error && (
+              <div className="overflow-hidden rounded-xl border">
+                <table className="w-full text-sm">
+                  <thead className={`${isDarkMode ? 'bg-slate-900/40 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
+                    <tr>
+                      <th className="px-4 py-3 text-left font-semibold">ID</th>
+                      <th className="px-4 py-3 text-left font-semibold">Barangay</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {barangays.map((b) => (
+                      <tr key={b.barangay_id} className={`${isDarkMode ? 'border-slate-700' : 'border-slate-200'} border-t`}>
+                        <td className="px-4 py-3">{b.barangay_id}</td>
+                        <td className="px-4 py-3">{b.name}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
 
           <div className="mt-6">
             <Link

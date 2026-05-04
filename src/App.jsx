@@ -25,6 +25,8 @@ import AdminProtectedRoute from './components/auth/AdminProtectedRoute'
 import { Route, Routes } from 'react-router-dom'
 import FamilyListPage from './admin/pages/FamilyListPage'
 import AddFamilyPage from './admin/pages/AddFamilyPage'
+import AddDistributionPage from './admin/pages/AddDistributionPage'
+import AddIndividualPage from './admin/pages/AddIndividualPage'
 
 function App() {
   return (
@@ -56,6 +58,8 @@ function App() {
         <Route path="/admin/create-account" element={<AdminCreateAccountPage />} />
         <Route path="/admin/families" element={<FamilyListPage />} />
         <Route path="/admin/families/add" element={<AddFamilyPage />} />
+        <Route path="/admin/distributions/add" element={<AddDistributionPage />} />
+        <Route path="/admin/individuals/add" element={<AddIndividualPage />} />
       </Route>
     </Routes>
   )

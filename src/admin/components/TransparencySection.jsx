@@ -1,71 +1,126 @@
-import { Trash2, Download } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Download } from 'lucide-react'
+import { useStaffAuth } from '../../context/StaffAuthContext'
 
 export default function TransparencySection({ isDarkMode }) {
-  // Mock transparency data
-  const recentActivities = [
-    {
-      id: 1,
-      date: '2024-04-25',
-      time: '2:30 PM',
-      action: 'Food Distribution',
-      details: 'Distributed 50 food packs to Poblacion barangay',
-      staff: 'Maria Santos',
-      status: 'Completed',
-    },
-    {
-      id: 2,
-      date: '2024-04-25',
-      time: '1:15 PM',
-      action: 'New Family Registration',
-      details: '5 new families registered in San Pedro',
-      staff: 'John Reyes',
-      status: 'Completed',
-    },
-    {
-      id: 3,
-      date: '2024-04-24',
-      time: '4:45 PM',
-      action: 'Inventory Update',
-      details: 'Rice inventory updated - received 100 sacks',
-      staff: 'Admin System',
-      status: 'Completed',
-    },
-    {
-      id: 4,
-      date: '2024-04-24',
-      time: '11:20 AM',
-      action: 'Cash Assistance',
-      details: 'Provided cash assistance to 25 families',
-      staff: 'Elena Cruz',
-      status: 'Completed',
-    },
-    {
-      id: 5,
-      date: '2024-04-23',
-      time: '3:00 PM',
-      action: 'Medical Assistance',
-      details: 'Coordinated medical checkup for 15 families',
-      staff: 'Dr. Robert Santos',
-      status: 'Completed',
-    },
-  ]
+  const { staffAccounts } = useStaffAuth()
+  const [distributions, setDistributions] = useState([])
+  const [foodSupplies, setFoodSupplies] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
-  const assistanceBreakdown = [
-    { category: 'Food Packs', count: 245, percentage: 35 },
-    { category: 'Rice Distribution', count: 180, percentage: 26 },
-    { category: 'Cash Assistance', count: 160, percentage: 23 },
-    { category: 'Medical Support', count: 95, percentage: 14 },
-    { category: 'Other Programs', count: 20, percentage: 3 },
-  ]
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/distributions'),
+      fetch('/api/food-supplies'),
+    ])
+      .then(async ([distRes, supplyRes]) => {
+        if (!distRes.ok) throw new Error('Failed to fetch distributions')
+        if (!supplyRes.ok) throw new Error('Failed to fetch food supplies')
 
-  const barangayDistribution = [
-    { barangay: 'Poblacion', families: 450, percentage: 18 },
-    { barangay: 'Tabacalera', families: 380, percentage: 15 },
-    { barangay: 'San Roque', families: 340, percentage: 14 },
-    { barangay: 'Magtanggol', families: 310, percentage: 12 },
-    { barangay: 'Aguho', families: 290, percentage: 11 },
-    { barangay: 'Others', families: 397, percentage: 30 },
-  ]
+        const [distData, supplyData] = await Promise.all([
+          distRes.json(),
+          supplyRes.json(),
+        ])
+
+        setDistributions(Array.isArray(distData) ? distData : [])
+        setFoodSupplies(Array.isArray(supplyData) ? supplyData : [])
+        setLoading(false)
+      })
+      .catch((err) => {
+        setError(err.message || 'Failed to load transparency data.')
+        setLoading(false)
+      })
+  }, [])
+
+  const formatDate = (value) => {
+    const parsed = new Date(value)
+    if (Number.isNaN(parsed.getTime())) return '—'
+    return parsed.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+  }
+
+  const formatTime = (value) => {
+    const parsed = new Date(value)
+    if (Number.isNaN(parsed.getTime())) return '—'
+    return parsed.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  }
+
+  const recentActivities = useMemo(() => {
+    const sorted = [...distributions].sort((a, b) => {
+      const aTime = new Date(a.date_given || 0).getTime()
+      const bTime = new Date(b.date_given || 0).getTime()
+      return bTime - aTime
+    })
+
+    return sorted.slice(0, 5).map((activity, index) => {
+      const recipient = activity.family_name || activity.individual_name || 'recipient'
+      const itemName = activity.food_name || 'food supplies'
+      const quantity = activity.quantity ? `${activity.quantity} ${activity.unit || ''}`.trim() : 'Assistance'
+
+      return {
+        id: activity.distribution_id || index,
+        date: formatDate(activity.date_given),
+        time: formatTime(activity.date_given),
+        action: 'Food Distribution',
+        details: `${quantity} of ${itemName} delivered to ${recipient}`,
+        staff: 'Admin System',
+        status: activity.status || 'Completed',
+      }
+    })
+  }, [distributions])
+
+  const assistanceBreakdown = useMemo(() => {
+    const totals = foodSupplies.map((supply) => ({
+      category: supply.food_name || 'Unknown',
+      count: Number(supply.total_quantity) || 0,
+    }))
+
+    const totalCount = totals.reduce((sum, item) => sum + item.count, 0)
+    return totals
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5)
+      .map((item) => ({
+        ...item,
+        percentage: totalCount > 0 ? Math.round((item.count / totalCount) * 100) : 0,
+      }))
+  }, [foodSupplies])
+
+  const barangayDistribution = useMemo(() => {
+    const counts = distributions.reduce((acc, item) => {
+      const key = item.barangay_name || 'Unknown'
+      acc[key] = (acc[key] || 0) + 1
+      return acc
+    }, {})
+
+    const items = Object.entries(counts).map(([barangay, families]) => ({ barangay, families }))
+    const total = items.reduce((sum, item) => sum + item.families, 0)
+
+    return items
+      .sort((a, b) => b.families - a.families)
+      .slice(0, 6)
+      .map((item) => ({
+        ...item,
+        percentage: total > 0 ? Math.round((item.families / total) * 100) : 0,
+      }))
+  }, [distributions])
+
+  const summaryStats = useMemo(() => {
+    const totalAssistance = distributions.length
+    const uniqueFamilies = new Set(
+      distributions.map((item) => item.family_id).filter((value) => value !== null && value !== undefined),
+    )
+    const totalCompleted = distributions.filter((item) => item.status !== 'Pending').length
+    const complianceRate = totalAssistance > 0
+      ? Math.round((totalCompleted / totalAssistance) * 100)
+      : 0
+
+    return {
+      totalAssistance,
+      familiesServed: uniqueFamilies.size,
+      activeStaff: staffAccounts.length,
+      complianceRate,
+    }
+  }, [distributions, staffAccounts.length])
 
   const handleDownload = () => {
     alert('Downloading transparency report...')
@@ -81,6 +136,14 @@ export default function TransparencySection({ isDarkMode }) {
         <p className={`text-sm mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
           Complete activity log and assistance breakdown
         </p>
+        {loading && (
+          <p className={`mt-2 text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+            Loading transparency data...
+          </p>
+        )}
+        {error && (
+          <p className="mt-2 text-xs text-red-500">Error: {error}</p>
+        )}
       </div>
 
       {/* SUMMARY STATS */}
@@ -100,7 +163,7 @@ export default function TransparencySection({ isDarkMode }) {
               isDarkMode ? 'text-white' : 'text-slate-900'
             }`}
           >
-            690
+            {summaryStats.totalAssistance}
           </h3>
           <p className={`text-xs mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>
             All forms of assistance
@@ -122,7 +185,7 @@ export default function TransparencySection({ isDarkMode }) {
               isDarkMode ? 'text-white' : 'text-slate-900'
             }`}
           >
-            2,547
+            {summaryStats.familiesServed}
           </h3>
           <p className={`text-xs mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>
             This month
@@ -144,7 +207,7 @@ export default function TransparencySection({ isDarkMode }) {
               isDarkMode ? 'text-white' : 'text-slate-900'
             }`}
           >
-            24
+            {summaryStats.activeStaff}
           </h3>
           <p className={`text-xs mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>
             Across all barangays
@@ -166,7 +229,7 @@ export default function TransparencySection({ isDarkMode }) {
               isDarkMode ? 'text-white' : 'text-slate-900'
             }`}
           >
-            98%
+            {summaryStats.complianceRate}%
           </h3>
           <p className={`text-xs mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>
             Reports submitted on time
