@@ -6,7 +6,7 @@ const STAFF_STORAGE_KEY = 'staff-auth-user'
 const STAFF_ACCOUNTS_STORAGE_KEY = 'staff-accounts'
 const STAFF_TOKEN_KEY = 'phams-token'
 const DEMO_STAFF = {
-  username: 'staff@barangay.gov.ph',
+  username: 'staff',
   password: 'staff123',
   name: 'Staff User',
   role: 'Operations Staff',
@@ -118,7 +118,6 @@ export function StaffAuthProvider({ children }) {
       ) {
         const nextUser = {
           username: DEMO_STAFF.username,
-          email: DEMO_STAFF.username,
           name: DEMO_STAFF.name,
           role: DEMO_STAFF.role,
           barangay: DEMO_STAFF.barangay,
@@ -138,7 +137,6 @@ export function StaffAuthProvider({ children }) {
       if (matchedAccount) {
         const nextUser = {
           username: matchedAccount.username,
-          email: matchedAccount.username,
           name: matchedAccount.name,
           role: matchedAccount.role,
           barangay: matchedAccount.barangay,
