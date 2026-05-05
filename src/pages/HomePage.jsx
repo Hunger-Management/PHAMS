@@ -46,14 +46,16 @@ import { useEffect, useState } from 'react'
 import { useDarkMode } from '../hooks/useDarkMode'
 import Footer from '../components/Footer'
 import SiteHeader from '../components/SiteHeader'
-import municipalHallHero from '../assets/Pateros_Municipal_Hall,_Mar_2024.jpg'
+import municipalHallHero from '../assets/town.jpg'
 import churchHero from '../assets/Pateros_Church,_Mar_2024.jpg'
 import pateros22Hero from '../assets/pateros22-sstring.jpg'
+import pandangguhan from '../assets/pandangguhan.jpg'
 
 const heroSlides = [
   { src: municipalHallHero, alt: 'Pateros Municipal Hall' },
   { src: churchHero, alt: 'Pateros Church' },
   { src: pateros22Hero, alt: 'Pateros Community View' },
+  { src: pandangguhan, alt: 'Pandangguhan' },
 ]
 
 const statusClassMap = {
