@@ -1,113 +1,61 @@
-import { useEffect, useState } from 'react'
-import { AlertTriangle, CheckCircle } from 'lucide-react'
+import { useState } from 'react'
 import AdminSidebar from '../components/AdminSidebar'
 import { useDarkMode } from '../../hooks/useDarkMode'
-import { apiFetch } from '../../api/api'
+import { useStaffAuth } from '../../context/StaffAuthContext'
+
+const barangayOptions = [
+  'Aguho',
+  'Magtanggol',
+  "Martires del '96",
+  'Poblacion',
+  'San Pedro',
+  'San Roque',
+  'Santa Ana',
+  'Santo Rosario-Kanluran',
+  'Santo Rosario-Silangan',
+  'Tabacalera',
+]
 
 export default function AdminCreateAccountPage() {
   const { isDarkMode, toggleDarkMode } = useDarkMode()
-  const [barangays, setBarangays] = useState([])
-  const [loadingBarangays, setLoadingBarangays] = useState(true)
-  const [loadingError, setLoadingError] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [successMessage, setSuccessMessage] = useState('')
-  const [errorMessage, setErrorMessage] = useState('')
-  const [formData, setFormData] = useState({
+  const { createStaffAccount, deleteStaffAccount, staffAccounts } = useStaffAuth()
+  const [staffFormData, setStaffFormData] = useState({
     name: '',
-    email: '',
+    username: '',
     password: '',
-    role: 'Staff',
-    barangay_id: '',
+    barangay: barangayOptions[0],
   })
+  const [staffFormMessage, setStaffFormMessage] = useState('')
+  const [staffFormError, setStaffFormError] = useState('')
 
-  useEffect(() => {
-    const loadBarangays = async () => {
-      setLoadingBarangays(true)
-      setLoadingError('')
-      try {
-        const data = await apiFetch('/api/barangays')
-        setBarangays(Array.isArray(data) ? data : [])
-      } catch (err) {
-        setLoadingError(err.message || 'Failed to load barangays.')
-      } finally {
-        setLoadingBarangays(false)
-      }
-    }
-
-    loadBarangays()
-  }, [])
-
-  const handleChange = (event) => {
+  const handleStaffInputChange = (event) => {
     const { name, value } = event.target
-
-    if (name === 'role') {
-      setFormData((prev) => ({
-        ...prev,
-        role: value,
-        barangay_id: value === 'Staff' ? prev.barangay_id : '',
-      }))
-      return
-    }
-
-    setFormData((prev) => ({ ...prev, [name]: value }))
+    setStaffFormData((current) => ({
+      ...current,
+      [name]: value,
+    }))
   }
 
-  const handleSubmit = async (event) => {
+  const handleCreateStaffAccount = (event) => {
     event.preventDefault()
-    setErrorMessage('')
-    setSuccessMessage('')
+    setStaffFormMessage('')
+    setStaffFormError('')
 
-    if (!formData.name || !formData.email || !formData.password || !formData.role) {
-      setErrorMessage('Please complete all required fields before submitting.')
+    const result = createStaffAccount(staffFormData)
+
+    if (!result.ok) {
+      setStaffFormError(result.message)
       return
     }
 
-    setSubmitting(true)
-
-    try {
-      const payload = {
-        name: formData.name,
-        email: formData.email,
-        password: formData.password,
-        role: formData.role,
-        barangay_id: formData.barangay_id ? Number(formData.barangay_id) : null,
-      }
-
-      await apiFetch('/api/auth/register', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      })
-
-      setSuccessMessage('User account created successfully.')
-      setFormData({
-        name: '',
-        email: '',
-        password: '',
-        role: 'Staff',
-        barangay_id: '',
-      })
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-    } catch (err) {
-      setErrorMessage(err.message || 'Failed to create user account.')
-    } finally {
-      setSubmitting(false)
-    }
+    setStaffFormMessage('Staff account created successfully.')
+    setStaffFormData({
+      name: '',
+      username: '',
+      password: '',
+      barangay: barangayOptions[0],
+    })
   }
-
-  const inputClass = `w-full rounded-lg border px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/40 transition ${isDarkMode
-    ? 'border-white/10 bg-[#0b1220] text-slate-100 placeholder-slate-500'
-    : 'border-slate-200 bg-slate-50 text-slate-900 placeholder-slate-400'
-  }`
-
-  const labelClass = `mb-1.5 block text-xs font-semibold uppercase tracking-[0.08em] ${isDarkMode
-    ? 'text-slate-400'
-    : 'text-slate-500'
-  }`
-
-  const cardClass = `rounded-2xl border p-6 shadow-sm ${isDarkMode
-    ? 'border-white/10 bg-[#111c2e]'
-    : 'border-slate-200 bg-white'
-  }`
 
   return (
     <div
@@ -118,131 +66,201 @@ export default function AdminCreateAccountPage() {
       <AdminSidebar isDarkMode={isDarkMode} />
 
       <main className="ml-64 p-10">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           <div className="mb-8">
-            <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-              Create User Account
+            <h2 className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+              User Management
             </h2>
             <p className={`text-sm mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-              Add a new admin or staff user for the system.
+              Create and manage staff accounts
             </p>
           </div>
 
-          {successMessage ? (
-            <div className="mb-6 flex items-start gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-              <CheckCircle size={16} className="mt-0.5 shrink-0" />
-              <div>
-                <p className="font-semibold">Account created</p>
-                <p className="mt-0.5">{successMessage}</p>
-              </div>
-            </div>
-          ) : null}
-
-          {errorMessage ? (
-            <div className="mb-6 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              <AlertTriangle size={16} className="mt-0.5 shrink-0" />
-              {errorMessage}
-            </div>
-          ) : null}
-
-          {loadingError ? (
-            <div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-              <AlertTriangle size={16} className="mt-0.5 shrink-0" />
-              {loadingError}
-            </div>
-          ) : null}
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className={cardClass}>
-              <h3 className={`font-semibold mb-5 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                Account Details
+          <section className="grid gap-6 lg:grid-cols-2">
+            {/* Create Staff Account Form */}
+            <article className={`p-6 rounded-2xl border shadow-sm ${
+              isDarkMode
+                ? 'bg-[#111c2e] border-white/10'
+                : 'bg-white border-slate-200'
+            }`}>
+              <h3 className={`font-semibold mb-4 ${
+                isDarkMode ? 'text-white' : 'text-slate-900'
+              }`}>
+                Create Staff Account
               </h3>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="md:col-span-2">
-                  <label className={labelClass}>Full Name *</label>
+              <form onSubmit={handleCreateStaffAccount} className="space-y-3">
+                <div>
+                  <label className={`mb-1 block text-xs font-semibold uppercase tracking-[0.08em] ${
+                    isDarkMode ? 'text-slate-300' : 'text-slate-600'
+                  }`} htmlFor="staffName">
+                    Full Name
+                  </label>
                   <input
+                    id="staffName"
                     name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    className={inputClass}
-                    placeholder="e.g. Juan Dela Cruz"
+                    value={staffFormData.name}
+                    onChange={handleStaffInputChange}
+                    required
+                    className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/40 ${
+                      isDarkMode
+                        ? 'border-slate-600 bg-slate-900 text-slate-100'
+                        : 'border-slate-300 bg-white text-slate-900'
+                    }`}
+                    placeholder="Enter staff full name"
                   />
                 </div>
 
-                <div>
-                  <label className={labelClass}>Email *</label>
-                  <input
-                    name="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    className={inputClass}
-                    placeholder="name@example.com"
-                  />
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div>
+                    <label className={`mb-1 block text-xs font-semibold uppercase tracking-[0.08em] ${
+                      isDarkMode ? 'text-slate-300' : 'text-slate-600'
+                    }`} htmlFor="staffUsername">
+                      Username
+                    </label>
+                    <input
+                      id="staffUsername"
+                      name="username"
+                      value={staffFormData.username}
+                      onChange={handleStaffInputChange}
+                      required
+                      className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/40 ${
+                        isDarkMode
+                          ? 'border-slate-600 bg-slate-900 text-slate-100'
+                          : 'border-slate-300 bg-white text-slate-900'
+                      }`}
+                      placeholder="Create username"
+                    />
+                  </div>
+
+                  <div>
+                    <label className={`mb-1 block text-xs font-semibold uppercase tracking-[0.08em] ${
+                      isDarkMode ? 'text-slate-300' : 'text-slate-600'
+                    }`} htmlFor="staffPassword">
+                      Password
+                    </label>
+                    <input
+                      id="staffPassword"
+                      type="password"
+                      name="password"
+                      value={staffFormData.password}
+                      onChange={handleStaffInputChange}
+                      required
+                      className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/40 ${
+                        isDarkMode
+                          ? 'border-slate-600 bg-slate-900 text-slate-100'
+                          : 'border-slate-300 bg-white text-slate-900'
+                      }`}
+                      placeholder="Create password"
+                    />
+                  </div>
                 </div>
 
                 <div>
-                  <label className={labelClass}>Password *</label>
-                  <input
-                    name="password"
-                    type="password"
-                    value={formData.password}
-                    onChange={handleChange}
-                    className={inputClass}
-                    placeholder="Create a password"
-                  />
-                </div>
-
-                <div>
-                  <label className={labelClass}>Role *</label>
+                  <label className={`mb-1 block text-xs font-semibold uppercase tracking-[0.08em] ${
+                    isDarkMode ? 'text-slate-300' : 'text-slate-600'
+                  }`} htmlFor="staffBarangay">
+                    Assigned Barangay
+                  </label>
                   <select
-                    name="role"
-                    value={formData.role}
-                    onChange={handleChange}
-                    className={inputClass}
+                    id="staffBarangay"
+                    name="barangay"
+                    value={staffFormData.barangay}
+                    onChange={handleStaffInputChange}
+                    className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/40 ${
+                      isDarkMode
+                        ? 'border-slate-600 bg-slate-900 text-slate-100'
+                        : 'border-slate-300 bg-white text-slate-900'
+                    }`}
                   >
-                    <option value="Admin">Admin</option>
-                    <option value="Staff">Staff</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className={labelClass}>Barangay (optional)</label>
-                  <select
-                    name="barangay_id"
-                    value={formData.barangay_id}
-                    onChange={handleChange}
-                    className={inputClass}
-                    disabled={loadingBarangays || formData.role !== 'Staff'}
-                  >
-                    <option value="">Select barangay</option>
-                    {barangays.map((barangay) => (
-                      <option key={barangay.barangay_id} value={barangay.barangay_id}>
-                        {barangay.name}
+                    {barangayOptions.map((barangay) => (
+                      <option key={barangay} value={barangay}>
+                        {barangay}
                       </option>
                     ))}
                   </select>
                 </div>
-              </div>
 
-              {loadingBarangays ? (
-                <p className={`mt-4 text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                  Loading barangays...
+                {staffFormError ? (
+                  <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                    {staffFormError}
+                  </p>
+                ) : null}
+
+                {staffFormMessage ? (
+                  <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                    {staffFormMessage}
+                  </p>
+                ) : null}
+
+                <button
+                  type="submit"
+                  className="w-full rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+                >
+                  Create Staff Account
+                </button>
+              </form>
+            </article>
+
+            {/* Staff Assignments */}
+            <article className={`p-6 rounded-2xl border shadow-sm ${
+              isDarkMode
+                ? 'bg-[#111c2e] border-white/10'
+                : 'bg-white border-slate-200'
+            }`}>
+              <h3 className={`font-semibold mb-4 ${
+                isDarkMode ? 'text-white' : 'text-slate-900'
+              }`}>
+                Staff Assignments
+              </h3>
+
+              {staffAccounts.length === 0 ? (
+                <p className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                  No created staff accounts yet.
                 </p>
-              ) : null}
-            </div>
-
-            <div className="flex items-center justify-end gap-3">
-              <button
-                type="submit"
-                disabled={submitting}
-                className="rounded-full bg-emerald-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60"
-              >
-                {submitting ? 'Saving...' : 'Create Account'}
-              </button>
-            </div>
-          </form>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[420px] text-left text-sm">
+                    <thead>
+                      <tr className={`${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                        <th className="pb-2 font-semibold">Name</th>
+                        <th className="pb-2 font-semibold">Username</th>
+                        <th className="pb-2 font-semibold">Barangay</th>
+                        <th className="pb-2 font-semibold">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {staffAccounts.map((staff) => (
+                        <tr key={staff.username} className="border-t border-slate-200/20">
+                          <td className={`py-2 ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+                            {staff.name}
+                          </td>
+                          <td className={`py-2 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                            {staff.username}
+                          </td>
+                          <td className={`py-2 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                            {staff.barangay}
+                          </td>
+                          <td className="py-2">
+                            <button
+                              onClick={() => {
+                                if (confirm(`Delete staff account "${staff.name}"?`)) {
+                                  deleteStaffAccount(staff.username)
+                                }
+                              }}
+                              className="text-xs font-semibold px-3 py-1 rounded bg-red-600 hover:bg-red-700 text-white transition"
+                            >
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </article>
+          </section>
         </div>
       </main>
 
