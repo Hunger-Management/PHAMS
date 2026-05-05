@@ -487,5 +487,5 @@ app.post('/api/auth/register', (req, res) => {
 
 // ─── START SERVER ─────────────────────────────────────────────────────────────
 app.listen(process.env.PORT || 3000, () => {
-  console.log(`🚀 Server running on http://192.168.1.5:${process.env.PORT || 3000}`)
+  console.log(`🚀 Server running on http://localhost:${process.env.PORT || 3000}`)
 })
