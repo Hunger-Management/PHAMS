@@ -31,10 +31,24 @@ export async function apiFetch(path, options = {}) {
         headers,
     })
 
-    const data = await response.json()
+    const contentType = response.headers.get('content-type') || ''
+    const responseText = await response.text()
+    let data = {}
+
+    if (responseText) {
+        if (contentType.includes('application/json')) {
+            try {
+                data = JSON.parse(responseText)
+            } catch {
+                data = { message: responseText }
+            }
+        } else {
+            data = { message: responseText }
+        }
+    }
 
     if (!response.ok) {
-        const error = new Error(data.message || 'Request failed')
+        const error = new Error(data.message || response.statusText || 'Request failed')
         error.status = response.status
 
         // Auto-logout on expired/invalid token
