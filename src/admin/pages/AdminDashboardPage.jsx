@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { useAdminAuth } from '../../context/AdminAuthContext'
 import { useNavigate } from 'react-router-dom'
 import { useDarkMode } from '../../hooks/useDarkMode'
-import CreateStaffAccountSection from '../components/CreateStaffAccountSection'
 import BarangayManagementSection from '../components/BarangayManagementSection'
 import TransparencySection from '../components/TransparencySection'
 
@@ -221,88 +220,6 @@ export default function AdminDashboardPage() {
                             )}
                         </div>
                     </section>
-
-                    {/* LOWER SECTION */}
-                    <div className="grid md:grid-cols-2 gap-6">
-
-                        {/* SYSTEM OVERVIEW */}
-                        <div
-                            className={`p-6 rounded-2xl border shadow-sm ${isDarkMode
-                                    ? 'bg-[#111c2e] border-white/10'
-                                    : 'bg-white border-slate-200'
-                                }`}
-                        >
-                            <h3
-                                className={`font-semibold mb-4 ${isDarkMode
-                                        ? 'text-white'
-                                        : 'text-slate-900'
-                                    }`}
-                            >
-                                System Overview
-                            </h3>
-
-                            <ul
-                                className={`space-y-3 text-sm ${isDarkMode
-                                        ? 'text-slate-300'
-                                        : 'text-slate-600'
-                                    }`}
-                            >
-                                <li>• Full access to all family records</li>
-                                <li>• Manage staff accounts and permissions</li>
-                                <li>• View monitoring dashboards</li>
-                                <li>• Cross-barangay data analysis</li>
-                            </ul>
-                        </div>
-
-                        {/* QUICK ACTIONS */}
-                        <div
-                            className={`p-6 rounded-2xl border shadow-sm ${isDarkMode
-                                    ? 'bg-[#111c2e] border-white/10'
-                                    : 'bg-white border-slate-200'
-                                }`}
-                        >
-                            <h3
-                                className={`font-semibold mb-4 ${isDarkMode
-                                        ? 'text-white'
-                                        : 'text-slate-900'
-                                    }`}
-                            >
-                                Quick Actions
-                            </h3>
-
-                            <div className="space-y-3">
-                                <button
-                                    onClick={() =>
-                                        navigate('/admin/families/add')
-                                    }
-                                    className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl font-medium"
-                                >
-                                    Add New Family Record
-                                </button>
-
-                                <button
-                                    onClick={() =>
-                                        navigate('/admin/families')
-                                    }
-                                    className="w-full bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-xl font-medium"
-                                >
-                                    View All Records
-                                </button>
-
-                                <button
-                                    className={`w-full py-2.5 rounded-xl font-medium ${isDarkMode
-                                            ? 'border border-white/10 text-white hover:bg-white/10'
-                                            : 'border border-slate-300 text-slate-700 hover:bg-slate-50'
-                                        }`}
-                                >
-                                    Generate Reports
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* CREATE STAFF ACCOUNT */}
-                    <CreateStaffAccountSection isDarkMode={isDarkMode} />
 
                     {/* BARANGAY MANAGEMENT */}
                     <BarangayManagementSection isDarkMode={isDarkMode} />

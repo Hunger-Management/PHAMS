@@ -2,7 +2,6 @@ import { Home, MapPin, Users, UserPlus, FileText, LogOut } from 'lucide-react'
 import { useAdminAuth } from '../../context/AdminAuthContext'
 import { useNavigate } from 'react-router-dom'
 import { useDarkMode } from '../../hooks/useDarkMode'
-import CreateStaffAccountSection from '../../components/admin/CreateStaffAccountSection'
 
 export default function AdminDashboardPage() {
   const { logout, adminUser } = useAdminAuth()
@@ -23,24 +22,12 @@ export default function AdminDashboardPage() {
       .toUpperCase()
   }
 
-  const handleSidebarNavClick = (itemName) => {
-    if (itemName !== 'Create Account') {
-      return
-    }
-
-    const section = document.getElementById('create-account-section')
-    if (section) {
-      section.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }
-  }
-
   const nav = [
     { name: 'Dashboard', icon: Home, active: true },
     { name: 'Barangays', icon: MapPin },
     { name: 'Add Family', icon: UserPlus },
     { name: 'User Management', icon: Users },
     { name: 'Transparency', icon: FileText },
-    { name: 'Create Account', icon: UserPlus },
   ]
 
   const stats = [
@@ -97,7 +84,6 @@ export default function AdminDashboardPage() {
               return (
                 <div
                   key={i}
-                  onClick={() => handleSidebarNavClick(item.name)}
                   className={`flex items-center gap-3 px-4 py-2.5 rounded-lg cursor-pointer transition ${
                     item.name === 'Add Family'
                       ? 'bg-green-600 text-white font-medium'
@@ -179,59 +165,8 @@ export default function AdminDashboardPage() {
           {/* LOWER */}
           <div className="grid md:grid-cols-2 gap-6">
             
-            {/* SYSTEM OVERVIEW */}
-            <div className={`p-6 rounded-2xl border shadow-sm ${
-              isDarkMode
-                ? 'bg-[#111c2e] border-white/10'
-                : 'bg-white border-slate-200'
-            }`}>
-              <h3 className={`font-semibold mb-4 ${
-                isDarkMode ? 'text-white' : 'text-slate-900'
-              }`}>
-                System Overview
-              </h3>
-              <ul className={`space-y-3 text-sm ${
-                isDarkMode ? 'text-slate-300' : 'text-slate-600'
-              }`}>
-                <li>• Full access to all family records</li>
-                <li>• Manage staff accounts and permissions</li>
-                <li>• View monitoring dashboards</li>
-                <li>• Cross-barangay data analysis</li>
-              </ul>
-            </div>
-
-            {/* QUICK ACTIONS */}
-            <div className={`p-6 rounded-2xl border shadow-sm ${
-              isDarkMode
-                ? 'bg-[#111c2e] border-white/10'
-                : 'bg-white border-slate-200'
-            }`}>
-              <h3 className={`font-semibold mb-4 ${
-                isDarkMode ? 'text-white' : 'text-slate-900'
-              }`}>
-                Quick Actions
-              </h3>
-
-              <div className="space-y-3">
-                <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl font-medium">
-                  Add New Family Record
-                </button>
-                <button className="w-full bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-xl font-medium">
-                  View All Records
-                </button>
-                <button className={`w-full py-2.5 rounded-xl font-medium ${
-                  isDarkMode
-                    ? 'border border-white/10 text-white hover:bg-white/10'
-                    : 'border border-slate-300 text-slate-700 hover:bg-slate-50'
-                }`}>
-                  Generate Reports
-                </button>
-              </div>
-            </div>
 
           </div>
-
-          <CreateStaffAccountSection isDarkMode={isDarkMode} />
         </div>
       </main>
 
