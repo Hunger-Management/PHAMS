@@ -1,0 +1,132 @@
+CREATE DATABASE IF NOT EXISTS zero_hunger;
+USE zero_hunger;
+
+CREATE TABLE IF NOT EXISTS barangays (
+  barangay_id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS families (
+  family_id INT AUTO_INCREMENT PRIMARY KEY,
+  barangay_id INT NOT NULL,
+  family_name VARCHAR(150) NOT NULL,
+  address VARCHAR(255) NOT NULL,
+  head_of_family VARCHAR(150),
+  phone VARCHAR(50),
+  CONSTRAINT fk_families_barangay
+    FOREIGN KEY (barangay_id) REFERENCES barangays(barangay_id)
+    ON UPDATE CASCADE
+    ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS family_members (
+  member_id INT AUTO_INCREMENT PRIMARY KEY,
+  family_id INT NOT NULL,
+  first_name VARCHAR(100),
+  last_name VARCHAR(100),
+  age INT,
+  gender VARCHAR(20),
+  CONSTRAINT fk_family_members_family
+    FOREIGN KEY (family_id) REFERENCES families(family_id)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS individuals (
+  individual_id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(150) NOT NULL,
+  age INT,
+  gender VARCHAR(20),
+  barangay_id INT NOT NULL,
+  status VARCHAR(50),
+  CONSTRAINT fk_individuals_barangay
+    FOREIGN KEY (barangay_id) REFERENCES barangays(barangay_id)
+    ON UPDATE CASCADE
+    ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS food_supplies (
+  food_id INT AUTO_INCREMENT PRIMARY KEY,
+  food_name VARCHAR(150) NOT NULL,
+  unit VARCHAR(50) NOT NULL,
+  total_quantity DECIMAL(12,2) NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS donors (
+  donor_id INT AUTO_INCREMENT PRIMARY KEY,
+  donor_name VARCHAR(150) NOT NULL,
+  contact_info VARCHAR(255)
+);
+
+CREATE TABLE IF NOT EXISTS donations (
+  donation_id INT AUTO_INCREMENT PRIMARY KEY,
+  donor_id INT,
+  food_id INT,
+  quantity DECIMAL(12,2) NOT NULL,
+  date_given DATE NOT NULL,
+  CONSTRAINT fk_donations_donor
+    FOREIGN KEY (donor_id) REFERENCES donors(donor_id)
+    ON UPDATE CASCADE
+    ON DELETE SET NULL,
+  CONSTRAINT fk_donations_food
+    FOREIGN KEY (food_id) REFERENCES food_supplies(food_id)
+    ON UPDATE CASCADE
+    ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS distribution (
+  distribution_id INT AUTO_INCREMENT PRIMARY KEY,
+  recipient_type VARCHAR(50) NOT NULL,
+  family_id INT,
+  individual_id INT,
+  barangay_id INT,
+  food_id INT,
+  quantity DECIMAL(12,2) NOT NULL,
+  date_given DATE NOT NULL,
+  status VARCHAR(50) NOT NULL,
+  CONSTRAINT fk_distribution_family
+    FOREIGN KEY (family_id) REFERENCES families(family_id)
+    ON UPDATE CASCADE
+    ON DELETE SET NULL,
+  CONSTRAINT fk_distribution_individual
+    FOREIGN KEY (individual_id) REFERENCES individuals(individual_id)
+    ON UPDATE CASCADE
+    ON DELETE SET NULL,
+  CONSTRAINT fk_distribution_barangay
+    FOREIGN KEY (barangay_id) REFERENCES barangays(barangay_id)
+    ON UPDATE CASCADE
+    ON DELETE SET NULL,
+  CONSTRAINT fk_distribution_food
+    FOREIGN KEY (food_id) REFERENCES food_supplies(food_id)
+    ON UPDATE CASCADE
+    ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS users (
+  user_id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(150) NOT NULL,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  password VARCHAR(255) NOT NULL,
+  role VARCHAR(20) NOT NULL,
+  barangay_id INT NULL,
+  CONSTRAINT fk_users_barangay
+    FOREIGN KEY (barangay_id) REFERENCES barangays(barangay_id)
+    ON UPDATE CASCADE
+    ON DELETE SET NULL
+);
+
+INSERT IGNORE INTO barangays (name) VALUES
+  ('Aguho'),
+  ('Magtanggol'),
+  ('Martires del 96'),
+  ('Poblacion'),
+  ('San Pedro'),
+  ('San Roque'),
+  ('Santa Ana'),
+  ('Santo Rosario-Kanluran'),
+  ('Santo Rosario-Silangan'),
+  ('Tabacalera');
+
+INSERT IGNORE INTO users (name, email, password, role, barangay_id) VALUES
+  ('Administrator', 'admin@pateros.gov.ph', '$2b$10$A3Bg8F3oq4T9aWqtBq.kvO3tHkhI0txfLkg/kgoade/BMEO0LNOcG', 'Admin', NULL),
+  ('Barangay Staff', 'staff@barangay.gov.ph', '$2b$10$yrSJoKTimXxpwms7tleIKeqIP1M89w2JcYnCt/Msb5SvMXZnbVJlK', 'Staff', 1);

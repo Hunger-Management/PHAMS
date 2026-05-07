@@ -36,12 +36,12 @@ export default function AdminCreateAccountPage() {
     }))
   }
 
-  const handleCreateStaffAccount = (event) => {
+  const handleCreateStaffAccount = async (event) => {
     event.preventDefault()
     setStaffFormMessage('')
     setStaffFormError('')
 
-    const result = createStaffAccount(staffFormData)
+    const result = await createStaffAccount(staffFormData)
 
     if (!result.ok) {
       setStaffFormError(result.message)

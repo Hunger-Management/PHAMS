@@ -17,6 +17,7 @@ app.use((req, res, next) => {
 // ─── DB CONNECTION ───────────────────────────────────────────────────────────
 const db = mysql.createConnection({
   host: process.env.DB_HOST,
+  port: Number(process.env.DB_PORT || 3306),
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME
@@ -27,7 +28,7 @@ db.connect((err) => {
     console.error('❌ Database connection failed:', err)
     return
   }
-  console.log('✅ Connected to zero_hunger database!')
+  console.log(`✅ Connected to MySQL database ${process.env.DB_NAME} at ${process.env.DB_HOST}:${process.env.DB_PORT || 3306}`)
 })
 
 // ─── BARANGAYS ───────────────────────────────────────────────────────────────

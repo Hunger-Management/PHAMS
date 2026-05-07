@@ -1,4 +1,5 @@
-const BASE_URL = import.meta.env.VITE_API_URL || ''
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:3000'
+ const REQUEST_TIMEOUT_MS = 8000
 
 // ─────────────────────────────────────────────────────────────
 // getToken
@@ -19,6 +20,8 @@ export function getToken() {
 // ─────────────────────────────────────────────────────────────
 export async function apiFetch(path, options = {}) {
     const token = getToken()
+    const controller = new AbortController()
+    const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
     const headers = {
         'Content-Type': 'application/json',
@@ -26,26 +29,40 @@ export async function apiFetch(path, options = {}) {
         ...(options.headers || {}),
     }
 
-    const response = await fetch(`${BASE_URL}${path}`, {
-        ...options,
-        headers,
-    })
+    try {
+        const response = await fetch(`${BASE_URL}${path}`, {
+            ...options,
+            headers,
+            signal: controller.signal,
+        })
 
-    const data = await response.json()
+        const text = await response.text()
+        const data = text ? JSON.parse(text) : {}
 
-    if (!response.ok) {
-        const error = new Error(data.message || 'Request failed')
-        error.status = response.status
+        if (!response.ok) {
+            const error = new Error(data.message || 'Request failed')
+            error.status = response.status
 
-        // Auto-logout on expired/invalid token
-        if (response.status === 401) {
-            localStorage.removeItem('phams-token')
-            localStorage.removeItem('phams-admin-user')
-            window.location.href = '/staff/login'
+            // Auto-logout on expired/invalid token
+            if (response.status === 401) {
+                localStorage.removeItem('phams-token')
+                localStorage.removeItem('phams-admin-user')
+                window.location.href = '/staff/login'
+            }
+
+            throw error
+        }
+
+        return data
+    } catch (error) {
+        if (error.name === 'AbortError') {
+            const timeoutError = new Error(`Request timed out after ${REQUEST_TIMEOUT_MS / 1000} seconds`)
+            timeoutError.status = 408
+            throw timeoutError
         }
 
         throw error
+    } finally {
+        window.clearTimeout(timeoutId)
     }
-
-    return data
 }

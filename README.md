@@ -19,6 +19,45 @@ admin auth system from a hardcoded demo to real backend login.
 - `src/admin/pages/AddFamilyPage.jsx` — Register new families at
   `/admin/families/add`
 
+## MySQL Workbench setup
+
+The backend already uses `mysql2` and reads its connection settings from `backend/.env`.
+To connect the app to a local MySQL server managed through MySQL Workbench:
+
+1. Open MySQL Workbench and connect to your local MySQL instance.
+2. Run the SQL file at `backend/schema.sql` to create the `zero_hunger` database and tables.
+3. Confirm `backend/.env` matches your local connection details.
+4. Start the backend from `backend/` with `npm start`.
+5. Start the frontend from the project root with `npm run dev`.
+
+## Sharing the database with classmates
+
+Two safe options are provided so classmates can reproduce the same database locally:
+
+- Option A — Import schema & seed files (no credentials):
+  1. Copy `backend/.env.example` to `backend/.env` and fill values if needed.
+  2. In MySQL Workbench or the CLI, run:
+     ```sql
+     SOURCE backend/schema.sql;
+     SOURCE backend/seed.sql; -- optional sample data
+     ```
+
+- Option B — Run via Docker Compose (recommended for consistency):
+  1. Ensure Docker Desktop is installed and running.
+  2. From the `backend/` folder run:
+     ```bash
+     docker compose up -d
+     ```
+  3. This starts a MySQL container and initializes it with `schema.sql` and `seed.sql`.
+
+Security notes:
+- Never commit `backend/.env` with real passwords — only commit `backend/.env.example`.
+- The provided `seed.sql` uses sample, non-sensitive data. Remove or sanitize before sharing if you have real data.
+
+If you'd like, I can add a short `CONTRIBUTING.md` with setup steps or create a GitHub Actions workflow to build a sample dump file for download.
+
+The frontend dev server now proxies `/api` requests to `http://localhost:3000`, which is the port used by the backend.
+
 ### Modified files
 - `src/context/AdminAuthContext.jsx` — Replaced hardcoded demo credentials
   with real JWT login via `POST /api/auth/login`

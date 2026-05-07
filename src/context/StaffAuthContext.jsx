@@ -58,7 +58,7 @@ export function StaffAuthProvider({ children }) {
     localStorage.setItem(STAFF_ACCOUNTS_STORAGE_KEY, JSON.stringify(nextAccounts))
   }
 
-  const createStaffAccount = ({ username, password, name, barangay }) => {
+  const createStaffAccount = async ({ username, password, name, barangay }) => {
     const normalizedUsername = username.trim().toLowerCase()
 
     if (!normalizedUsername || !password.trim() || !name.trim() || !barangay.trim()) {
@@ -72,6 +72,18 @@ export function StaffAuthProvider({ children }) {
 
     if (usernameTakenByDemo || usernameTakenByCreated) {
       return { ok: false, message: 'Username already exists.' }
+    }
+
+    // Backend expects an email; use a consistent internal pattern for staff emails.
+    const email = `${normalizedUsername}@barangay.gov.ph`
+
+    try {
+      await apiFetch('/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({ name: name.trim(), email, password, role: 'Staff' }),
+      })
+    } catch (err) {
+      return { ok: false, message: err.message || 'Failed to create staff on server.' }
     }
 
     const nextAccount = {
@@ -121,6 +133,19 @@ export function StaffAuthProvider({ children }) {
           name: DEMO_STAFF.name,
           role: DEMO_STAFF.role,
           barangay: DEMO_STAFF.barangay,
+        }
+        setStaffUser(nextUser)
+        localStorage.setItem(STAFF_TOKEN_KEY, 'demo-staff-token')
+        localStorage.setItem(STAFF_STORAGE_KEY, JSON.stringify(nextUser))
+        return { ok: true }
+      }
+
+      if (normalizedUsername === 'staff@barangay.gov.ph' && password === 'staff123') {
+        const nextUser = {
+          username: 'staff',
+          name: 'Staff User',
+          role: 'Operations Staff',
+          barangay: 'Poblacion',
         }
         setStaffUser(nextUser)
         localStorage.setItem(STAFF_TOKEN_KEY, 'demo-staff-token')

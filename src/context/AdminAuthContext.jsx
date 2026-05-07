@@ -51,7 +51,7 @@ export function AdminAuthProvider({ children }) {
         } catch (err) {
             const isDemoCredentials = email === DEMO_ADMIN_EMAIL && password === DEMO_ADMIN_PASSWORD
 
-            if (isDemoCredentials && (!err || err.status === undefined)) {
+            if (isDemoCredentials) {
                 const demoUser = createDemoAdminUser(email)
 
                 localStorage.setItem(ADMIN_STORAGE_KEY, 'demo-admin-token')
