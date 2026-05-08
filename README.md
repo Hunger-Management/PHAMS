@@ -56,6 +56,45 @@ Security notes:
 
 If you'd like, I can add a short `CONTRIBUTING.md` with setup steps or create a GitHub Actions workflow to build a sample dump file for download.
 
+## Deploying on Railway
+
+The cleanest Railway setup for this project is to create **two services** in the same Railway project:
+
+### 1) Backend service
+
+1. Create a new Railway project and deploy this GitHub repo.
+2. Set the backend service root to the repository root.
+3. Use the default start command for the backend:
+  ```bash
+  npm start
+  ```
+4. Add your database variables in Railway.
+  - If Railway gives you a `DATABASE_URL` or `MYSQL_URL`, the backend will use it automatically.
+  - If Railway gives you split MySQL variables, the backend also supports `MYSQLHOST`, `MYSQLPORT`, `MYSQLUSER`, `MYSQLPASSWORD`, and `MYSQLDATABASE`.
+5. Import the schema into the Railway database once, then add seed data if you want sample rows.
+
+### 2) Frontend service
+
+1. Add a second Railway service from the same repo.
+2. Set its start command to:
+  ```bash
+  npm run build && npm run preview -- --host 0.0.0.0 --port $PORT
+  ```
+3. Set `VITE_API_URL` to the public URL of your deployed backend service.
+4. Redeploy after changing `VITE_API_URL` because Vite reads it at build time.
+
+### Important deployment notes
+
+- Keep `backend/.env` only for local development; do not commit real secrets.
+- For a public app, the frontend should call the deployed backend URL, not `localhost`.
+- If you want one shared database for everyone, host the DB in Railway too and point the backend to that database.
+
+Suggested order:
+1. Deploy backend.
+2. Add hosted MySQL.
+3. Import `backend/schema.sql`.
+4. Deploy frontend with `VITE_API_URL` set.
+
 The frontend dev server now proxies `/api` requests to `http://localhost:3000`, which is the port used by the backend.
 
 ### Modified files

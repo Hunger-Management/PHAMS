@@ -14,21 +14,52 @@ app.use((req, res, next) => {
   next()
 })
 
+function buildDbConfig() {
+  const connectionUrl = process.env.DATABASE_URL || process.env.MYSQL_URL
+
+  if (connectionUrl) {
+    const parsedUrl = new URL(connectionUrl)
+
+    return {
+      host: parsedUrl.hostname,
+      port: Number(parsedUrl.port || 3306),
+      user: decodeURIComponent(parsedUrl.username),
+      password: decodeURIComponent(parsedUrl.password),
+      database: parsedUrl.pathname.replace(/^\//, ''),
+    }
+  }
+
+  if (process.env.MYSQLHOST) {
+    return {
+      host: process.env.MYSQLHOST,
+      port: Number(process.env.MYSQLPORT || 3306),
+      user: process.env.MYSQLUSER,
+      password: process.env.MYSQLPASSWORD,
+      database: process.env.MYSQLDATABASE,
+    }
+  }
+
+  return {
+    host: process.env.DB_HOST,
+    port: Number(process.env.DB_PORT || 3306),
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+  }
+}
+
 // ─── DB CONNECTION ───────────────────────────────────────────────────────────
-const db = mysql.createConnection({
-  host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT || 3306),
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME
-})
+const dbConfig = buildDbConfig()
+const db = mysql.createConnection(dbConfig)
 
 db.connect((err) => {
   if (err) {
     console.error('❌ Database connection failed:', err)
     return
   }
-  console.log(`✅ Connected to MySQL database ${process.env.DB_NAME} at ${process.env.DB_HOST}:${process.env.DB_PORT || 3306}`)
+  console.log(
+    `✅ Connected to MySQL database ${dbConfig.database} at ${dbConfig.host}:${dbConfig.port}`,
+  )
 })
 
 // ─── BARANGAYS ───────────────────────────────────────────────────────────────
