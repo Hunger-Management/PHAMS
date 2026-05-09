@@ -50,11 +50,11 @@ function buildDbConfig() {
 
 // ─── DB CONNECTION ───────────────────────────────────────────────────────────
 const dbConfig = buildDbConfig()
-const db = mysql.createConnection(dbConfig)
+const db = mysql.createPool(dbConfig)
 
-db.connect((err) => {
+db.query('SELECT 1', (err) => {
   if (err) {
-    console.error('❌ Database connection failed:', err)
+    console.error('❌ Database pool test failed:', err)
     return
   }
   console.log(
@@ -123,58 +123,79 @@ app.post('/api/families', (req, res) => {
     VALUES (?, ?, ?, ?, ?)
   `
 
-  db.beginTransaction((txErr) => {
-    if (txErr) return res.status(500).json({ error: txErr.message })
+  db.getConnection((connErr, connection) => {
+    if (connErr) return res.status(500).json({ error: connErr.message })
 
-    db.query(
-      familySql,
-      [barangay_id, family_name, address, head_of_family, phone],
-      (familyErr, familyResult) => {
-        if (familyErr) {
-          return db.rollback(() => res.status(500).json({ error: familyErr.message }))
-        }
+    connection.beginTransaction((txErr) => {
+      if (txErr) {
+        connection.release()
+        return res.status(500).json({ error: txErr.message })
+      }
 
-        const familyId = familyResult.insertId
-        const memberRows = Array.isArray(members)
-          ? members
-              .filter((m) => m && (m.first_name || m.last_name))
-              .map((m) => [
-                familyId,
-                m.first_name || null,
-                m.last_name || null,
-                m.age ?? null,
-                m.gender || 'Other',
-              ])
-          : []
-
-        if (memberRows.length === 0) {
-          return db.commit((commitErr) => {
-            if (commitErr) {
-              return db.rollback(() => res.status(500).json({ error: commitErr.message }))
-            }
-            res.json({ message: 'Family added!', family_id: familyId })
-          })
-        }
-
-        const memberSql = `
-          INSERT INTO family_members (family_id, first_name, last_name, age, gender)
-          VALUES ?
-        `
-
-        db.query(memberSql, [memberRows], (memberErr) => {
-          if (memberErr) {
-            return db.rollback(() => res.status(500).json({ error: memberErr.message }))
+      connection.query(
+        familySql,
+        [barangay_id, family_name, address, head_of_family, phone],
+        (familyErr, familyResult) => {
+          if (familyErr) {
+            return connection.rollback(() => {
+              connection.release()
+              res.status(500).json({ error: familyErr.message })
+            })
           }
 
-          db.commit((commitErr) => {
-            if (commitErr) {
-              return db.rollback(() => res.status(500).json({ error: commitErr.message }))
+          const familyId = familyResult.insertId
+          const memberRows = Array.isArray(members)
+            ? members
+                .filter((m) => m && (m.first_name || m.last_name))
+                .map((m) => [
+                  familyId,
+                  m.first_name || null,
+                  m.last_name || null,
+                  m.age ?? null,
+                  m.gender || 'Other',
+                ])
+            : []
+
+          if (memberRows.length === 0) {
+            return connection.commit((commitErr) => {
+              if (commitErr) {
+                return connection.rollback(() => {
+                  connection.release()
+                  res.status(500).json({ error: commitErr.message })
+                })
+              }
+              connection.release()
+              res.json({ message: 'Family added!', family_id: familyId })
+            })
+          }
+
+          const memberSql = `
+            INSERT INTO family_members (family_id, first_name, last_name, age, gender)
+            VALUES ?
+          `
+
+          connection.query(memberSql, [memberRows], (memberErr) => {
+            if (memberErr) {
+              return connection.rollback(() => {
+                connection.release()
+                res.status(500).json({ error: memberErr.message })
+              })
             }
-            res.json({ message: 'Family added!', family_id: familyId })
+
+            connection.commit((commitErr) => {
+              if (commitErr) {
+                return connection.rollback(() => {
+                  connection.release()
+                  res.status(500).json({ error: commitErr.message })
+                })
+              }
+              connection.release()
+              res.json({ message: 'Family added!', family_id: familyId })
+            })
           })
-        })
-      },
-    )
+        },
+      )
+    })
   })
 })
 
@@ -363,6 +384,46 @@ app.post('/api/donations', (req, res) => {
   })
 })
 
+// DELETE donation
+app.delete('/api/donations/:id', (req, res) => {
+  db.query('DELETE FROM donations WHERE donation_id = ?', [req.params.id], (err) => {
+    if (err) return res.status(500).json({ error: err.message })
+    res.json({ message: 'Donation deleted!' })
+  })
+})
+
+// ─── USERS ───────────────────────────────────────────────────────────────────
+
+// GET all users (with barangay name, no password)
+app.get('/api/users', (req, res) => {
+  const sql = `
+    SELECT
+      u.user_id,
+      u.name,
+      u.email,
+      u.role,
+      u.barangay_id,
+      u.created_at,
+      b.name AS barangay_name
+    FROM users u
+    LEFT JOIN barangays b ON u.barangay_id = b.barangay_id
+    ORDER BY u.created_at DESC
+  `
+
+  db.query(sql, (err, results) => {
+    if (err) return res.status(500).json({ error: err.message })
+    res.json(results)
+  })
+})
+
+// DELETE user
+app.delete('/api/users/:id', (req, res) => {
+  db.query('DELETE FROM users WHERE user_id = ?', [req.params.id], (err) => {
+    if (err) return res.status(500).json({ error: err.message })
+    res.json({ message: 'User deleted!' })
+  })
+})
+
 // ─── DISTRIBUTION ─────────────────────────────────────────────────────────────
 
 // GET all distributions (with names)
@@ -518,6 +579,8 @@ app.post('/api/auth/register', (req, res) => {
 })
 
 // ─── START SERVER ─────────────────────────────────────────────────────────────
-app.listen(process.env.PORT || 3000, () => {
-  console.log(`🚀 Server running on http://localhost:${process.env.PORT || 3000}`)
+const PORT = process.env.PORT || 8080
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`)
 })

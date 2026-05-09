@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Download } from 'lucide-react'
+import { Download, Pencil, Trash2 } from 'lucide-react'
 import { useStaffAuth } from '../../context/StaffAuthContext'
+import { apiFetch } from '../../api/api'
 
 export default function TransparencySection({ isDarkMode }) {
   const { staffAccounts } = useStaffAuth()
@@ -8,29 +9,42 @@ export default function TransparencySection({ isDarkMode }) {
   const [foodSupplies, setFoodSupplies] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
+  const [actionError, setActionError] = useState('')
+  const [editingDistribution, setEditingDistribution] = useState(null)
+  const [editingStatus, setEditingStatus] = useState('Pending')
+  const [savingStatus, setSavingStatus] = useState(false)
+  const [deletingId, setDeletingId] = useState(null)
+
+  const loadTransparencyData = async () => {
+    setLoading(true)
+    setError('')
+    setActionError('')
+    try {
+      const [distRes, supplyRes] = await Promise.all([
+        fetch('/api/distributions'),
+        fetch('/api/food-supplies'),
+      ])
+
+      if (!distRes.ok) throw new Error('Failed to fetch distributions')
+      if (!supplyRes.ok) throw new Error('Failed to fetch food supplies')
+
+      const [distData, supplyData] = await Promise.all([
+        distRes.json(),
+        supplyRes.json(),
+      ])
+
+      setDistributions(Array.isArray(distData) ? distData : [])
+      setFoodSupplies(Array.isArray(supplyData) ? supplyData : [])
+    } catch (err) {
+      setError(err.message || 'Failed to load transparency data.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    Promise.all([
-      fetch('/api/distributions'),
-      fetch('/api/food-supplies'),
-    ])
-      .then(async ([distRes, supplyRes]) => {
-        if (!distRes.ok) throw new Error('Failed to fetch distributions')
-        if (!supplyRes.ok) throw new Error('Failed to fetch food supplies')
-
-        const [distData, supplyData] = await Promise.all([
-          distRes.json(),
-          supplyRes.json(),
-        ])
-
-        setDistributions(Array.isArray(distData) ? distData : [])
-        setFoodSupplies(Array.isArray(supplyData) ? supplyData : [])
-        setLoading(false)
-      })
-      .catch((err) => {
-        setError(err.message || 'Failed to load transparency data.')
-        setLoading(false)
-      })
+    loadTransparencyData()
   }, [])
 
   const formatDate = (value) => {
@@ -124,6 +138,59 @@ export default function TransparencySection({ isDarkMode }) {
 
   const handleDownload = () => {
     alert('Downloading transparency report...')
+  }
+
+  const openEditModal = (distribution) => {
+    setEditingDistribution(distribution)
+    setEditingStatus(distribution.status || 'Pending')
+    setActionError('')
+    setSuccessMessage('')
+  }
+
+  const closeEditModal = () => {
+    setEditingDistribution(null)
+  }
+
+  const handleUpdateStatus = async (event) => {
+    event.preventDefault()
+    if (!editingDistribution) return
+
+    setSavingStatus(true)
+    setActionError('')
+    setSuccessMessage('')
+    try {
+      await apiFetch(`/api/distributions/${editingDistribution.distribution_id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: editingStatus }),
+      })
+
+      setSuccessMessage('Distribution status updated.')
+      closeEditModal()
+      await loadTransparencyData()
+    } catch (err) {
+      setActionError(err.message || 'Failed to update distribution status.')
+    } finally {
+      setSavingStatus(false)
+    }
+  }
+
+  const handleDeleteDistribution = async (distributionId) => {
+    if (!confirm('Delete this distribution record? This cannot be undone.')) {
+      return
+    }
+
+    setDeletingId(distributionId)
+    setActionError('')
+    setSuccessMessage('')
+    try {
+      await apiFetch(`/api/distributions/${distributionId}`, { method: 'DELETE' })
+      setSuccessMessage('Distribution deleted.')
+      await loadTransparencyData()
+    } catch (err) {
+      setActionError(err.message || 'Failed to delete distribution.')
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   return (
@@ -236,6 +303,18 @@ export default function TransparencySection({ isDarkMode }) {
           </p>
         </div>
       </div>
+
+      {successMessage ? (
+        <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          {successMessage}
+        </div>
+      ) : null}
+
+      {actionError ? (
+        <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {actionError}
+        </div>
+      ) : null}
 
       {/* MAIN CONTENT - TWO COLUMNS */}
       <div className="grid lg:grid-cols-2 gap-6 mb-8">
@@ -368,6 +447,115 @@ export default function TransparencySection({ isDarkMode }) {
         </div>
       </div>
 
+      {/* DISTRIBUTION LIST */}
+      <div
+        className={`rounded-2xl border p-6 mb-8 transition ${
+          isDarkMode
+            ? 'bg-[#111c2e] border-white/10'
+            : 'bg-white border-slate-200'
+        }`}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h4 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+            Distribution Records
+          </h4>
+          <span className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+            {distributions.length} total
+          </span>
+        </div>
+
+        {loading ? (
+          <p className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+            Loading distributions...
+          </p>
+        ) : distributions.length === 0 ? (
+          <p className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+            No distributions recorded yet.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className={`border-b text-xs uppercase tracking-wide ${
+                  isDarkMode
+                    ? 'border-white/10 text-slate-400'
+                    : 'border-slate-200 text-slate-500'
+                }`}>
+                  <th className="px-4 py-3 text-left font-semibold">ID</th>
+                  <th className="px-4 py-3 text-left font-semibold">Recipient</th>
+                  <th className="px-4 py-3 text-left font-semibold">Barangay</th>
+                  <th className="px-4 py-3 text-left font-semibold">Item</th>
+                  <th className="px-4 py-3 text-left font-semibold">Status</th>
+                  <th className="px-4 py-3 text-left font-semibold">Date</th>
+                  <th className="px-4 py-3 text-left font-semibold">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {distributions.map((distribution) => {
+                  const recipient = distribution.family_name || distribution.individual_name || 'Unknown'
+                  const itemName = distribution.food_name || 'Food supply'
+                  const itemQty = distribution.quantity ? `${distribution.quantity} ${distribution.unit || ''}`.trim() : '—'
+                  return (
+                    <tr
+                      key={distribution.distribution_id}
+                      className={`transition ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}
+                    >
+                      <td className={`px-4 py-3 text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                        {distribution.distribution_id}
+                      </td>
+                      <td className={`px-4 py-3 ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
+                        {recipient}
+                      </td>
+                      <td className={`px-4 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                        {distribution.barangay_name || '—'}
+                      </td>
+                      <td className={`px-4 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                        {itemName} {itemQty !== '—' ? `(${itemQty})` : ''}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+                          distribution.status === 'Pending'
+                            ? 'bg-amber-100 text-amber-700'
+                            : 'bg-emerald-100 text-emerald-700'
+                        }`}>
+                          {distribution.status || 'Pending'}
+                        </span>
+                      </td>
+                      <td className={`px-4 py-3 text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                        {formatDate(distribution.date_given)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            onClick={() => openEditModal(distribution)}
+                            className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                              isDarkMode
+                                ? 'bg-slate-700 text-slate-200 hover:bg-slate-600'
+                                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                            }`}
+                          >
+                            <Pencil size={12} />
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteDistribution(distribution.distribution_id)}
+                            disabled={deletingId === distribution.distribution_id}
+                            className="inline-flex items-center gap-1 rounded-lg border border-red-300 text-red-600 hover:bg-red-50 px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50"
+                          >
+                            <Trash2 size={12} />
+                            {deletingId === distribution.distribution_id ? 'Deleting...' : 'Delete'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {/* ACTION BUTTONS */}
       <div
         className={`rounded-2xl border p-6 transition ${
@@ -395,12 +583,81 @@ export default function TransparencySection({ isDarkMode }) {
             isDarkMode
               ? 'border border-slate-600 text-slate-200 hover:bg-slate-800'
               : 'border border-slate-300 text-slate-700 hover:bg-slate-50'
-          }`}>
+          }`}
+          onClick={loadTransparencyData}
+          >
             <span>🔄</span>
             Refresh Data
           </button>
         </div>
       </div>
+
+      {editingDistribution ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className={`w-full max-w-lg rounded-2xl border p-6 shadow-xl ${
+            isDarkMode
+              ? 'bg-[#111c2e] border-white/10 text-slate-100'
+              : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Update Distribution Status</h3>
+              <button
+                onClick={closeEditModal}
+                className={`text-xs font-semibold px-3 py-1 rounded ${
+                  isDarkMode
+                    ? 'bg-slate-700 text-slate-200 hover:bg-slate-600'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                Close
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateStatus} className="space-y-4">
+              <div>
+                <label className={`mb-1 block text-xs font-semibold uppercase tracking-[0.08em] ${
+                  isDarkMode ? 'text-slate-300' : 'text-slate-600'
+                }`}>
+                  Status
+                </label>
+                <select
+                  value={editingStatus}
+                  onChange={(event) => setEditingStatus(event.target.value)}
+                  className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/40 ${
+                    isDarkMode
+                      ? 'border-slate-600 bg-slate-900 text-slate-100'
+                      : 'border-slate-300 bg-white text-slate-900'
+                  }`}
+                >
+                  <option value="Pending">Pending</option>
+                  <option value="Received">Received</option>
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={closeEditModal}
+                  className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                    isDarkMode
+                      ? 'bg-slate-700 text-slate-200 hover:bg-slate-600'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingStatus}
+                  className="rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 text-sm font-semibold transition disabled:opacity-50"
+                >
+                  {savingStatus ? 'Saving...' : 'Save Status'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
