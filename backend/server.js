@@ -17,6 +17,7 @@ app.use((req, res, next) => {
 // ─── DB CONNECTION ───────────────────────────────────────────────────────────
 const db = mysql.createPool({
   host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME
@@ -547,6 +548,8 @@ app.post('/api/auth/register', (req, res) => {
 })
 
 // ─── START SERVER ─────────────────────────────────────────────────────────────
-app.listen(process.env.PORT || 3000, () => {
-  console.log(`🚀 Server running on http://192.168.1.5:${process.env.PORT || 3000}`)
+const PORT = process.env.PORT || 8080
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`)
 })
