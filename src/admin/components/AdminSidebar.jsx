@@ -36,6 +36,9 @@ function AdminSidebar({ isDarkMode }) {
             ],
         },
         { name: 'Manage Families', icon: Users, path: '/admin/families' },
+        { name: 'Manage Individuals', icon: Users, path: '/admin/individuals' },
+        { name: 'Manage Donations', icon: Users, path: '/admin/donations' },
+        { name: 'Manage Users', icon: Users, path: '/admin/users' },
         { name: 'User Management', icon: Users, path: '/admin/create-account' },
         { name: 'Transparency', icon: FileText, path: '/admin/transparency' },
     ]

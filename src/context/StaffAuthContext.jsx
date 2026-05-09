@@ -3,37 +3,12 @@ import { createContext, useContext, useMemo, useState } from 'react'
 import { apiFetch } from '../api/api'
 
 const STAFF_STORAGE_KEY = 'staff-auth-user'
-const STAFF_ACCOUNTS_STORAGE_KEY = 'staff-accounts'
 const STAFF_TOKEN_KEY = 'phams-token'
-const DEMO_STAFF = {
-  username: 'staff',
-  password: 'staff123',
-  name: 'Staff User',
-  role: 'Operations Staff',
-  barangay: 'Poblacion',
-}
+const STAFF_ACCOUNTS_KEY = 'phams-staff-accounts'
 
 const StaffAuthContext = createContext(null)
 
 export function StaffAuthProvider({ children }) {
-  const [staffAccounts, setStaffAccounts] = useState(() => {
-    if (typeof window === 'undefined') {
-      return []
-    }
-
-    const stored = localStorage.getItem(STAFF_ACCOUNTS_STORAGE_KEY)
-    if (!stored) {
-      return []
-    }
-
-    try {
-      const parsed = JSON.parse(stored)
-      return Array.isArray(parsed) ? parsed : []
-    } catch {
-      return []
-    }
-  })
-
   const [staffUser, setStaffUser] = useState(() => {
     if (typeof window === 'undefined') {
       return null
@@ -51,52 +26,27 @@ export function StaffAuthProvider({ children }) {
     }
   })
 
+  const [staffAccounts, setStaffAccounts] = useState(() => {
+    if (typeof window === 'undefined') {
+      return []
+    }
+
+    const stored = localStorage.getItem(STAFF_ACCOUNTS_KEY)
+    if (!stored) {
+      return []
+    }
+
+    try {
+      const parsed = JSON.parse(stored)
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return []
+    }
+  })
+
   const isAuthenticated = Boolean(staffUser)
 
-  const persistAccounts = (nextAccounts) => {
-    setStaffAccounts(nextAccounts)
-    localStorage.setItem(STAFF_ACCOUNTS_STORAGE_KEY, JSON.stringify(nextAccounts))
-  }
-
-  const createStaffAccount = ({ username, password, name, barangay }) => {
-    const normalizedUsername = username.trim().toLowerCase()
-
-    if (!normalizedUsername || !password.trim() || !name.trim() || !barangay.trim()) {
-      return { ok: false, message: 'All staff account fields are required.' }
-    }
-
-    const usernameTakenByDemo = normalizedUsername === DEMO_STAFF.username
-    const usernameTakenByCreated = staffAccounts.some(
-      (account) => account.username === normalizedUsername,
-    )
-
-    if (usernameTakenByDemo || usernameTakenByCreated) {
-      return { ok: false, message: 'Username already exists.' }
-    }
-
-    const nextAccount = {
-      username: normalizedUsername,
-      password,
-      name: name.trim(),
-      role: 'Operations Staff',
-      barangay: barangay.trim(),
-    }
-
-    persistAccounts([...staffAccounts, nextAccount])
-    return { ok: true }
-  }
-
-  const deleteStaffAccount = (username) => {
-    const nextAccounts = staffAccounts.filter(
-      (account) => account.username !== username
-    )
-    persistAccounts(nextAccounts)
-    return { ok: true, message: 'Staff account deleted successfully.' }
-  }
-
   const login = async (emailOrUsername, password) => {
-    const normalizedUsername = emailOrUsername.trim().toLowerCase()
-
     try {
       const data = await apiFetch('/api/auth/login', {
         method: 'POST',
@@ -112,43 +62,49 @@ export function StaffAuthProvider({ children }) {
       setStaffUser(data.user)
       return { ok: true }
     } catch (err) {
-      if (
-        normalizedUsername === DEMO_STAFF.username &&
-        password === DEMO_STAFF.password
-      ) {
-        const nextUser = {
-          username: DEMO_STAFF.username,
-          name: DEMO_STAFF.name,
-          role: DEMO_STAFF.role,
-          barangay: DEMO_STAFF.barangay,
-        }
-        setStaffUser(nextUser)
-        localStorage.setItem(STAFF_TOKEN_KEY, 'demo-staff-token')
-        localStorage.setItem(STAFF_STORAGE_KEY, JSON.stringify(nextUser))
-        return { ok: true }
-      }
-
-      const matchedAccount = staffAccounts.find(
-        (account) =>
-          account.username === normalizedUsername &&
-          account.password === password,
-      )
-
-      if (matchedAccount) {
-        const nextUser = {
-          username: matchedAccount.username,
-          name: matchedAccount.name,
-          role: matchedAccount.role,
-          barangay: matchedAccount.barangay,
-        }
-        setStaffUser(nextUser)
-        localStorage.setItem(STAFF_TOKEN_KEY, 'demo-staff-token')
-        localStorage.setItem(STAFF_STORAGE_KEY, JSON.stringify(nextUser))
-        return { ok: true }
-      }
-
       return { ok: false, message: err.message || 'Invalid email or password.' }
     }
+  }
+
+  const persistStaffAccounts = (accounts) => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    localStorage.setItem(STAFF_ACCOUNTS_KEY, JSON.stringify(accounts))
+  }
+
+  const createStaffAccount = (staffData) => {
+    if (!staffData?.name || !staffData?.username || !staffData?.password) {
+      return { ok: false, message: 'Name, username, and password are required.' }
+    }
+
+    const exists = staffAccounts.some((staff) => staff.username === staffData.username)
+    if (exists) {
+      return { ok: false, message: 'Username already exists.' }
+    }
+
+    const nextAccounts = [
+      {
+        name: staffData.name,
+        username: staffData.username,
+        password: staffData.password,
+        barangay: staffData.barangay || '',
+        createdAt: new Date().toISOString(),
+      },
+      ...staffAccounts,
+    ]
+
+    setStaffAccounts(nextAccounts)
+    persistStaffAccounts(nextAccounts)
+    return { ok: true }
+  }
+
+  const deleteStaffAccount = (username) => {
+    const nextAccounts = staffAccounts.filter((staff) => staff.username !== username)
+    setStaffAccounts(nextAccounts)
+    persistStaffAccounts(nextAccounts)
+    return { ok: true }
   }
 
   const logout = () => {
@@ -159,14 +115,14 @@ export function StaffAuthProvider({ children }) {
   const value = useMemo(
     () => ({
       staffUser,
-      staffAccounts,
       isAuthenticated,
-      createStaffAccount,
-      deleteStaffAccount,
       login,
       logout,
+      staffAccounts,
+      createStaffAccount,
+      deleteStaffAccount,
     }),
-    [staffUser, staffAccounts, isAuthenticated],
+    [staffUser, isAuthenticated, staffAccounts],
   )
 
   return <StaffAuthContext.Provider value={value}>{children}</StaffAuthContext.Provider>

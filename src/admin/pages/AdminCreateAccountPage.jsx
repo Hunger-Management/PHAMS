@@ -1,29 +1,28 @@
 import { useState } from 'react'
 import AdminSidebar from '../components/AdminSidebar'
 import { useDarkMode } from '../../hooks/useDarkMode'
-import { useStaffAuth } from '../../context/StaffAuthContext'
+import { apiFetch } from '../../api/api'
 
 const barangayOptions = [
-  'Aguho',
-  'Magtanggol',
-  "Martires del '96",
-  'Poblacion',
-  'San Pedro',
-  'San Roque',
-  'Santa Ana',
-  'Santo Rosario-Kanluran',
-  'Santo Rosario-Silangan',
-  'Tabacalera',
+  { id: 1, name: 'Aguho' },
+  { id: 2, name: 'Magtanggol' },
+  { id: 3, name: "Martires del '96" },
+  { id: 4, name: 'Poblacion' },
+  { id: 5, name: 'San Pedro' },
+  { id: 6, name: 'San Roque' },
+  { id: 7, name: 'Santa Ana' },
+  { id: 8, name: 'Santo Rosario-Kanluran' },
+  { id: 9, name: 'Santo Rosario-Silangan' },
+  { id: 10, name: 'Tabacalera' },
 ]
 
 export default function AdminCreateAccountPage() {
   const { isDarkMode, toggleDarkMode } = useDarkMode()
-  const { createStaffAccount, deleteStaffAccount, staffAccounts } = useStaffAuth()
   const [staffFormData, setStaffFormData] = useState({
     name: '',
-    username: '',
+    email: '',
     password: '',
-    barangay: barangayOptions[0],
+    barangay_id: barangayOptions[0].id,
   })
   const [staffFormMessage, setStaffFormMessage] = useState('')
   const [staffFormError, setStaffFormError] = useState('')
@@ -36,25 +35,35 @@ export default function AdminCreateAccountPage() {
     }))
   }
 
-  const handleCreateStaffAccount = (event) => {
+  const handleCreateStaffAccount = async (event) => {
     event.preventDefault()
     setStaffFormMessage('')
     setStaffFormError('')
 
-    const result = createStaffAccount(staffFormData)
+    try {
+      const payload = {
+        name: staffFormData.name,
+        email: staffFormData.email,
+        password: staffFormData.password,
+        role: 'Staff',
+        barangay_id: Number(staffFormData.barangay_id),
+      }
 
-    if (!result.ok) {
-      setStaffFormError(result.message)
-      return
+      await apiFetch('/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      })
+
+      setStaffFormMessage('Staff account created successfully.')
+      setStaffFormData({
+        name: '',
+        email: '',
+        password: '',
+        barangay_id: barangayOptions[0].id,
+      })
+    } catch (err) {
+      setStaffFormError(err.message || 'Failed to create staff account.')
     }
-
-    setStaffFormMessage('Staff account created successfully.')
-    setStaffFormData({
-      name: '',
-      username: '',
-      password: '',
-      barangay: barangayOptions[0],
-    })
   }
 
   return (
@@ -116,12 +125,13 @@ export default function AdminCreateAccountPage() {
                     <label className={`mb-1 block text-xs font-semibold uppercase tracking-[0.08em] ${
                       isDarkMode ? 'text-slate-300' : 'text-slate-600'
                     }`} htmlFor="staffUsername">
-                      Username
+                      Email
                     </label>
                     <input
                       id="staffUsername"
-                      name="username"
-                      value={staffFormData.username}
+                      name="email"
+                      type="email"
+                      value={staffFormData.email}
                       onChange={handleStaffInputChange}
                       required
                       className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/40 ${
@@ -129,7 +139,7 @@ export default function AdminCreateAccountPage() {
                           ? 'border-slate-600 bg-slate-900 text-slate-100'
                           : 'border-slate-300 bg-white text-slate-900'
                       }`}
-                      placeholder="Create username"
+                      placeholder="name@example.com"
                     />
                   </div>
 
@@ -164,8 +174,8 @@ export default function AdminCreateAccountPage() {
                   </label>
                   <select
                     id="staffBarangay"
-                    name="barangay"
-                    value={staffFormData.barangay}
+                    name="barangay_id"
+                    value={staffFormData.barangay_id}
                     onChange={handleStaffInputChange}
                     className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/40 ${
                       isDarkMode
@@ -174,8 +184,8 @@ export default function AdminCreateAccountPage() {
                     }`}
                   >
                     {barangayOptions.map((barangay) => (
-                      <option key={barangay} value={barangay}>
-                        {barangay}
+                      <option key={barangay.id} value={barangay.id}>
+                        {barangay.name}
                       </option>
                     ))}
                   </select>
@@ -214,51 +224,10 @@ export default function AdminCreateAccountPage() {
                 Staff Assignments
               </h3>
 
-              {staffAccounts.length === 0 ? (
-                <p className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                  No created staff accounts yet.
-                </p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[420px] text-left text-sm">
-                    <thead>
-                      <tr className={`${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                        <th className="pb-2 font-semibold">Name</th>
-                        <th className="pb-2 font-semibold">Username</th>
-                        <th className="pb-2 font-semibold">Barangay</th>
-                        <th className="pb-2 font-semibold">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {staffAccounts.map((staff) => (
-                        <tr key={staff.username} className="border-t border-slate-200/20">
-                          <td className={`py-2 ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>
-                            {staff.name}
-                          </td>
-                          <td className={`py-2 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
-                            {staff.username}
-                          </td>
-                          <td className={`py-2 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
-                            {staff.barangay}
-                          </td>
-                          <td className="py-2">
-                            <button
-                              onClick={() => {
-                                if (confirm(`Delete staff account "${staff.name}"?`)) {
-                                  deleteStaffAccount(staff.username)
-                                }
-                              }}
-                              className="text-xs font-semibold px-3 py-1 rounded bg-red-600 hover:bg-red-700 text-white transition"
-                            >
-                              Delete
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+              <p className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                Staff accounts are created in the database. Connect a staff list endpoint to
+                display them here.
+              </p>
             </article>
           </section>
         </div>

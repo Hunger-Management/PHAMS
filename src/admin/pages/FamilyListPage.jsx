@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Users, UserPlus, Search, AlertTriangle } from 'lucide-react'
+import { Users, UserPlus, Search, AlertTriangle, Pencil, Trash2 } from 'lucide-react'
 import { useDarkMode } from '../../hooks/useDarkMode'
 import { useAdminAuth } from '../../context/AdminAuthContext'
 import AdminSidebar from '../components/AdminSidebar'
@@ -15,8 +15,19 @@ function FamilyListPage() {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
     const [searchQuery, setSearchQuery] = useState('')
-    const [deactivating, setDeactivating] = useState(null)
-    const [confirmId, setConfirmId] = useState(null)
+    const [deletingId, setDeletingId] = useState(null)
+    const [successMessage, setSuccessMessage] = useState('')
+    const [barangays, setBarangays] = useState([])
+    const [barangaysLoading, setBarangaysLoading] = useState(false)
+    const [editFamily, setEditFamily] = useState(null)
+    const [editForm, setEditForm] = useState({
+        family_name: '',
+        address: '',
+        head_of_family: '',
+        phone: '',
+        barangay_id: '',
+    })
+    const [savingEdit, setSavingEdit] = useState(false)
 
     const location = useLocation()
 
@@ -41,11 +52,13 @@ function FamilyListPage() {
         if (newFamily) setFamilies((prev) => [newFamily, ...prev])
 
         fetchFamilies()
+        fetchBarangays()
     }, [isAuthenticated])
 
     const fetchFamilies = async () => {
         setLoading(true)
         setError('')
+        setSuccessMessage('')
         try {
             const data = await apiFetch('/api/families')
             setFamilies(Array.isArray(data) ? data : (data.families || []))
@@ -66,36 +79,112 @@ function FamilyListPage() {
         }
     }
 
-    // deactivate (soft delete)
-    const handleDeactivate = async (familyId) => {
-        setDeactivating(familyId)
+    const fetchBarangays = async () => {
+        setBarangaysLoading(true)
+        try {
+            const data = await apiFetch('/api/barangays')
+            setBarangays(Array.isArray(data) ? data : [])
+        } catch (err) {
+            setBarangays([])
+        } finally {
+            setBarangaysLoading(false)
+        }
+    }
+
+    const handleDelete = async (familyId) => {
+        if (!confirm('Delete this family record? This cannot be undone.')) {
+            return
+        }
+
+        setDeletingId(familyId)
+        setError('')
+        setSuccessMessage('')
         try {
             // If family is a locally stored entry, remove from localStorage
             if (typeof familyId === 'string' && familyId.startsWith('local-')) {
                 const local = loadLocal().filter((f) => f.family_id !== familyId)
                 localStorage.setItem(LOCAL_KEY, JSON.stringify(local))
                 setFamilies((prev) => prev.filter((f) => f.family_id !== familyId))
-                setConfirmId(null)
+                setSuccessMessage('Family deleted.')
             } else {
                 await apiFetch(`/api/families/${familyId}`, { method: 'DELETE' })
-                // Remove from local state immediately for snappy UX
-                setFamilies((prev) => prev.filter((f) => f.family_id !== familyId))
-                setConfirmId(null)
+                await fetchFamilies()
+                setSuccessMessage('Family deleted.')
             }
         } catch (err) {
-            setError(err.message || 'Failed to deactivate family.')
+            setError(err.message || 'Failed to delete family.')
         } finally {
-            setDeactivating(null)
+            setDeletingId(null)
+        }
+    }
+
+    const openEditModal = (family) => {
+        setEditFamily(family)
+        setEditForm({
+            family_name: family.family_name || '',
+            address: family.address || '',
+            head_of_family: family.head_of_family || '',
+            phone: family.phone || '',
+            barangay_id: family.barangay_id || '',
+        })
+        setError('')
+        setSuccessMessage('')
+    }
+
+    const closeEditModal = () => {
+        setEditFamily(null)
+    }
+
+    const handleEditChange = (event) => {
+        const { name, value } = event.target
+        setEditForm((current) => ({
+            ...current,
+            [name]: value,
+        }))
+    }
+
+    const handleEditSubmit = async (event) => {
+        event.preventDefault()
+        if (!editFamily) return
+
+        setSavingEdit(true)
+        setError('')
+        setSuccessMessage('')
+        try {
+            const payload = {
+                family_name: editForm.family_name,
+                address: editForm.address,
+                head_of_family: editForm.head_of_family,
+                phone: editForm.phone,
+                barangay_id: editForm.barangay_id ? Number(editForm.barangay_id) : null,
+            }
+
+            await apiFetch(`/api/families/${editFamily.family_id}`, {
+                method: 'PUT',
+                body: JSON.stringify(payload),
+            })
+
+            setSuccessMessage('Family updated successfully.')
+            closeEditModal()
+            await fetchFamilies()
+        } catch (err) {
+            setError(err.message || 'Failed to update family.')
+        } finally {
+            setSavingEdit(false)
         }
     }
 
     // filter by search
     const filtered = families.filter((f) => {
-        const q = searchQuery.toLowerCase()
+        const q = (searchQuery ?? '').toLowerCase()
+        const familyName = (f.family_name ?? '').toLowerCase()
+        const barangayName = (f.barangay_name ?? '').toLowerCase()
+        const address = (f.address ?? '').toLowerCase()
+
         return (
-            f.family_name.toLowerCase().includes(q) ||
-            f.barangay_name.toLowerCase().includes(q) ||
-            (f.address && f.address.toLowerCase().includes(q))
+            familyName.includes(q) ||
+            barangayName.includes(q) ||
+            address.includes(q)
         )
     })
 
@@ -126,7 +215,13 @@ function FamilyListPage() {
                         </button>
                     </div>
 
-                    {/* Error */}
+                    {/* Messages */}
+                    {successMessage ? (
+                        <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                            {successMessage}
+                        </div>
+                    ) : null}
+
                     {error && families.length === 0 ? (
                         <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                             <div className="flex items-start gap-3">
@@ -151,6 +246,10 @@ function FamilyListPage() {
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    ) : error ? (
+                        <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                            {error}
                         </div>
                     ) : null}
 
@@ -282,33 +381,26 @@ function FamilyListPage() {
 
                                                 {/* Actions */}
                                                 <td className="px-6 py-4">
-                                                    {confirmId === family.family_id ? (
-                                                        <div className="flex items-center gap-2">
-                                                            <button
-                                                                onClick={() => handleDeactivate(family.family_id)}
-                                                                disabled={deactivating === family.family_id}
-                                                                className="rounded-lg bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50"
-                                                            >
-                                                                {deactivating === family.family_id ? 'Removing...' : 'Confirm'}
-                                                            </button>
-                                                            <button
-                                                                onClick={() => setConfirmId(null)}
-                                                                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${isDarkMode
-                                                                        ? 'bg-slate-700 text-slate-200 hover:bg-slate-600'
-                                                                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                                                                    }`}
-                                                            >
-                                                                Cancel
-                                                            </button>
-                                                        </div>
-                                                    ) : (
+                                                    <div className="flex flex-wrap items-center gap-2">
                                                         <button
-                                                            onClick={() => setConfirmId(family.family_id)}
-                                                            className="rounded-lg border border-red-300 text-red-600 hover:bg-red-50 px-3 py-1.5 text-xs font-semibold transition"
+                                                            onClick={() => openEditModal(family)}
+                                                            className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${isDarkMode
+                                                                    ? 'bg-slate-700 text-slate-200 hover:bg-slate-600'
+                                                                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                                                }`}
                                                         >
-                                                            Deactivate
+                                                            <Pencil size={12} />
+                                                            Edit
                                                         </button>
-                                                    )}
+                                                        <button
+                                                            onClick={() => handleDelete(family.family_id)}
+                                                            disabled={deletingId === family.family_id}
+                                                            className="inline-flex items-center gap-1 rounded-lg border border-red-300 text-red-600 hover:bg-red-50 px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50"
+                                                        >
+                                                            <Trash2 size={12} />
+                                                            {deletingId === family.family_id ? 'Deleting...' : 'Delete'}
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                             )
@@ -318,6 +410,150 @@ function FamilyListPage() {
                             </div>
                         )}
                     </div>
+
+                    {editFamily ? (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                            <div className={`w-full max-w-2xl rounded-2xl border p-6 shadow-xl ${isDarkMode
+                                    ? 'bg-[#111c2e] border-white/10 text-slate-100'
+                                    : 'bg-white border-slate-200 text-slate-900'
+                                }`}>
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-lg font-semibold">Edit Family</h3>
+                                    <button
+                                        onClick={closeEditModal}
+                                        className={`text-xs font-semibold px-3 py-1 rounded ${isDarkMode
+                                                ? 'bg-slate-700 text-slate-200 hover:bg-slate-600'
+                                                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                            }`}
+                                    >
+                                        Close
+                                    </button>
+                                </div>
+
+                                <form onSubmit={handleEditSubmit} className="space-y-4">
+                                    <div>
+                                        <label className={`mb-1 block text-xs font-semibold uppercase tracking-[0.08em] ${isDarkMode
+                                                ? 'text-slate-300'
+                                                : 'text-slate-600'
+                                            }`}>
+                                            Family Name
+                                        </label>
+                                        <input
+                                            name="family_name"
+                                            value={editForm.family_name}
+                                            onChange={handleEditChange}
+                                            required
+                                            className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/40 ${isDarkMode
+                                                    ? 'border-slate-600 bg-slate-900 text-slate-100'
+                                                    : 'border-slate-300 bg-white text-slate-900'
+                                                }`}
+                                        />
+                                    </div>
+
+                                    <div className="grid gap-3 md:grid-cols-2">
+                                        <div>
+                                            <label className={`mb-1 block text-xs font-semibold uppercase tracking-[0.08em] ${isDarkMode
+                                                    ? 'text-slate-300'
+                                                    : 'text-slate-600'
+                                                }`}>
+                                                Head of Family
+                                            </label>
+                                            <input
+                                                name="head_of_family"
+                                                value={editForm.head_of_family}
+                                                onChange={handleEditChange}
+                                                className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/40 ${isDarkMode
+                                                        ? 'border-slate-600 bg-slate-900 text-slate-100'
+                                                        : 'border-slate-300 bg-white text-slate-900'
+                                                    }`}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className={`mb-1 block text-xs font-semibold uppercase tracking-[0.08em] ${isDarkMode
+                                                    ? 'text-slate-300'
+                                                    : 'text-slate-600'
+                                                }`}>
+                                                Phone
+                                            </label>
+                                            <input
+                                                name="phone"
+                                                value={editForm.phone}
+                                                onChange={handleEditChange}
+                                                className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/40 ${isDarkMode
+                                                        ? 'border-slate-600 bg-slate-900 text-slate-100'
+                                                        : 'border-slate-300 bg-white text-slate-900'
+                                                    }`}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className={`mb-1 block text-xs font-semibold uppercase tracking-[0.08em] ${isDarkMode
+                                                ? 'text-slate-300'
+                                                : 'text-slate-600'
+                                            }`}>
+                                            Address
+                                        </label>
+                                        <input
+                                            name="address"
+                                            value={editForm.address}
+                                            onChange={handleEditChange}
+                                            className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/40 ${isDarkMode
+                                                    ? 'border-slate-600 bg-slate-900 text-slate-100'
+                                                    : 'border-slate-300 bg-white text-slate-900'
+                                                }`}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className={`mb-1 block text-xs font-semibold uppercase tracking-[0.08em] ${isDarkMode
+                                                ? 'text-slate-300'
+                                                : 'text-slate-600'
+                                            }`}>
+                                            Barangay
+                                        </label>
+                                        <select
+                                            name="barangay_id"
+                                            value={editForm.barangay_id}
+                                            onChange={handleEditChange}
+                                            disabled={barangaysLoading}
+                                            className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/40 ${isDarkMode
+                                                    ? 'border-slate-600 bg-slate-900 text-slate-100'
+                                                    : 'border-slate-300 bg-white text-slate-900'
+                                                }`}
+                                        >
+                                            <option value="">Select barangay</option>
+                                            {barangays.map((barangay) => (
+                                                <option key={barangay.barangay_id} value={barangay.barangay_id}>
+                                                    {barangay.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div className="flex items-center justify-end gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={closeEditModal}
+                                            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${isDarkMode
+                                                    ? 'bg-slate-700 text-slate-200 hover:bg-slate-600'
+                                                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                                }`}
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            disabled={savingEdit}
+                                            className="rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 text-sm font-semibold transition disabled:opacity-50"
+                                        >
+                                            {savingEdit ? 'Saving...' : 'Save Changes'}
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    ) : null}
 
                 </div>
             </main>

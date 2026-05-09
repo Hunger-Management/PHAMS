@@ -413,16 +413,6 @@ function StaffLoginPage() {
                                         Sign In to Staff Dashboard
                                     </button>
 
-                                    {/* Demo Credentials */}
-                                    <div className={`mt-6 rounded-xl border-2 p-4 ${isDarkMode ? 'border-slate-700/50 bg-slate-900/30' : 'border-slate-200 bg-slate-50'}`}>
-                                        <p className={`text-xs font-semibold uppercase tracking-wider mb-2.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-                                           Demo Credentials
-                                        </p>
-                                        <div className={`space-y-1.5 text-sm ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
-                                            <p><span className={`font-semibold ${isDarkMode ? 'text-emerald-300' : 'text-emerald-700'}`}>Email:</span> staff@barangay.gov.ph</p>
-                                            <p><span className={`font-semibold ${isDarkMode ? 'text-emerald-300' : 'text-emerald-700'}`}>Password:</span> staff123</p>
-                                        </div>
-                                    </div>
                                 </form>
                             </article>
                         ) : null}

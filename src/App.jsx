@@ -27,6 +27,10 @@ import FamilyListPage from './admin/pages/FamilyListPage'
 import AddFamilyPage from './admin/pages/AddFamilyPage'
 import AddDistributionPage from './admin/pages/AddDistributionPage'
 import AddIndividualPage from './admin/pages/AddIndividualPage'
+import IndividualsListPage from './admin/pages/IndividualsListPage'
+import DonationsListPage from './admin/pages/DonationsListPage'
+import AddDonationPage from './admin/pages/AddDonationPage'
+import UsersListPage from './admin/pages/UsersListPage'
 
 function App() {
   return (
@@ -60,6 +64,10 @@ function App() {
         <Route path="/admin/families/add" element={<AddFamilyPage />} />
         <Route path="/admin/distributions/add" element={<AddDistributionPage />} />
         <Route path="/admin/individuals/add" element={<AddIndividualPage />} />
+        <Route path="/admin/individuals" element={<IndividualsListPage />} />
+        <Route path="/admin/donations" element={<DonationsListPage />} />
+        <Route path="/admin/donations/add" element={<AddDonationPage />} />
+        <Route path="/admin/users" element={<UsersListPage />} />
       </Route>
     </Routes>
   )
