@@ -21,17 +21,9 @@ export default function TransparencySection({ isDarkMode }) {
     setError('')
     setActionError('')
     try {
-      const [distRes, supplyRes] = await Promise.all([
-        fetch('/api/distributions'),
-        fetch('/api/food-supplies'),
-      ])
-
-      if (!distRes.ok) throw new Error('Failed to fetch distributions')
-      if (!supplyRes.ok) throw new Error('Failed to fetch food supplies')
-
       const [distData, supplyData] = await Promise.all([
-        distRes.json(),
-        supplyRes.json(),
+        apiFetch('/api/distributions'),
+        apiFetch('/api/food-supplies'),
       ])
 
       setDistributions(Array.isArray(distData) ? distData : [])

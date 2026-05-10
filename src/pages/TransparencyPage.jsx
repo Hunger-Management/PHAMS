@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { apiFetch } from '../api/api'
 import { useDarkMode } from '../hooks/useDarkMode'
 import SiteHeader from '../components/SiteHeader'
 
@@ -14,24 +15,12 @@ function TransparencyPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/distributions'),
-      fetch('/api/food-supplies'),
-      fetch('/api/stats'),
-      fetch('/api/barangays'),
+      apiFetch('/api/distributions'),
+      apiFetch('/api/food-supplies'),
+      apiFetch('/api/stats'),
+      apiFetch('/api/barangays'),
     ])
-      .then(async ([distRes, supplyRes, statsRes, barangaysRes]) => {
-        if (!distRes.ok) throw new Error('Failed to fetch distributions')
-        if (!supplyRes.ok) throw new Error('Failed to fetch food supplies')
-        if (!statsRes.ok) throw new Error('Failed to fetch stats')
-        if (!barangaysRes.ok) throw new Error('Failed to fetch barangays')
-
-        const [distData, supplyData, statsData, barangaysData] = await Promise.all([
-          distRes.json(),
-          supplyRes.json(),
-          statsRes.json(),
-          barangaysRes.json(),
-        ])
-
+      .then(([distData, supplyData, statsData, barangaysData]) => {
         setDistributions(Array.isArray(distData) ? distData : [])
         setFoodSupplies(Array.isArray(supplyData) ? supplyData : [])
         setStats(statsData || null)

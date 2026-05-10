@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useEffect, useState } from 'react'
+import { apiFetch } from '../api/api'
 import { useDarkMode } from '../hooks/useDarkMode'
 import SiteHeader from '../components/SiteHeader'
 
@@ -10,11 +11,7 @@ function BarangaysPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    fetch('/api/barangays')
-      .then((res) => {
-        if (!res.ok) throw new Error('Failed to fetch barangays')
-        return res.json()
-      })
+    apiFetch('/api/barangays')
       .then((data) => {
         setBarangays(data)
         setLoading(false)

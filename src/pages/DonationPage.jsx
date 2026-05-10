@@ -79,11 +79,7 @@ function DonationPage() {
   }
 
   const loadRecentDonors = () => {
-    fetch('/api/donations')
-      .then((res) => {
-        if (!res.ok) throw new Error('Failed to fetch donors')
-        return res.json()
-      })
+    apiFetch('/api/donations')
       .then((data) => {
         const list = Array.isArray(data) ? data : []
         const mapped = list.slice(0, 6).map((item, index) => ({
@@ -103,11 +99,7 @@ function DonationPage() {
   }
 
   const loadFoodSupplies = () => {
-    fetch('/api/food-supplies')
-      .then((res) => {
-        if (!res.ok) throw new Error('Failed to fetch food supplies')
-        return res.json()
-      })
+    apiFetch('/api/food-supplies')
       .then((data) => {
         setFoodSupplies(Array.isArray(data) ? data : [])
         setFoodSuppliesError('')

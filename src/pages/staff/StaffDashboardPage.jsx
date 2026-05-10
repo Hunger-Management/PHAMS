@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
+import { apiFetch } from '../../api/api'
 import { useDarkMode } from '../../hooks/useDarkMode'
 import { useStaffAuth } from '../../context/StaffAuthContext'
 import StaffSidebar from './StaffSidebar'
@@ -16,18 +17,10 @@ function StaffDashboardPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/families'),
-      fetch('/api/distributions'),
+      apiFetch('/api/families'),
+      apiFetch('/api/distributions'),
     ])
-      .then(async ([familiesRes, distributionsRes]) => {
-        if (!familiesRes.ok) throw new Error('Failed to fetch families')
-        if (!distributionsRes.ok) throw new Error('Failed to fetch distributions')
-
-        const [familiesData, distributionsData] = await Promise.all([
-          familiesRes.json(),
-          distributionsRes.json(),
-        ])
-
+      .then(([familiesData, distributionsData]) => {
         setFamilies(Array.isArray(familiesData) ? familiesData : [])
         setDistributions(Array.isArray(distributionsData) ? distributionsData : [])
         setLoading(false)

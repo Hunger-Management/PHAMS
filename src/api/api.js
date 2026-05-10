@@ -1,5 +1,8 @@
+import { mockApiFetch } from './mockApi'
+
 const BASE_URL = import.meta.env.VITE_API_URL || 'https://phams-production.up.railway.app'
- const REQUEST_TIMEOUT_MS = 8000
+const REQUEST_TIMEOUT_MS = 8000
+const USE_MOCK_API = (import.meta.env.VITE_USE_MOCK_API ?? (import.meta.env.DEV ? 'true' : 'false')) === 'true'
 
 // ─────────────────────────────────────────────────────────────
 // getToken
@@ -19,6 +22,10 @@ export function getToken() {
 //   - Throws an error with the server's message if not ok
 // ─────────────────────────────────────────────────────────────
 export async function apiFetch(path, options = {}) {
+    if (USE_MOCK_API) {
+        return mockApiFetch(path, options)
+    }
+
     const token = getToken()
     const controller = new AbortController()
     const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)

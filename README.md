@@ -1,5 +1,29 @@
 # PHAMS Frontend — feature/manage-families
 
+## Frontend-only mode (no database needed)
+
+The frontend now supports a built-in mock API so classmates can work on UI without running MySQL or the backend.
+
+- Default in local dev: mock API is ON.
+- Start frontend only:
+  1. `npm install`
+  2. `npm run dev`
+
+### Toggle behavior
+
+- Use mock API explicitly:
+  - `VITE_USE_MOCK_API=true`
+- Use real backend API:
+  - `VITE_USE_MOCK_API=false`
+  - Set `VITE_API_URL` to your backend URL.
+
+Example `.env` in project root:
+
+```env
+VITE_USE_MOCK_API=true
+VITE_API_URL=http://localhost:3000
+```
+
 ## What this branch adds
 
 This branch implements the **Manage Families** feature for the admin dashboard,

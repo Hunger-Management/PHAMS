@@ -1,6 +1,7 @@
 import AdminSidebar from '../components/AdminSidebar'
 import { useLocation } from 'react-router-dom'
 import { useEffect, useState } from 'react'
+import { apiFetch } from '../../api/api'
 import { useAdminAuth } from '../../context/AdminAuthContext'
 import { useNavigate } from 'react-router-dom'
 import { useDarkMode } from '../../hooks/useDarkMode'
@@ -51,11 +52,7 @@ export default function AdminDashboardPage() {
         }
     }, [location])
     useEffect(() => {
-        fetch('/api/barangays')
-            .then((res) => {
-                if (!res.ok) throw new Error('Failed to fetch barangays')
-                return res.json()
-            })
+        apiFetch('/api/barangays')
             .then((data) => {
                 setBarangays(data)
                 setLoading(false)
@@ -67,11 +64,7 @@ export default function AdminDashboardPage() {
     }, [])
 
     useEffect(() => {
-        fetch('/api/stats')
-            .then((res) => {
-                if (!res.ok) throw new Error('Failed to fetch stats')
-                return res.json()
-            })
+        apiFetch('/api/stats')
             .then((data) => {
                 setStats(data)
                 setStatsLoading(false)

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { apiFetch } from '../../api/api'
 import { useStaffAuth } from '../../context/StaffAuthContext'
 import { useBarangay } from '../../context/BarangayContext'
 
@@ -12,11 +13,7 @@ export default function BarangayManagementSection({ isDarkMode }) {
   const allBarangays = getAllBarangays()
 
   useEffect(() => {
-    fetch('/api/barangays')
-      .then((res) => {
-        if (!res.ok) throw new Error('Failed to fetch barangays')
-        return res.json()
-      })
+    apiFetch('/api/barangays')
       .then((data) => {
         setApiBarangays(Array.isArray(data) ? data : [])
         setLoading(false)
