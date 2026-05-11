@@ -70,6 +70,26 @@ function AddDistributionPage() {
       return
     }
 
+    if (name === 'family_id') {
+      setFormData((prev) => ({
+        ...prev,
+        family_id: value,
+        recipient_type: value ? 'Family' : prev.recipient_type,
+        individual_id: value ? '' : prev.individual_id,
+      }))
+      return
+    }
+
+    if (name === 'individual_id') {
+      setFormData((prev) => ({
+        ...prev,
+        individual_id: value,
+        recipient_type: value ? 'Individual' : prev.recipient_type,
+        family_id: value ? '' : prev.family_id,
+      }))
+      return
+    }
+
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
@@ -238,7 +258,7 @@ function AddDistributionPage() {
                     value={formData.family_id}
                     onChange={handleChange}
                     className={inputClass}
-                    disabled={formData.recipient_type !== 'Family' || loading}
+                    disabled={loading}
                   >
                     <option value="">Select family</option>
                     {families.map((family) => (
@@ -256,7 +276,7 @@ function AddDistributionPage() {
                     value={formData.individual_id}
                     onChange={handleChange}
                     className={inputClass}
-                    disabled={formData.recipient_type !== 'Individual' || loading}
+                    disabled={loading}
                   >
                     <option value="">Select individual</option>
                     {individuals.map((individual) => (
