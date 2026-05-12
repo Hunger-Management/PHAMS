@@ -514,7 +514,14 @@ app.post('/api/auth/login', (req, res) => {
     return res.status(400).json({ message: 'Email and password are required.' })
   }
 
-  db.query('SELECT * FROM users WHERE email = ?', [email], (err, results) => {
+  const userSql = `
+    SELECT u.*, b.name AS barangay_name
+    FROM users u
+    LEFT JOIN barangays b ON u.barangay_id = b.barangay_id
+    WHERE u.email = ?
+  `
+
+  db.query(userSql, [email], (err, results) => {
     if (err) return res.status(500).json({ message: err.message })
     if (!results || results.length === 0) {
       return res.status(401).json({ message: 'Invalid credentials.' })
@@ -535,6 +542,7 @@ app.post('/api/auth/login', (req, res) => {
           email: user.email,
           role: user.role,
           barangay_id: user.barangay_id,
+          barangay: user.barangay_name,
         },
       })
     })

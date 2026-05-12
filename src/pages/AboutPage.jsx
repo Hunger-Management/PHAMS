@@ -51,14 +51,7 @@ function AboutPage() {
           <article className={`rounded-3xl border p-8 md:p-9 text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${
             isDarkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'
           }`}>
-            <div className={`mx-auto h-20 w-20 rounded-full grid place-items-center ${
-              isDarkMode ? 'bg-amber-900/30' : 'bg-amber-100'
-            }`}>
-              <svg viewBox="0 0 24 24" className={`h-9 w-9 ${isDarkMode ? 'text-amber-300' : 'text-orange-600'}`} fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
-                <circle cx="12" cy="12" r="3" />
-              </svg>
-            </div>
+           
             <h2 className={`mt-7 text-3xl md:text-4xl font-black ${isDarkMode ? 'text-slate-100' : 'text-[#011d49]'}`} style={{ fontFamily: 'Arial Black, Trebuchet MS, sans-serif' }}>
               Our Vision
             </h2>
