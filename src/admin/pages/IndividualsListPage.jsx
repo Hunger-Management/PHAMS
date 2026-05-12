@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { Users, UserPlus, Search, AlertTriangle, Pencil, Trash2 } from 'lucide-react'
 import { useDarkMode } from '../../hooks/useDarkMode'
 import { useAdminAuth } from '../../context/AdminAuthContext'
@@ -17,6 +17,7 @@ function IndividualsListPage() {
     const [error, setError] = useState('')
     const [successMessage, setSuccessMessage] = useState('')
     const [searchQuery, setSearchQuery] = useState('')
+    const [selectedBarangayId, setSelectedBarangayId] = useState('')
     const [deletingId, setDeletingId] = useState(null)
     const [editingIndividual, setEditingIndividual] = useState(null)
     const [editForm, setEditForm] = useState({
@@ -27,6 +28,14 @@ function IndividualsListPage() {
         status: 'Registered',
     })
     const [savingEdit, setSavingEdit] = useState(false)
+    const location = useLocation()
+
+    useEffect(() => {
+        const barangayIdFromState = location.state?.barangayId
+        if (barangayIdFromState) {
+            setSelectedBarangayId(String(barangayIdFromState))
+        }
+    }, [location.state])
 
     useEffect(() => {
         if (!isAuthenticated) return
@@ -136,8 +145,9 @@ function IndividualsListPage() {
         const q = (searchQuery ?? '').toLowerCase()
         const name = (individual.name ?? '').toLowerCase()
         const barangay = (individual.barangay_name ?? '').toLowerCase()
+        const matchesBarangay = !selectedBarangayId || String(individual.barangay_id) === String(selectedBarangayId)
 
-        return name.includes(q) || barangay.includes(q)
+        return matchesBarangay && (name.includes(q) || barangay.includes(q))
     })
 
     return (
@@ -212,6 +222,36 @@ function IndividualsListPage() {
                         />
                     </div>
 
+                    <div className={`mb-6 flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3 ${isDarkMode ? 'border-white/10 bg-[#111c2e]' : 'border-slate-200 bg-white'}`}>
+                        <label className={`text-xs font-semibold uppercase tracking-[0.08em] ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                            Barangay Filter
+                        </label>
+                        <select
+                            value={selectedBarangayId}
+                            onChange={(e) => setSelectedBarangayId(e.target.value)}
+                            className={`min-w-[220px] rounded-lg border px-3 py-2 text-sm outline-none ${isDarkMode
+                                ? 'border-white/10 bg-[#0b1220] text-slate-100'
+                                : 'border-slate-200 bg-slate-50 text-slate-900'
+                            }`}
+                        >
+                            <option value="">All barangays</option>
+                            {barangays.map((barangay) => (
+                                <option key={barangay.barangay_id} value={barangay.barangay_id}>
+                                    {barangay.name}
+                                </option>
+                            ))}
+                        </select>
+                        {selectedBarangayId ? (
+                            <button
+                                type="button"
+                                onClick={() => setSelectedBarangayId('')}
+                                className={`text-sm font-medium underline ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}
+                            >
+                                Clear filter
+                            </button>
+                        ) : null}
+                    </div>
+
                     <div className={`rounded-2xl border shadow-sm overflow-hidden ${isDarkMode ? 'border-white/10 bg-[#111c2e]' : 'border-slate-200 bg-white'}`}>
                         {loading ? (
                             <div className={`p-12 text-center text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -221,7 +261,7 @@ function IndividualsListPage() {
                             <div className={`p-12 text-center ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                                 <Users size={36} className="mx-auto mb-3 opacity-30" />
                                 <p className="text-sm">
-                                    {searchQuery ? 'No individuals match your search.' : 'No individuals registered yet.'}
+                                    {searchQuery || selectedBarangayId ? 'No individuals match the current filters.' : 'No individuals registered yet.'}
                                 </p>
                                 {!searchQuery ? (
                                     <button

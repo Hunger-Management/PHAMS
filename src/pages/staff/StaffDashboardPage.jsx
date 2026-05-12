@@ -23,6 +23,7 @@ function StaffDashboardPage() {
   const { isDarkMode, toggleDarkMode } = useDarkMode()
   const { staffUser } = useStaffAuth()
   const [families, setFamilies] = useState([])
+  const [individuals, setIndividuals] = useState([])
   const [distributions, setDistributions] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -56,10 +57,12 @@ function StaffDashboardPage() {
   useEffect(() => {
     Promise.all([
       apiFetch('/api/families'),
+      apiFetch('/api/individuals'),
       apiFetch('/api/distributions'),
     ])
-      .then(([familiesData, distributionsData]) => {
+      .then(([familiesData, individualsData, distributionsData]) => {
         setFamilies(Array.isArray(familiesData) ? familiesData : [])
+        setIndividuals(Array.isArray(individualsData) ? individualsData : [])
         setDistributions(Array.isArray(distributionsData) ? distributionsData : [])
         setLoading(false)
       })
@@ -76,11 +79,13 @@ function StaffDashboardPage() {
       const timer = setTimeout(() => {
         Promise.all([
           apiFetch('/api/families'),
+          apiFetch('/api/individuals'),
           apiFetch('/api/distributions'),
         ])
-          .then(([familiesData, distributionsData]) => {
+          .then(([familiesData, individualsData, distributionsData]) => {
             console.log('Data refreshed after family submission:', familiesData)
             setFamilies(Array.isArray(familiesData) ? familiesData : [])
+            setIndividuals(Array.isArray(individualsData) ? individualsData : [])
             setDistributions(Array.isArray(distributionsData) ? distributionsData : [])
           })
           .catch((err) => {
@@ -95,6 +100,11 @@ function StaffDashboardPage() {
   const filteredFamilies = useMemo(
     () => families.filter((family) => (family.barangay_name || '').toLowerCase() === staffBarangay.toLowerCase()),
     [families, staffBarangay],
+  )
+
+  const filteredIndividuals = useMemo(
+    () => individuals.filter((individual) => (individual.barangay_name || '').toLowerCase() === staffBarangay.toLowerCase()),
+    [individuals, staffBarangay],
   )
 
   const filteredDistributions = useMemo(
@@ -150,6 +160,14 @@ function StaffDashboardPage() {
       icon: '🍃',
     },
     {
+      label: 'Registered Individuals',
+      value: filteredIndividuals.length.toString(),
+      sub: `Recorded in Barangay ${staffBarangay}`,
+      iconBg: 'bg-sky-100',
+      iconText: 'text-sky-600',
+      icon: '🧾',
+    },
+    {
       label: 'Pending Verification',
       value: pendingDistributions.toString(),
       sub: 'Awaiting review',
@@ -165,7 +183,7 @@ function StaffDashboardPage() {
       iconText: 'text-violet-600',
       icon: '◉',
     },
-  ]), [assistedFamilyIds.size, filteredFamilies.length, pendingDistributions, staffBarangay, thisMonthCompleted])
+  ]), [assistedFamilyIds.size, filteredFamilies.length, filteredIndividuals.length, pendingDistributions, staffBarangay, thisMonthCompleted])
 
   const quickActions = [
     { label: 'Add family record', to: '/staff/dashboard', tone: 'bg-blue-600 hover:bg-blue-700' },
@@ -358,6 +376,20 @@ function StaffDashboardPage() {
       setTimeout(() => {
         setIndividualSuccess('')
       }, 3000)
+
+      Promise.all([
+        apiFetch('/api/families'),
+        apiFetch('/api/individuals'),
+        apiFetch('/api/distributions'),
+      ])
+        .then(([familiesData, individualsData, distributionsData]) => {
+          setFamilies(Array.isArray(familiesData) ? familiesData : [])
+          setIndividuals(Array.isArray(individualsData) ? individualsData : [])
+          setDistributions(Array.isArray(distributionsData) ? distributionsData : [])
+        })
+        .catch(() => {
+          // keep the success state even if refresh fails
+        })
     } catch (err) {
       setIndividualError(err.message || 'Failed to add individual. Please try again.')
     } finally {
@@ -574,6 +606,55 @@ function StaffDashboardPage() {
               ) : (
                 <div className={`rounded-lg p-8 text-center ${isDarkMode ? 'bg-slate-900 border border-slate-700' : 'bg-slate-50 border border-slate-200'}`}>
                   <p className={`${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>No families registered in this barangay yet.</p>
+                </div>
+              )}
+            </article>
+          </section>
+
+          <section className="mt-10 grid gap-6">
+            <article id="individuals-list-section" className={`rounded-2xl px-7 py-7 shadow-[0_2px_8px_rgba(15,23,42,0.08)] ${isDarkMode ? 'border border-slate-700 bg-slate-800' : 'border border-slate-200 bg-white'}`}>
+              <div className="mb-6 flex items-center justify-between">
+                <div>
+                  <h3 className={`text-2xl font-black ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>Individuals in {staffBarangay}</h3>
+                  <p className={`${isDarkMode ? 'text-slate-300' : 'text-slate-500'} mt-1`}>Recently added and registered individuals in your barangay</p>
+                </div>
+                <span className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold ${isDarkMode ? 'bg-slate-900 text-slate-300' : 'bg-slate-100 text-slate-700'}`}>
+                  Total: {filteredIndividuals.length}
+                </span>
+              </div>
+
+              {filteredIndividuals.length > 0 ? (
+                <div className={`rounded-xl overflow-hidden border ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className={`${isDarkMode ? 'bg-slate-900 border-b border-slate-700' : 'bg-slate-50 border-b border-slate-200'}`}>
+                        <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Name</th>
+                        <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Age</th>
+                        <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Gender</th>
+                        <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Barangay</th>
+                        <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredIndividuals.map((individual, idx) => (
+                        <tr key={individual.individual_id} className={`border-b ${idx % 2 === 0 ? (isDarkMode ? 'bg-slate-900/30' : 'bg-slate-50/50') : ''} ${isDarkMode ? 'border-slate-700/50 hover:bg-slate-900/50' : 'border-slate-100 hover:bg-slate-100/50'} transition`}>
+                          <td className={`px-6 py-3 font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}>{individual.name || '—'}</td>
+                          <td className={`px-6 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{individual.age ?? '—'}</td>
+                          <td className={`px-6 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{individual.gender || '—'}</td>
+                          <td className={`px-6 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{individual.barangay_name || '—'}</td>
+                          <td className={`px-6 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                            <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold ${String(individual.status || '').toLowerCase() === 'received' ? (isDarkMode ? 'bg-emerald-900/40 text-emerald-300' : 'bg-emerald-100 text-emerald-700') : (isDarkMode ? 'bg-slate-700/50 text-slate-300' : 'bg-slate-200 text-slate-700')}`}>
+                              {individual.status || 'Registered'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className={`rounded-lg p-8 text-center ${isDarkMode ? 'bg-slate-900 border border-slate-700' : 'bg-slate-50 border border-slate-200'}`}>
+                  <p className={`${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>No individuals registered in this barangay yet.</p>
                 </div>
               )}
             </article>

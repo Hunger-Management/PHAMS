@@ -120,6 +120,28 @@ function BarangayDetailPage() {
                         <p className={`text-sm mt-2 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                             Barangay ID: {barangay.barangay_id}
                         </p>
+                        <div className="mt-4 flex flex-wrap gap-3">
+                            <button
+                                type="button"
+                                onClick={() => navigate('/admin/families', { state: { barangayId: barangay.barangay_id, selectedNav: 'Manage Families' } })}
+                                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${isDarkMode
+                                    ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                    : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                                }`}
+                            >
+                                View Families in Manage Families
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => navigate('/admin/individuals', { state: { barangayId: barangay.barangay_id, selectedNav: 'Manage Individuals' } })}
+                                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${isDarkMode
+                                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                    : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                                }`}
+                            >
+                                View Individuals in Manage Individuals
+                            </button>
+                        </div>
                     </div>
 
                     {/* Overview Cards */}
