@@ -260,6 +260,14 @@ function handleGet(path, db) {
   const joins = withJoins(db)
 
   if (path === '/api/barangays') return BARANGAYS
+  
+  // GET single barangay
+  const barangayMatch = path.match(/^\/api\/barangays\/(\d+)$/)
+  if (barangayMatch) {
+    const barangayId = Number(barangayMatch[1])
+    return BARANGAYS.find((item) => item.barangay_id === barangayId)
+  }
+  
   if (path === '/api/stats') return getStats(db)
   if (path === '/api/families') return db.families
   if (path === '/api/individuals') return db.individuals

@@ -19,6 +19,7 @@ import StaffDashboardPage from './pages/staff/StaffDashboardPage'
 import StaffProtectedRoute from './components/auth/StaffProtectedRoute'
 import AdminDashboardPage from './admin/pages/AdminDashboardPage'
 import AdminBarangaysPage from './admin/pages/AdminBarangaysPage'
+import BarangayDetailPage from './admin/pages/BarangayDetailPage'
 import AdminTransparencyPage from './admin/pages/AdminTransparencyPage'
 import AdminCreateAccountPage from './admin/pages/AdminCreateAccountPage'
 import AdminProtectedRoute from './components/auth/AdminProtectedRoute'
@@ -54,10 +55,13 @@ function App() {
       <Route path="/staff/login" element={<StaffLoginPage />} />
       <Route element={<StaffProtectedRoute />}>
         <Route path="/staff/dashboard" element={<StaffDashboardPage />} />
+        <Route path="/staff/barangays/:barangayId" element={<BarangayDetailPage />} />
+        <Route path="/staff/distributions/add" element={<AddDistributionPage />} />
       </Route>
       <Route element={<AdminProtectedRoute />}>
         <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
         <Route path="/admin/barangays" element={<AdminBarangaysPage />} />
+        <Route path="/admin/barangays/:barangayId" element={<BarangayDetailPage />} />
         <Route path="/admin/transparency" element={<AdminTransparencyPage />} />
         <Route path="/admin/create-account" element={<AdminCreateAccountPage />} />
         <Route path="/admin/families" element={<FamilyListPage />} />

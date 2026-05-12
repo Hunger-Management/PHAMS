@@ -1,4 +1,4 @@
-import { Home, MapPin, UserPlus, Eye, LogOut } from 'lucide-react'
+import { Home, MapPin, UserPlus, Eye, FileText, LogOut } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useStaffAuth } from '../../context/StaffAuthContext'
@@ -33,11 +33,20 @@ function StaffSidebar({ isDarkMode }) {
         { name: 'Families List', icon: UserPlus, path: '/staff/dashboard', sectionId: 'families-list-section' },
         { name: 'Add Family', icon: UserPlus, path: '/staff/dashboard', sectionId: 'add-family-section' },
         { name: 'Add Individual', icon: UserPlus, path: '/staff/dashboard', sectionId: 'add-individual-section' },
+        { name: 'Add Distribution', icon: FileText, path: '/staff/distributions/add' },
         { name: 'Transparency', icon: Eye, path: '/staff/dashboard', sectionId: 'transparency-section' },
     ]
 
-    const scrollToSection = (sectionId, selectedName) => {
-        setSelectedNav(selectedName)
+    const scrollToSection = (item) => {
+        const { sectionId, name, path } = item
+
+        if (!sectionId) {
+            setSelectedNav(name)
+            navigate(path, { state: { selectedNav: name } })
+            return
+        }
+
+        setSelectedNav(name)
 
         if (sectionId === 'dashboard-top') {
             window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -54,7 +63,7 @@ function StaffSidebar({ isDarkMode }) {
         navigate('/staff/dashboard', {
             state: {
                 scrollTo: sectionId,
-                selectedNav: selectedName,
+                selectedNav: name,
             },
         })
     }
@@ -94,9 +103,9 @@ function StaffSidebar({ isDarkMode }) {
 
                         return (
                             <button
-                                key={item.path}
+                                key={item.name}
                                 onClick={() => {
-                                    scrollToSection(item.sectionId, item.name)
+                                    scrollToSection(item)
                                 }}
                                 className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left transition ${isActive ? (isDarkMode ? 'bg-[#3c9452] font-semibold text-white shadow-sm' : 'bg-emerald-100 font-semibold text-emerald-800 shadow-sm') : (isDarkMode ? 'text-white/75 hover:bg-white/8 hover:text-white' : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900')}`}
                             >

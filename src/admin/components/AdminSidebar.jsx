@@ -1,4 +1,4 @@
-import { Home, MapPin, Users, UserPlus, FileText, LogOut } from 'lucide-react'
+import { Home, MapPin, Users, FileText, LogOut } from 'lucide-react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { useAdminAuth } from '../../context/AdminAuthContext'
@@ -25,16 +25,7 @@ function AdminSidebar({ isDarkMode }) {
 
     const navItems = [
         { name: 'Dashboard', icon: Home, path: '/admin/dashboard' },
-        {
-            name: 'Barangays',
-            icon: MapPin,
-            path: '/admin/barangays',
-            children: [
-                { name: 'Add Family', icon: UserPlus, path: '/admin/families/add' },
-                { name: 'Add Individual', icon: UserPlus, path: '/admin/individuals/add' },
-                { name: 'Add Distribution', icon: FileText, path: '/admin/distributions/add' },
-            ],
-        },
+        { name: 'Barangays', icon: MapPin, path: '/admin/barangays' },
         { name: 'Manage Families', icon: Users, path: '/admin/families' },
         { name: 'Manage Individuals', icon: Users, path: '/admin/individuals' },
         { name: 'Manage Donations', icon: Users, path: '/admin/donations' },

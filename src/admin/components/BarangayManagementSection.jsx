@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { ChevronRight } from 'lucide-react'
 import { apiFetch } from '../../api/api'
 import { useStaffAuth } from '../../context/StaffAuthContext'
 import { useBarangay } from '../../context/BarangayContext'
@@ -6,9 +8,18 @@ import { useBarangay } from '../../context/BarangayContext'
 export default function BarangayManagementSection({ isDarkMode }) {
   const { staffAccounts } = useStaffAuth()
   const { getAllBarangays } = useBarangay()
+  const navigate = useNavigate()
+  const location = useLocation()
   const [apiBarangays, setApiBarangays] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+
+  const isStaffView = location.pathname.startsWith('/staff/')
+
+  const handleBarangayClick = (barangayId) => {
+    const detailPath = isStaffView ? `/staff/barangays/${barangayId}` : `/admin/barangays/${barangayId}`
+    navigate(detailPath)
+  }
 
   const allBarangays = getAllBarangays()
 
@@ -216,14 +227,16 @@ export default function BarangayManagementSection({ isDarkMode }) {
               return (
                 <tr
                   key={barangay.name}
-                  className={`border-b transition ${
+                  onClick={() => handleBarangayClick(barangay.barangay_id)}
+                  className={`border-b transition cursor-pointer ${
                     isDarkMode
-                      ? 'border-slate-700 hover:bg-slate-800'
-                      : 'border-slate-200 hover:bg-slate-50'
+                      ? 'border-slate-700 hover:bg-slate-800/70'
+                      : 'border-slate-200 hover:bg-slate-100'
                   }`}
                 >
-                  <td className={`py-3 px-4 font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
+                  <td className={`py-3 px-4 font-semibold flex items-center gap-2 ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
                     {barangay.name}
+                    <ChevronRight size={16} className={isDarkMode ? 'text-slate-500' : 'text-slate-400'} />
                   </td>
                   <td className={`py-3 px-4 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
                     {barangay.captain}

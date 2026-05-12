@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { AlertTriangle, CheckCircle } from 'lucide-react'
 import { useDarkMode } from '../../hooks/useDarkMode'
 import AdminSidebar from '../components/AdminSidebar'
+import StaffSidebar from '../../pages/staff/StaffSidebar'
 import { apiFetch } from '../../api/api'
 
 const DEFAULT_FORM = {
@@ -19,6 +20,17 @@ const DEFAULT_FORM = {
 function AddDistributionPage() {
   const { isDarkMode, toggleDarkMode } = useDarkMode()
   const navigate = useNavigate()
+  const location = useLocation()
+
+  const isStaffView = location.pathname.startsWith('/staff/')
+  const transparencyPath = isStaffView ? '/staff/dashboard' : '/admin/transparency'
+  const transparencyState = isStaffView
+    ? { scrollTo: 'transparency-section', selectedNav: 'Transparency' }
+    : { selectedNav: 'Transparency' }
+
+  const goToTransparency = () => {
+    navigate(transparencyPath, { state: transparencyState })
+  }
 
   const [formData, setFormData] = useState(DEFAULT_FORM)
   const [families, setFamilies] = useState([])
@@ -139,7 +151,7 @@ function AddDistributionPage() {
       window.scrollTo({ top: 0, behavior: 'smooth' })
 
       setTimeout(() => {
-        navigate('/admin/transparency')
+        goToTransparency()
       }, 700)
     } catch (err) {
       setErrorMessage(err.message || 'Failed to record distribution.')
@@ -165,7 +177,11 @@ function AddDistributionPage() {
 
   return (
     <div className={`flex min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-[#0b1220] text-slate-100' : 'bg-[#e5e7eb] text-slate-900'}`}>
-      <AdminSidebar isDarkMode={isDarkMode} />
+      {isStaffView ? (
+        <StaffSidebar isDarkMode={isDarkMode} />
+      ) : (
+        <AdminSidebar isDarkMode={isDarkMode} />
+      )}
 
       <main className="flex-1 p-8 overflow-auto ml-64">
         <div className="max-w-4xl mx-auto">
@@ -179,7 +195,7 @@ function AddDistributionPage() {
               </p>
             </div>
             <button
-              onClick={() => navigate('/admin/transparency')}
+              onClick={goToTransparency}
               className={`text-sm font-medium px-4 py-2 rounded-lg transition ${isDarkMode
                 ? 'text-slate-300 hover:bg-white/10'
                 : 'text-slate-600 hover:bg-slate-200'
@@ -353,7 +369,7 @@ function AddDistributionPage() {
             <div className="flex items-center justify-end gap-3">
               <button
                 type="button"
-                onClick={() => navigate('/admin/transparency')}
+                onClick={goToTransparency}
                 className={`rounded-full px-5 py-2 text-sm ${isDarkMode
                   ? 'bg-slate-800 border border-slate-700 text-slate-300'
                   : 'bg-slate-100 border border-slate-200 text-slate-900'
