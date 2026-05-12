@@ -5,6 +5,20 @@ import { useDarkMode } from '../../hooks/useDarkMode'
 import { useStaffAuth } from '../../context/StaffAuthContext'
 import StaffSidebar from './StaffSidebar'
 
+// Barangay ID mapping - must match database exactly
+const BARANGAY_MAP = {
+  'Aguho': 1,
+  'Magtanggol': 2,
+  'Martires del 96': 3,
+  'Poblacion': 4,
+  'San Pedro': 5,
+  'San Roque': 6,
+  'Santa Ana': 7,
+  'Santo Rosario-Kanluran': 8,
+  'Santo Rosario-Silangan': 9,
+  'Tabacalera': 10,
+}
+
 function StaffDashboardPage() {
   const { isDarkMode, toggleDarkMode } = useDarkMode()
   const { staffUser } = useStaffAuth()
@@ -12,8 +26,32 @@ function StaffDashboardPage() {
   const [distributions, setDistributions] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [formSubmitting, setFormSubmitting] = useState(false)
+  const [formSuccess, setFormSuccess] = useState('')
+  const [formError, setFormError] = useState('')
 
-  const staffBarangay = staffUser?.barangay || 'San Jose'
+  const [staffBarangayName, setStaffBarangayName] = useState(staffUser?.barangay || 'Aguho')
+
+  // Ensure we have a barangay name for the logged-in staff user.
+  useEffect(() => {
+    if (staffUser?.barangay) {
+      setStaffBarangayName(staffUser.barangay)
+      return
+    }
+
+    // If only barangay_id exists, fetch the barangay name
+    if (staffUser?.barangay_id) {
+      apiFetch(`/api/barangays/${staffUser.barangay_id}`)
+        .then((b) => {
+          if (b && b.name) setStaffBarangayName(b.name)
+        })
+        .catch(() => {
+          // ignore
+        })
+    }
+  }, [staffUser?.barangay, staffUser?.barangay_id])
+
+  const staffBarangay = staffBarangayName || 'Aguho'
 
   useEffect(() => {
     Promise.all([
@@ -30,6 +68,29 @@ function StaffDashboardPage() {
         setLoading(false)
       })
   }, [])
+
+  // Recalculate barangay stats when families or distributions change
+  useEffect(() => {
+    if (formSuccess) {
+      // Refresh data after successful submission with a small delay to ensure DB commit
+      const timer = setTimeout(() => {
+        Promise.all([
+          apiFetch('/api/families'),
+          apiFetch('/api/distributions'),
+        ])
+          .then(([familiesData, distributionsData]) => {
+            console.log('Data refreshed after family submission:', familiesData)
+            setFamilies(Array.isArray(familiesData) ? familiesData : [])
+            setDistributions(Array.isArray(distributionsData) ? distributionsData : [])
+          })
+          .catch((err) => {
+            console.error('Error refreshing data:', err)
+          })
+      }, 500)
+      
+      return () => clearTimeout(timer)
+    }
+  }, [formSuccess])
 
   const filteredFamilies = useMemo(
     () => families.filter((family) => (family.barangay_name || '').toLowerCase() === staffBarangay.toLowerCase()),
@@ -141,7 +202,7 @@ function StaffDashboardPage() {
   const navigate = useNavigate()
   const [familyForm, setFamilyForm] = useState({
     familyName: '',
-    barangay: staffUser?.barangay || '',
+    barangay: staffUser?.barangay || 'Aguho',
     address: '',
     headOfFamily: '',
     contactNumber: '',
@@ -149,6 +210,31 @@ function StaffDashboardPage() {
     programs: [],
     noPermanentAddress: false,
   })
+
+  const [individualForm, setIndividualForm] = useState({
+    name: '',
+    age: '',
+    gender: 'Male',
+    barangay: staffUser?.barangay || 'Aguho',
+    status: 'Registered',
+  })
+  const [individualSubmitting, setIndividualSubmitting] = useState(false)
+  const [individualSuccess, setIndividualSuccess] = useState('')
+  const [individualError, setIndividualError] = useState('')
+
+  // Initialize form with staff user's barangay name when available
+  useEffect(() => {
+    if (staffBarangayName) {
+      setFamilyForm((prev) => ({
+        ...prev,
+        barangay: staffBarangayName,
+      }))
+      setIndividualForm((prev) => ({
+        ...prev,
+        barangay: staffBarangayName,
+      }))
+    }
+  }, [staffBarangayName])
 
   function toggleProgram(program) {
     setFamilyForm((s) => ({
@@ -166,10 +252,117 @@ function StaffDashboardPage() {
     setFamilyForm((s) => ({ ...s, [name]: value }))
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
-    // Navigate to the admin Add Family page with prefilled data
-    navigate('/admin/families/add', { state: { prefill: familyForm } })
+    setFormError('')
+    setFormSuccess('')
+    setFormSubmitting(true)
+
+    try {
+      const barangayId = BARANGAY_MAP[familyForm.barangay] || 1
+
+      // Use placeholder address if NPA is selected
+      const addressValue = familyForm.noPermanentAddress ? 'No Permanent Address (NPA)' : familyForm.address
+
+      const payload = {
+        family_name: familyForm.familyName,
+        barangay_id: barangayId,
+        address: addressValue,
+        head_of_family: familyForm.headOfFamily,
+        phone: familyForm.contactNumber,
+        members: [], // Staff can add family without members initially
+      }
+
+      // Validate required fields
+      if (!payload.family_name.trim()) {
+        throw new Error('Family name is required')
+      }
+      if (!addressValue.trim()) {
+        throw new Error('Please provide an address or mark as No Permanent Address (NPA)')
+      }
+
+      const data = await apiFetch('/api/families', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      })
+
+      setFormSuccess(`✓ Family "${familyForm.familyName}" registered successfully!`)
+
+      // Reset form
+      setFamilyForm({
+        familyName: '',
+        barangay: staffUser?.barangay || 'Aguho',
+        address: '',
+        headOfFamily: '',
+        contactNumber: '',
+        monthlyIncome: '',
+        programs: [],
+        noPermanentAddress: false,
+      })
+
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setFormSuccess('')
+      }, 3000)
+    } catch (err) {
+      setFormError(err.message || 'Failed to add family. Please try again.')
+    } finally {
+      setFormSubmitting(false)
+    }
+  }
+
+  function handleIndividualChange(e) {
+    const { name, value } = e.target
+    setIndividualForm((s) => ({ ...s, [name]: value }))
+  }
+
+  async function handleIndividualSubmit(e) {
+    e.preventDefault()
+    setIndividualError('')
+    setIndividualSuccess('')
+    setIndividualSubmitting(true)
+
+    try {
+      const barangayId = BARANGAY_MAP[individualForm.barangay] || 1
+
+      if (!individualForm.name.trim()) {
+        throw new Error('Full name is required')
+      }
+      if (!individualForm.age || Number(individualForm.age) < 0) {
+        throw new Error('Valid age is required')
+      }
+
+      const payload = {
+        name: individualForm.name,
+        age: Number(individualForm.age),
+        gender: individualForm.gender,
+        barangay_id: barangayId,
+        status: individualForm.status,
+      }
+
+      await apiFetch('/api/individuals', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      })
+
+      setIndividualSuccess(`✓ Individual "${individualForm.name}" registered successfully!`)
+
+      setIndividualForm({
+        name: '',
+        age: '',
+        gender: 'Male',
+        barangay: staffUser?.barangay || 'Aguho',
+        status: 'Registered',
+      })
+
+      setTimeout(() => {
+        setIndividualSuccess('')
+      }, 3000)
+    } catch (err) {
+      setIndividualError(err.message || 'Failed to add individual. Please try again.')
+    } finally {
+      setIndividualSubmitting(false)
+    }
   }
 
   // Reuse admin input/card styles for pixel parity
@@ -280,14 +473,14 @@ function StaffDashboardPage() {
             </article>
           </section>
 
-          <section className="mt-10 grid gap-6 xl:grid-cols-2">
-            <article id="barangays-section" className={`rounded-none px-7 py-7 ${isDarkMode ? 'border border-slate-700 bg-slate-800 shadow-[0_2px_8px_rgba(15,23,42,0.08)]' : 'border border-slate-200 bg-white shadow-sm'}`}>
+          <section className="mt-10 grid gap-6 xl:grid-cols-1">
+            <article id="barangays-section" className={`rounded-2xl px-7 py-7 shadow-[0_2px_8px_rgba(15,23,42,0.08)] ${isDarkMode ? 'border border-slate-700 bg-slate-800' : 'border border-slate-200 bg-white'}`}>
               <div className="mb-6 flex items-start justify-between gap-4">
                 <div>
                   <h3 className={`text-2xl font-bold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
-                    Barangay {staffUser?.barangay || 'San Jose'}
+                    Barangay {staffUser?.barangay || 'Aguho'}
                   </h3>
-                  <p className={`${isDarkMode ? 'mt-1 text-slate-300' : 'mt-1 text-slate-500'}`}>Viewing your assigned barangay: Barangay {staffUser?.barangay || 'San Jose'}</p>
+                  <p className={`${isDarkMode ? 'mt-1 text-slate-300' : 'mt-1 text-slate-500'}`}>Viewing your assigned barangay: Barangay {staffUser?.barangay || 'Aguho'}</p>
                 </div>
 
                 <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700">
@@ -301,7 +494,7 @@ function StaffDashboardPage() {
                     <span className={`text-2xl ${isDarkMode ? 'text-slate-300' : 'text-violet-600'}`}>👥</span>
                     <span className={`${isDarkMode ? 'text-slate-200' : 'text-slate-600'}`}>Total Families</span>
                   </div>
-                  <strong className={`text-lg font-bold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>156</strong>
+                  <strong className={`text-lg font-bold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>{filteredFamilies.length}</strong>
                 </div>
 
                 <div className="flex items-center justify-between text-[1rem]">
@@ -309,21 +502,84 @@ function StaffDashboardPage() {
                     <span className={`text-xl ${isDarkMode ? 'text-slate-300' : 'text-rose-500'}`}>📍</span>
                     <span className={`${isDarkMode ? 'text-slate-200' : 'text-slate-600'}`}>Families Assisted</span>
                   </div>
-                  <strong className="text-lg font-bold text-emerald-600">89</strong>
+                  <strong className="text-lg font-bold text-emerald-600">{assistedFamilyIds.size}</strong>
                 </div>
 
                 <div className="pt-2">
                   <div className={`mb-2 flex items-center justify-between text-sm ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
                     <span>Assistance Coverage</span>
-                    <span>57%</span>
+                    <span>{filteredFamilies.length > 0 ? Math.round((assistedFamilyIds.size / filteredFamilies.length) * 100) : 0}%</span>
                   </div>
                   <div className={`h-3 rounded-full ${isDarkMode ? 'bg-slate-700' : 'bg-slate-100'}`}>
-                    <div className="h-3 w-[57%] rounded-full bg-[#3c9452]" />
+                    <div 
+                      className="h-3 rounded-full bg-[#3c9452]" 
+                      style={{ width: filteredFamilies.length > 0 ? `${(assistedFamilyIds.size / filteredFamilies.length) * 100}%` : '0%' }}
+                    />
                   </div>
                 </div>
               </div>
             </article>
+          </section>
 
+          <section className="mt-10 grid gap-6">
+            <article id="families-list-section" className={`rounded-2xl px-7 py-7 shadow-[0_2px_8px_rgba(15,23,42,0.08)] ${isDarkMode ? 'border border-slate-700 bg-slate-800' : 'border border-slate-200 bg-white'}`}>
+              <div className="mb-6 flex items-center justify-between">
+                <div>
+                  <h3 className={`text-2xl font-black ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>Families in {staffBarangay}</h3>
+                  <p className={`${isDarkMode ? 'text-slate-300' : 'text-slate-500'} mt-1`}>Active and registered families in your barangay</p>
+                </div>
+                <span className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold ${isDarkMode ? 'bg-slate-900 text-slate-300' : 'bg-slate-100 text-slate-700'}`}>
+                  Total: {filteredFamilies.length}
+                </span>
+              </div>
+
+              {filteredFamilies.length > 0 ? (
+                <div className={`rounded-xl overflow-hidden border ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className={`${isDarkMode ? 'bg-slate-900 border-b border-slate-700' : 'bg-slate-50 border-b border-slate-200'}`}>
+                        <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Family Name</th>
+                        <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Head of Family</th>
+                        <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Address</th>
+                        <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Members</th>
+                        <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Status</th>
+                        <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Contact</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredFamilies.map((family, idx) => {
+                        const isAssisted = assistedFamilyIds.has(family.family_id)
+                        return (
+                          <tr key={family.family_id} className={`border-b ${idx % 2 === 0 ? (isDarkMode ? 'bg-slate-900/30' : 'bg-slate-50/50') : ''} ${isDarkMode ? 'border-slate-700/50 hover:bg-slate-900/50' : 'border-slate-100 hover:bg-slate-100/50'} transition`}>
+                            <td className={`px-6 py-3 font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}>{family.family_name}</td>
+                            <td className={`px-6 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{family.head_of_family || 'N/A'}</td>
+                            <td className={`px-6 py-3 max-w-xs truncate ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`} title={family.address}>{family.address || 'N/A'}</td>
+                            <td className={`px-6 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                              <span className={`inline-flex items-center justify-center h-6 w-6 rounded-full text-xs font-semibold ${isDarkMode ? 'bg-blue-900/40 text-blue-300' : 'bg-blue-100 text-blue-700'}`}>
+                                {family.member_count || 0}
+                              </span>
+                            </td>
+                            <td className={`px-6 py-3`}>
+                              <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold ${isAssisted ? (isDarkMode ? 'bg-emerald-900/40 text-emerald-300' : 'bg-emerald-100 text-emerald-700') : (isDarkMode ? 'bg-slate-700/50 text-slate-300' : 'bg-slate-200 text-slate-700')}`}>
+                                {isAssisted ? '✓ Assisted' : 'Registered'}
+                              </span>
+                            </td>
+                            <td className={`px-6 py-3 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{family.phone || '—'}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className={`rounded-lg p-8 text-center ${isDarkMode ? 'bg-slate-900 border border-slate-700' : 'bg-slate-50 border border-slate-200'}`}>
+                  <p className={`${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>No families registered in this barangay yet.</p>
+                </div>
+              )}
+            </article>
+          </section>
+
+          <section className="mt-10 grid gap-6">
             <article id="add-family-section" className={`rounded-2xl px-7 py-7 shadow-[0_2px_8px_rgba(15,23,42,0.08)] ${isDarkMode ? 'border border-slate-700 bg-slate-900' : 'border border-slate-200 bg-white'}`}>
               <div className="mb-6 flex items-center justify-between">
                 <div>
@@ -333,12 +589,24 @@ function StaffDashboardPage() {
                 <Link to="/admin/families" className={`text-sm ${isDarkMode ? 'text-slate-300 hover:text-slate-100' : 'text-slate-600 hover:text-slate-900'}`}>← View All Families</Link>
               </div>
 
+              {formSuccess && (
+                <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                  {formSuccess}
+                </div>
+              )}
+
+              {formError && (
+                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {formError}
+                </div>
+              )}
+
               <form onSubmit={handleSubmit} className="rounded-2xl p-1" aria-label="Register family form">
                 <div className={cardClass}>
                   <div className={`grid gap-4 grid-cols-1 lg:grid-cols-2`}> 
                   <div>
                     <label className={labelClass}>Family Name *</label>
-                    <input name="familyName" value={familyForm.familyName} onChange={handleChange} placeholder="e.g. Dela Cruz" className={`${inputClass} mt-2`} />
+                    <input name="familyName" value={familyForm.familyName} onChange={handleChange} placeholder="e.g. Dela Cruz" className={`${inputClass} mt-2`} required />
                   </div>
 
                   <div>
@@ -347,8 +615,14 @@ function StaffDashboardPage() {
                       <option>{staffUser?.barangay || 'Aguho'}</option>
                       <option>Aguho</option>
                       <option>Magtanggol</option>
+                      <option>Martires del 96</option>
                       <option>Poblacion</option>
                       <option>San Pedro</option>
+                      <option>San Roque</option>
+                      <option>Santa Ana</option>
+                      <option>Santo Rosario-Kanluran</option>
+                      <option>Santo Rosario-Silangan</option>
+                      <option>Tabacalera</option>
                     </select>
                   </div>
 
@@ -398,21 +672,202 @@ function StaffDashboardPage() {
                 <div className="mt-6 flex items-center justify-between">
                   <div className={`text-sm ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Priority score is computed automatically.</div>
                   <div className="flex items-center gap-3">
-                    <button type="button" onClick={() => navigate('/admin/families')} className={`rounded-full px-5 py-2 text-sm ${isDarkMode ? 'bg-slate-800 border border-slate-700 text-slate-300' : 'bg-slate-100 border border-slate-200 text-slate-900'}`}>Cancel</button>
-                    <button type="submit" className={`rounded-full px-5 py-2 text-sm font-semibold ${isDarkMode ? 'bg-emerald-600 text-white hover:bg-emerald-500' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}>Add Family</button>
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        setFamilyForm({
+                          familyName: '',
+                          barangay: staffUser?.barangay || 'Aguho',
+                          address: '',
+                          headOfFamily: '',
+                          contactNumber: '',
+                          monthlyIncome: '',
+                          programs: [],
+                          noPermanentAddress: false,
+                        })
+                        setFormError('')
+                        setFormSuccess('')
+                      }}
+                      disabled={formSubmitting}
+                      className={`rounded-full px-5 py-2 text-sm ${isDarkMode ? 'bg-slate-800 border border-slate-700 text-slate-300' : 'bg-slate-100 border border-slate-200 text-slate-900'}`}
+                    >
+                      Clear
+                    </button>
+                    <button 
+                      type="submit" 
+                      disabled={formSubmitting}
+                      className={`rounded-full px-5 py-2 text-sm font-semibold ${formSubmitting 
+                        ? (isDarkMode ? 'bg-emerald-600/50 text-white' : 'bg-emerald-600/50 text-white') 
+                        : (isDarkMode ? 'bg-emerald-600 text-white hover:bg-emerald-500' : 'bg-emerald-600 text-white hover:bg-emerald-700')
+                      }`}
+                    >
+                      {formSubmitting ? 'Adding...' : 'Add Family'}
+                    </button>
                   </div>
                 </div>
                 </div>
               </form>
             </article>
           </section>
+          
+
+          <section className="mt-10 grid gap-6">
+            <article id="add-individual-section" className={`rounded-2xl px-7 py-7 shadow-[0_2px_8px_rgba(15,23,42,0.08)] ${isDarkMode ? 'border border-slate-700 bg-slate-900' : 'border border-slate-200 bg-white'}`}>
+              <div className="mb-6 flex items-center justify-between">
+                <div>
+                  <h3 className={`text-2xl font-black ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>Register New Individual</h3>
+                  <p className={`${isDarkMode ? 'text-slate-300' : 'text-slate-500'} mt-1`}>Add a new individual beneficiary record.</p>
+                </div>
+              </div>
+
+              {individualSuccess && (
+                <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                  {individualSuccess}
+                </div>
+              )}
+
+              {individualError && (
+                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {individualError}
+                </div>
+              )}
+
+              <form onSubmit={handleIndividualSubmit} className="rounded-2xl p-1" aria-label="Register individual form">
+                <div className={cardClass}>
+                  <div className={`grid gap-4 grid-cols-1 lg:grid-cols-2`}>
+                    <div className="lg:col-span-2">
+                      <label className={labelClass}>Full Name *</label>
+                      <input name="name" value={individualForm.name} onChange={handleIndividualChange} placeholder="e.g. Maria Santos" className={`${inputClass} mt-2`} required />
+                    </div>
+
+                    <div>
+                      <label className={labelClass}>Age *</label>
+                      <input type="number" min="0" name="age" value={individualForm.age} onChange={handleIndividualChange} placeholder="Enter age" className={`${inputClass} mt-2`} required />
+                    </div>
+
+                    <div>
+                      <label className={labelClass}>Gender *</label>
+                      <select name="gender" value={individualForm.gender} onChange={handleIndividualChange} className={`${inputClass} mt-2`}>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className={labelClass}>Barangay *</label>
+                      <select name="barangay" value={individualForm.barangay} onChange={handleIndividualChange} className={`${inputClass} mt-2`}>
+                        <option>{staffUser?.barangay || 'Aguho'}</option>
+                        <option>Aguho</option>
+                        <option>Magtanggol</option>
+                        <option>Martires del 96</option>
+                        <option>Poblacion</option>
+                        <option>San Pedro</option>
+                        <option>San Roque</option>
+                        <option>Santa Ana</option>
+                        <option>Santo Rosario-Kanluran</option>
+                        <option>Santo Rosario-Silangan</option>
+                        <option>Tabacalera</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className={labelClass}>Status *</label>
+                      <select name="status" value={individualForm.status} onChange={handleIndividualChange} className={`${inputClass} mt-2`}>
+                        <option value="Registered">Registered</option>
+                        <option value="Received">Received</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex items-center justify-between">
+                  <div className={`text-sm ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}></div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIndividualForm({
+                          name: '',
+                          age: '',
+                          gender: 'Male',
+                          barangay: staffUser?.barangay || 'Aguho',
+                          status: 'Registered',
+                        })
+                        setIndividualError('')
+                        setIndividualSuccess('')
+                      }}
+                      disabled={individualSubmitting}
+                      className={`rounded-full px-5 py-2 text-sm ${isDarkMode ? 'bg-slate-800 border border-slate-700 text-slate-300' : 'bg-slate-100 border border-slate-200 text-slate-900'}`}
+                    >
+                      Clear
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={individualSubmitting}
+                      className={`rounded-full px-5 py-2 text-sm font-semibold ${individualSubmitting
+                        ? (isDarkMode ? 'bg-emerald-600/50 text-white' : 'bg-emerald-600/50 text-white')
+                        : (isDarkMode ? 'bg-emerald-600 text-white hover:bg-emerald-500' : 'bg-emerald-600 text-white hover:bg-emerald-700')
+                      }`}
+                    >
+                      {individualSubmitting ? 'Adding...' : 'Register Individual'}
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </article>
+          </section>
 
             <section id="transparency-section" className={`mt-10 rounded-2xl px-7 py-7 shadow-[0_2px_8px_rgba(15,23,42,0.08)] ${isDarkMode ? 'border border-slate-700 bg-slate-800' : 'border border-slate-200 bg-white'}`}>
-            <h3 className={`text-xl font-bold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>Transparency Notes</h3>
-            <p className={`mt-2 max-w-4xl text-sm leading-6 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
-              This staff dashboard is now styled to match the admin screen: a dark left sidebar, a large greeting header,
-              rounded summary cards, and dashboard panels for charts and activity.
-            </p>
+            <h3 className={`text-xl font-bold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>Transparency & System Overview</h3>
+            <p className={`mt-2 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Current status for {staffUser?.barangay || 'Aguho'}</p>
+
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className={`rounded-lg p-4 ${isDarkMode ? 'bg-slate-900 border border-slate-700' : 'bg-slate-50 border border-slate-200'}`}>
+                <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Total Registered Families</p>
+                <p className={`mt-2 text-3xl font-bold ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>{filteredFamilies.length}</p>
+              </div>
+
+              <div className={`rounded-lg p-4 ${isDarkMode ? 'bg-slate-900 border border-slate-700' : 'bg-slate-50 border border-slate-200'}`}>
+                <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Active Distributions</p>
+                <p className={`mt-2 text-3xl font-bold ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>{filteredDistributions.length}</p>
+              </div>
+
+              <div className={`rounded-lg p-4 ${isDarkMode ? 'bg-slate-900 border border-slate-700' : 'bg-slate-50 border border-slate-200'}`}>
+                <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Verified This Month</p>
+                <p className={`mt-2 text-3xl font-bold ${isDarkMode ? 'text-violet-400' : 'text-violet-600'}`}>{thisMonthCompleted}</p>
+              </div>
+
+              <div className={`rounded-lg p-4 ${isDarkMode ? 'bg-slate-900 border border-slate-700' : 'bg-slate-50 border border-slate-200'}`}>
+                <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Pending Verification</p>
+                <p className={`mt-2 text-3xl font-bold ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`}>{pendingDistributions}</p>
+              </div>
+
+              <div className={`rounded-lg p-4 ${isDarkMode ? 'bg-slate-900 border border-slate-700' : 'bg-slate-50 border border-slate-200'}`}>
+                <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Families Assisted</p>
+                <p className={`mt-2 text-3xl font-bold ${isDarkMode ? 'text-pink-400' : 'text-pink-600'}`}>{assistedFamilyIds.size}</p>
+              </div>
+
+              <div className={`rounded-lg p-4 ${isDarkMode ? 'bg-slate-900 border border-slate-700' : 'bg-slate-50 border border-slate-200'}`}>
+                <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Coverage Rate</p>
+                <p className={`mt-2 text-3xl font-bold ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>{filteredFamilies.length > 0 ? Math.round((assistedFamilyIds.size / filteredFamilies.length) * 100) : 0}%</p>
+              </div>
+            </div>
+
+            <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
+              <h4 className={`font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}>Recent Activity</h4>
+              <ul className={`mt-3 space-y-2 text-sm ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                {filteredDistributions.slice(0, 5).map((dist, idx) => (
+                  <li key={idx} className="flex items-start gap-2">
+                    <span className="mt-1 text-lg">→</span>
+                    <span>{dist.family_name || dist.individual_name || 'Unknown'} - {dist.status || 'Updated'}</span>
+                  </li>
+                ))}
+                {filteredDistributions.length === 0 && (
+                  <li className={isDarkMode ? 'text-slate-500' : 'text-slate-400'}>No recent activity</li>
+                )}
+              </ul>
+            </div>
           </section>
         </div>
       </main>
