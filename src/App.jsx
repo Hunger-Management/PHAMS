@@ -29,6 +29,7 @@ import AddFamilyPage from './admin/pages/AddFamilyPage'
 import AddDistributionPage from './admin/pages/AddDistributionPage'
 import AddIndividualPage from './admin/pages/AddIndividualPage'
 import IndividualsListPage from './admin/pages/IndividualsListPage'
+import IndividualsNoAddressPage from './pages/staff/IndividualsNoAddressPage'
 import DonationsListPage from './admin/pages/DonationsListPage'
 import AddDonationPage from './admin/pages/AddDonationPage'
 import UsersListPage from './admin/pages/UsersListPage'
@@ -57,6 +58,7 @@ function App() {
         <Route path="/staff/dashboard" element={<StaffDashboardPage />} />
         <Route path="/staff/barangays/:barangayId" element={<BarangayDetailPage />} />
         <Route path="/staff/distributions/add" element={<AddDistributionPage />} />
+        <Route path="/staff/individuals/no-address" element={<IndividualsNoAddressPage />} />
       </Route>
       <Route element={<AdminProtectedRoute />}>
         <Route path="/admin/dashboard" element={<AdminDashboardPage />} />

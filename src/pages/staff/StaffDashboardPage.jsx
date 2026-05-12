@@ -218,6 +218,7 @@ function StaffDashboardPage() {
   ]
 
   const navigate = useNavigate()
+  const [expandedFamilies, setExpandedFamilies] = useState([])
   const [familyForm, setFamilyForm] = useState({
     familyName: '',
     barangay: staffUser?.barangay || 'Aguho',
@@ -239,6 +240,9 @@ function StaffDashboardPage() {
   const [individualSubmitting, setIndividualSubmitting] = useState(false)
   const [individualSuccess, setIndividualSuccess] = useState('')
   const [individualError, setIndividualError] = useState('')
+
+  // Add member modal state for staff to add family members
+  const [addMemberModal, setAddMemberModal] = useState({ open: false, family: null, submitting: false, success: '', error: '', form: { first_name: '', last_name: '', age: '', gender: 'Male', relationship: 'Other' } })
 
   // Initialize form with staff user's barangay name when available
   useEffect(() => {
@@ -397,6 +401,57 @@ function StaffDashboardPage() {
     }
   }
 
+  // ── Add family member (staff) ─────────────────────────────────
+  function openAddMemberModal(family) {
+    setAddMemberModal((s) => ({ ...s, open: true, family, success: '', error: '', form: { first_name: '', last_name: '', age: '', gender: 'Male', relationship: 'Other' } }))
+  }
+
+  function closeAddMemberModal() {
+    setAddMemberModal((s) => ({ ...s, open: false, family: null, submitting: false, success: '', error: '' }))
+  }
+
+  function handleAddMemberChange(e) {
+    const { name, value } = e.target
+    setAddMemberModal((s) => ({ ...s, form: { ...s.form, [name]: value } }))
+  }
+
+  async function submitAddMember(e) {
+    e && e.preventDefault()
+    const { family, form } = addMemberModal
+    if (!family) return
+    setAddMemberModal((s) => ({ ...s, submitting: true, error: '', success: '' }))
+
+    try {
+      // Add member to family's members list (do NOT create an individual record)
+      const payload = {
+        add_member: {
+          first_name: form.first_name || '',
+          last_name: form.last_name || '',
+          age: form.age ? Number(form.age) : null,
+          gender: form.gender || 'Male',
+        },
+      }
+
+      await apiFetch(`/api/families/${family.family_id}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      })
+
+      // Refresh families + distributions only (new member should not appear in individuals list)
+      const [familiesData, distributionsData] = await Promise.all([
+        apiFetch('/api/families'),
+        apiFetch('/api/distributions'),
+      ])
+      setFamilies(Array.isArray(familiesData) ? familiesData : [])
+      setDistributions(Array.isArray(distributionsData) ? distributionsData : [])
+
+      setAddMemberModal((s) => ({ ...s, submitting: false, success: `Member added to ${family.family_name}` }))
+      setTimeout(() => closeAddMemberModal(), 900)
+    } catch (err) {
+      setAddMemberModal((s) => ({ ...s, submitting: false, error: err.message || 'Failed to add member.' }))
+    }
+  }
+
   // Reuse admin input/card styles for pixel parity
   const inputClass = `w-full rounded-lg border px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/40 transition ${isDarkMode
     ? 'border-white/10 bg-[#0b1220] text-slate-100 placeholder-slate-500'
@@ -435,6 +490,51 @@ function StaffDashboardPage() {
               </div>
             </div>
           </section>
+
+          {/* Add Member Modal (staff) */}
+          {addMemberModal.open ? (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+              <div className={`w-full max-w-md rounded-2xl border p-6 shadow-xl ${isDarkMode ? 'bg-[#111c2e] border-white/10 text-slate-100' : 'bg-white border-slate-200 text-slate-900'}`}>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">Add Family Member</h3>
+                  <button onClick={closeAddMemberModal} className={`text-xs font-semibold px-3 py-1 rounded ${isDarkMode ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-700'}`}>Close</button>
+                </div>
+
+                <form onSubmit={submitAddMember} className="space-y-3">
+                  <div>
+                    <label className={labelClass}>First name</label>
+                    <input name="first_name" value={addMemberModal.form.first_name} onChange={handleAddMemberChange} className={inputClass} />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Last name</label>
+                    <input name="last_name" value={addMemberModal.form.last_name} onChange={handleAddMemberChange} className={inputClass} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className={labelClass}>Age</label>
+                      <input name="age" type="number" min="0" value={addMemberModal.form.age} onChange={handleAddMemberChange} className={inputClass} />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Gender</label>
+                      <select name="gender" value={addMemberModal.form.gender} onChange={handleAddMemberChange} className={inputClass}>
+                        <option>Male</option>
+                        <option>Female</option>
+                        <option>Other</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {addMemberModal.error && <div className="text-sm text-red-600">{addMemberModal.error}</div>}
+                  {addMemberModal.success && <div className="text-sm text-emerald-600">{addMemberModal.success}</div>}
+
+                  <div className="flex items-center justify-end gap-3">
+                    <button type="button" onClick={closeAddMemberModal} className={`rounded-lg px-4 py-2 text-sm ${isDarkMode ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-700'}`}>Cancel</button>
+                    <button type="submit" disabled={addMemberModal.submitting} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white">{addMemberModal.submitting ? 'Adding...' : 'Add Member'}</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          ) : null}
 
           {error && (
             <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -576,14 +676,23 @@ function StaffDashboardPage() {
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Members</th>
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Status</th>
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Contact</th>
+                        <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredFamilies.map((family, idx) => {
                         const isAssisted = assistedFamilyIds.has(family.family_id)
                         return (
+                          <>
                           <tr key={family.family_id} className={`border-b ${idx % 2 === 0 ? (isDarkMode ? 'bg-slate-900/30' : 'bg-slate-50/50') : ''} ${isDarkMode ? 'border-slate-700/50 hover:bg-slate-900/50' : 'border-slate-100 hover:bg-slate-100/50'} transition`}>
-                            <td className={`px-6 py-3 font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}>{family.family_name}</td>
+                            <td className={`px-6 py-3 font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}>
+                              <button onClick={() => {
+                                const id = family.family_id
+                                setExpandedFamilies((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])
+                              }} className="text-left w-full">
+                                {family.family_name}
+                              </button>
+                            </td>
                             <td className={`px-6 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{family.head_of_family || 'N/A'}</td>
                             <td className={`px-6 py-3 max-w-xs truncate ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`} title={family.address}>{family.address || 'N/A'}</td>
                             <td className={`px-6 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
@@ -597,7 +706,44 @@ function StaffDashboardPage() {
                               </span>
                             </td>
                             <td className={`px-6 py-3 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{family.phone || '—'}</td>
+                            <td className={`px-6 py-3`}> 
+                              <div className="flex items-center gap-2">
+                                <button onClick={() => openAddMemberModal(family)} className={`text-xs rounded px-3 py-1 ${isDarkMode ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-700'}`}>
+                                  Add Member
+                                </button>
+                                <button onClick={() => navigate('/staff/distributions/add', { state: { familyId: family.family_id, barangayId: family.barangay_id } })} className={`text-xs rounded px-3 py-1 ${isDarkMode ? 'bg-emerald-700 text-white' : 'bg-emerald-100 text-emerald-700'}`}>
+                                  Record Distribution
+                                </button>
+                              </div>
+                            </td>
                           </tr>
+                          {expandedFamilies.includes(family.family_id) ? (
+                            <tr key={`members-${family.family_id}`} className={`${isDarkMode ? 'bg-slate-900/20' : 'bg-slate-50/40'}`}>
+                                <td colSpan={8} className={`px-6 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                                  <div className="space-y-2">
+                                    <div className="mb-2 text-sm font-semibold">Members</div>
+                                    {Array.isArray(family.members) && family.members.length > 0 ? (
+                                      <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                        {family.members.map((m, mi) => (
+                                          <li key={mi} className="rounded-md border px-3 py-2 text-sm">
+                                            <div className="flex items-center justify-between">
+                                              <div>
+                                                <div className="font-medium">{`${m.first_name} ${m.last_name}`.trim() || 'Unnamed'}</div>
+                                                <div className="text-xs text-slate-500">Age: {m.age ?? '—'} · {m.gender || '—'}</div>
+                                              </div>
+                                              <div className="text-xs text-slate-400">{m.added_at ? new Date(m.added_at).toLocaleDateString() : '—'}</div>
+                                            </div>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    ) : (
+                                      <div className="text-sm text-slate-500">No member details available.</div>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            ) : null}
+                          </>
                         )
                       })}
                     </tbody>
@@ -792,112 +938,7 @@ function StaffDashboardPage() {
           </section>
           
 
-          <section className="mt-10 grid gap-6">
-            <article id="add-individual-section" className={`rounded-2xl px-7 py-7 shadow-[0_2px_8px_rgba(15,23,42,0.08)] ${isDarkMode ? 'border border-slate-700 bg-slate-900' : 'border border-slate-200 bg-white'}`}>
-              <div className="mb-6 flex items-center justify-between">
-                <div>
-                  <h3 className={`text-2xl font-black ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>Register New Individual</h3>
-                  <p className={`${isDarkMode ? 'text-slate-300' : 'text-slate-500'} mt-1`}>Add a new individual beneficiary record.</p>
-                </div>
-              </div>
-
-              {individualSuccess && (
-                <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                  {individualSuccess}
-                </div>
-              )}
-
-              {individualError && (
-                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {individualError}
-                </div>
-              )}
-
-              <form onSubmit={handleIndividualSubmit} className="rounded-2xl p-1" aria-label="Register individual form">
-                <div className={cardClass}>
-                  <div className={`grid gap-4 grid-cols-1 lg:grid-cols-2`}>
-                    <div className="lg:col-span-2">
-                      <label className={labelClass}>Full Name *</label>
-                      <input name="name" value={individualForm.name} onChange={handleIndividualChange} placeholder="e.g. Maria Santos" className={`${inputClass} mt-2`} required />
-                    </div>
-
-                    <div>
-                      <label className={labelClass}>Age *</label>
-                      <input type="number" min="0" name="age" value={individualForm.age} onChange={handleIndividualChange} placeholder="Enter age" className={`${inputClass} mt-2`} required />
-                    </div>
-
-                    <div>
-                      <label className={labelClass}>Gender *</label>
-                      <select name="gender" value={individualForm.gender} onChange={handleIndividualChange} className={`${inputClass} mt-2`}>
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                        <option value="Other">Other</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className={labelClass}>Barangay *</label>
-                      <select name="barangay" value={individualForm.barangay} onChange={handleIndividualChange} className={`${inputClass} mt-2`}>
-                        <option>{staffUser?.barangay || 'Aguho'}</option>
-                        <option>Aguho</option>
-                        <option>Magtanggol</option>
-                        <option>Martires del 96</option>
-                        <option>Poblacion</option>
-                        <option>San Pedro</option>
-                        <option>San Roque</option>
-                        <option>Santa Ana</option>
-                        <option>Santo Rosario-Kanluran</option>
-                        <option>Santo Rosario-Silangan</option>
-                        <option>Tabacalera</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className={labelClass}>Status *</label>
-                      <select name="status" value={individualForm.status} onChange={handleIndividualChange} className={`${inputClass} mt-2`}>
-                        <option value="Registered">Registered</option>
-                        <option value="Received">Received</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-6 flex items-center justify-between">
-                  <div className={`text-sm ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}></div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIndividualForm({
-                          name: '',
-                          age: '',
-                          gender: 'Male',
-                          barangay: staffUser?.barangay || 'Aguho',
-                          status: 'Registered',
-                        })
-                        setIndividualError('')
-                        setIndividualSuccess('')
-                      }}
-                      disabled={individualSubmitting}
-                      className={`rounded-full px-5 py-2 text-sm ${isDarkMode ? 'bg-slate-800 border border-slate-700 text-slate-300' : 'bg-slate-100 border border-slate-200 text-slate-900'}`}
-                    >
-                      Clear
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={individualSubmitting}
-                      className={`rounded-full px-5 py-2 text-sm font-semibold ${individualSubmitting
-                        ? (isDarkMode ? 'bg-emerald-600/50 text-white' : 'bg-emerald-600/50 text-white')
-                        : (isDarkMode ? 'bg-emerald-600 text-white hover:bg-emerald-500' : 'bg-emerald-600 text-white hover:bg-emerald-700')
-                      }`}
-                    >
-                      {individualSubmitting ? 'Adding...' : 'Register Individual'}
-                    </button>
-                  </div>
-                </div>
-              </form>
-            </article>
-          </section>
+          {/* Add Individual form removed from dashboard per staff UX change */}
 
             <section id="transparency-section" className={`mt-10 rounded-2xl px-7 py-7 shadow-[0_2px_8px_rgba(15,23,42,0.08)] ${isDarkMode ? 'border border-slate-700 bg-slate-800' : 'border border-slate-200 bg-white'}`}>
             <h3 className={`text-xl font-bold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>Transparency & System Overview</h3>
