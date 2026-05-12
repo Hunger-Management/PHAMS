@@ -1,123 +1,14 @@
 import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import { useDarkMode } from '../../hooks/useDarkMode'
 import SiteHeader from '../../components/SiteHeader'
-
-const barangayProfiles = {
-  Aguho: {
-    description: 'A vibrant community known for its close-knit families and active participation in local programs.',
-    residents: '4,250',
-    households: '1,180',
-    registeredFamilies: '890',
-    iwpaCount: '45',
-    activeDistributions: '12',
-    captain: 'Joven Gatpayat',
-    phone: '+63 917 123 4567',
-    email: 'aguho@pateros.gov.ph',
-  },
-  Magtanggol: {
-    description: 'A highly coordinated barangay with strong volunteer support and consistent food assistance outreach.',
-    residents: '3,980',
-    households: '1,070',
-    registeredFamilies: '842',
-    iwpaCount: '39',
-    activeDistributions: '10',
-    captain: 'Jose A. Egonia',
-    phone: '+63 917 210 1134',
-    email: 'magtanggol@pateros.gov.ph',
-  },
-  "Martires del '96": {
-    description: 'A heritage-focused barangay balancing community growth with responsive social welfare services.',
-    residents: '3,510',
-    households: '960',
-    registeredFamilies: '765',
-    iwpaCount: '33',
-    activeDistributions: '9',
-    captain: 'Angel O. Mallorca Jr.',
-    phone: '+63 917 318 4472',
-    email: 'martires96@pateros.gov.ph',
-  },
-  Poblacion: {
-    description: 'The central barangay with dense residential zones and frequent delivery coordination requirements.',
-    residents: '5,120',
-    households: '1,420',
-    registeredFamilies: '1,030',
-    iwpaCount: '58',
-    activeDistributions: '15',
-    captain: 'Alma R. Otero',
-    phone: '+63 917 421 8821',
-    email: 'poblacion@pateros.gov.ph',
-  },
-  'San Pedro': {
-    description: 'A barangay with growing family registrations and steady collaboration with civic partner groups.',
-    residents: '4,030',
-    households: '1,120',
-    registeredFamilies: '856',
-    iwpaCount: '41',
-    activeDistributions: '11',
-    captain: 'Violeta S. Lorenzo',
-    phone: '+63 917 502 3175',
-    email: 'sanpedro@pateros.gov.ph',
-  },
-  'San Roque': {
-    description: 'A resilient and organized barangay with focused support for senior citizens and low-income families.',
-    residents: '4,410',
-    households: '1,230',
-    registeredFamilies: '904',
-    iwpaCount: '46',
-    activeDistributions: '13',
-    captain: 'Maria Dolores R. Custodio ',
-    phone: '+63 917 640 9913',
-    email: 'sanroque@pateros.gov.ph',
-  },
-  'Santa Ana': {
-    description: 'A community-driven barangay with active youth participation and expanding household assistance records.',
-    residents: '3,860',
-    households: '1,040',
-    registeredFamilies: '810',
-    iwpaCount: '36',
-    activeDistributions: '10',
-    captain: 'Beatriz J. Santos',
-    phone: '+63 917 712 4406',
-    email: 'santaana@pateros.gov.ph',
-  },
-  'Santo Rosario-Kanluran': {
-    description: 'A west-side district with efficient barangay workflows and responsive case tracking for food support.',
-    residents: '3,740',
-    households: '1,010',
-    registeredFamilies: '788',
-    iwpaCount: '34',
-    activeDistributions: '9',
-    captain: 'Arthur C. Cortez',
-    phone: '+63 917 805 1239',
-    email: 'srkanluran@pateros.gov.ph',
-  },
-  'Santo Rosario-Silangan': {
-    description: 'An east-side barangay emphasizing rapid response and transparent records for distribution operations.',
-    residents: '3,920',
-    households: '1,090',
-    registeredFamilies: '825',
-    iwpaCount: '38',
-    activeDistributions: '11',
-    captain: 'Eduardo G. Masinloc',
-    phone: '+63 917 866 2721',
-    email: 'srsilangan@pateros.gov.ph',
-  },
-  Tabacalera: {
-    description: 'A densely settled barangay with strong neighborhood networks and reliable logistics coordination.',
-    residents: '4,180',
-    households: '1,150',
-    registeredFamilies: '870',
-    iwpaCount: '44',
-    activeDistributions: '12',
-    captain: 'Richard R. Palican',
-    phone: '+63 917 932 5510',
-    email: 'tabacalera@pateros.gov.ph',
-  },
-}
+import { apiFetch } from '../../api/api'
 
 function BarangayDetailLayout({ barangayName }) {
   const { isDarkMode, toggleDarkMode } = useDarkMode()
-  const profile = barangayProfiles[barangayName] ?? {
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [profile, setProfile] = useState({
     description: `Community profile for ${barangayName}.`,
     residents: '0',
     households: '0',
@@ -127,7 +18,63 @@ function BarangayDetailLayout({ barangayName }) {
     captain: 'To Be Assigned',
     phone: '+63 900 000 0000',
     email: 'barangay@pateros.gov.ph',
-  }
+  })
+
+  useEffect(() => {
+    let mounted = true
+    setLoading(true)
+    setError(null)
+
+    Promise.all([
+      apiFetch('/api/barangays'),
+      apiFetch('/api/families'),
+      apiFetch('/api/individuals'),
+      apiFetch('/api/distributions'),
+      apiFetch('/api/users'),
+    ])
+      .then(([barangays, families, individuals, distributions, users]) => {
+        if (!mounted) return
+
+        const barangay = (Array.isArray(barangays) ? barangays : []).find((b) => String(b.name).toLowerCase() === String(barangayName).toLowerCase())
+        const barangayId = barangay ? Number(barangay.barangay_id) : null
+
+        const familiesFor = (Array.isArray(families) ? families : []).filter((f) => Number(f.barangay_id) === barangayId)
+        const individualsFor = (Array.isArray(individuals) ? individuals : []).filter((i) => Number(i.barangay_id) === barangayId)
+        const distributionsFor = (Array.isArray(distributions) ? distributions : []).filter((d) => Number(d.barangay_id) === barangayId)
+
+        const registeredFamilies = familiesFor.length
+        const households = familiesFor.length
+        const residents = familiesFor.reduce((sum, f) => sum + (Number(f.member_count) || 0), 0) + individualsFor.length
+
+        const iwpaCount = individualsFor.filter((i) => String(i.status || '').toLowerCase() === 'pending').length
+
+        const activeDistributions = distributionsFor.filter((d) => String(d.status || '').toLowerCase() !== 'completed').length
+
+        // Pick a captain/staff: find user with barangay_id matching
+        const staffFor = (Array.isArray(users) ? users : []).filter((u) => Number(u.barangay_id) === barangayId)
+        const captain = staffFor[0]
+
+        setProfile({
+          description: barangay?.description || `Community profile for ${barangayName}.`,
+          residents: String(residents),
+          households: String(households),
+          registeredFamilies: String(registeredFamilies),
+          iwpaCount: String(iwpaCount),
+          activeDistributions: String(activeDistributions),
+          captain: captain ? (captain.full_name || captain.name) : 'To Be Assigned',
+          phone: captain?.phone || captain?.contact || '+63 900 000 0000',
+          email: captain?.email || 'barangay@pateros.gov.ph',
+        })
+        setLoading(false)
+      })
+      .catch((err) => {
+        if (!mounted) return
+        setError(err.message || 'Failed to load barangay data')
+        setLoading(false)
+      })
+
+    return () => { mounted = false }
+  }, [barangayName])
 
   const statCards = [
     { label: 'Registered Families', value: profile.registeredFamilies, icon: '👥', iconBg: 'bg-blue-50 text-blue-600' },

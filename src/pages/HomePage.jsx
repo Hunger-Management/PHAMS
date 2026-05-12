@@ -1,19 +1,8 @@
-const stats = [
-  { label: 'Total Registered Families', value: '2,186', icon: '👥' },
-  { label: '4Ps (No Permanent Address)', value: '243', icon: '📍' },
-  { label: 'Active Food Supply (Tons)', value: '87', icon: '📦' },
-  { label: 'Pending Distributions', value: '29', icon: '🚚' },
-]
+// Stats will be fetched from the API to keep dashboards consistent
 
 const chartMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul']
 
-const priorityAreas = [
-  { name: 'Sto. Rosario', width: '72%' },
-  { name: 'Aguho', width: '54%' },
-  { name: 'San Roque', width: '49%' },
-  { name: 'Santa Ana', width: '37%' },
-  { name: 'San Pedro', width: '32%' },
-]
+// Priority/priorityAreas will be computed from live barangay + family data
 
 const recentActivities = [
   {
@@ -46,6 +35,7 @@ import { useEffect, useState } from 'react'
 import { useDarkMode } from '../hooks/useDarkMode'
 import Footer from '../components/Footer'
 import SiteHeader from '../components/SiteHeader'
+import { apiFetch } from '../api/api'
 import municipalHallHero from '../assets/town.jpg'
 import churchHero from '../assets/Pateros_Church,_Mar_2024.jpg'
 import pateros22Hero from '../assets/pateros22-sstring.jpg'
@@ -68,8 +58,62 @@ const statusClassMap = {
 function HomePage() {
   const { isDarkMode, toggleDarkMode } = useDarkMode()
   const [activeSlideIndex, setActiveSlideIndex] = useState(0)
+  const [stats, setStats] = useState(null)
+  const [statsLoading, setStatsLoading] = useState(true)
+  const [statsError, setStatsError] = useState(null)
+  const [barangayStats, setBarangayStats] = useState([])
+  const [barangaysLoading, setBarangaysLoading] = useState(true)
+  const [barangaysError, setBarangaysError] = useState(null)
 
   useEffect(() => {
+    // fetch homepage stats (same endpoint used by Admin dashboard)
+    apiFetch('/api/stats')
+      .then((data) => {
+        setStats(data)
+        setStatsLoading(false)
+      })
+      .catch((err) => {
+        setStatsError(err.message || 'Failed to load stats')
+        setStatsLoading(false)
+      })
+
+    // fetch barangays + families to compute priority areas/data for public view
+    Promise.all([apiFetch('/api/barangays'), apiFetch('/api/families')])
+      .then(([barangaysData, familiesData]) => {
+        const barangays = Array.isArray(barangaysData) ? barangaysData : []
+        const families = Array.isArray(familiesData) ? familiesData : []
+
+        // compute family count per barangay
+        const countsById = families.reduce((acc, f) => {
+          const id = Number(f.barangay_id) || 0
+          acc[id] = (acc[id] || 0) + 1
+          return acc
+        }, {})
+
+        const enriched = barangays.map((b) => ({
+          barangay_id: b.barangay_id,
+          name: b.name,
+          familyCount: countsById[b.barangay_id] || 0,
+        }))
+
+        // take top 5 by familyCount for priority list
+        const sorted = enriched.sort((a, z) => z.familyCount - a.familyCount)
+        const top = sorted.slice(0, 5)
+        const maxCount = top.length > 0 ? Math.max(...top.map((t) => t.familyCount)) : 1
+
+        const withWidth = top.map((t) => ({
+          ...t,
+          width: `${Math.max(6, Math.round((t.familyCount / (maxCount || 1)) * 100))}%`,
+        }))
+
+        setBarangayStats(withWidth)
+        setBarangaysLoading(false)
+      })
+      .catch((err) => {
+        setBarangaysError(err.message || 'Failed to load barangay data')
+        setBarangaysLoading(false)
+      })
+
     const slideInterval = setTimeout(() => {
       setActiveSlideIndex((currentIndex) => (currentIndex + 1) % heroSlides.length)
     }, 5000)
@@ -154,33 +198,56 @@ function HomePage() {
         </div>
 
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
-          {stats.map((item) => (
-            <article
-              key={item.label}
-              className={`rounded-xl border p-4 shadow-sm transition-colors ${
-                isDarkMode
-                  ? 'border-slate-700 bg-slate-800 '
-                  : 'border-slate-200 bg-white'
-              }`}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <p className={`text-xs leading-snug transition-colors ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{item.label}</p>
-                <span className={`h-8 w-8 rounded-lg grid place-items-center text-sm transition-colors ${
-                  isDarkMode ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-50 text-blue-700'
-                }`}>
-                  {item.icon}
-                </span>
-              </div>
-              <p
-                className={`mt-4 text-3xl font-black transition-colors ${
-                  isDarkMode ? 'text-slate-100' : 'text-slate-900'
-                }`}
-                style={{ fontFamily: 'Arial Black, Trebuchet MS, sans-serif' }}
-              >
-                {item.value}
-              </p>
-            </article>
-          ))}
+          {statsLoading && (
+            <> 
+              {[0, 1, 2, 3].map((i) => (
+                <article key={i} className={`rounded-xl border p-4 shadow-sm transition-colors ${isDarkMode ? 'border-slate-700 bg-slate-800 ' : 'border-slate-200 bg-white'}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <p className={`h-4 w-32 bg-slate-300/30 rounded ${isDarkMode ? 'bg-slate-700' : 'bg-slate-100'}`} />
+                    <span className={`h-8 w-8 rounded-lg ${isDarkMode ? 'bg-blue-900/30' : 'bg-blue-50'}`} />
+                  </div>
+                  <div className="mt-4 h-10 w-28 rounded bg-slate-300/30" />
+                </article>
+              ))}
+            </>
+          )}
+
+          {statsError && (
+            <div className={`col-span-4 rounded-xl border p-4 ${isDarkMode ? 'bg-[#111c2e]' : 'bg-white'}`}>
+              <p className="text-sm text-red-500">Error loading stats: {statsError}</p>
+            </div>
+          )}
+
+          {!statsLoading && !statsError && stats && (
+            (() => {
+              const items = [
+                { label: 'Total Registered Families', value: stats.totalFamilies ?? '0', icon: <i className="fi fi-sr-users" aria-hidden="true" /> },
+                { label: '4Ps (No Permanent Address)', value: stats.fourPsNoPermanentAddress ?? stats.noPermanentAddress ?? '0', icon: '📍' },
+                { label: 'Active Food Supply (Tons)', value: stats.totalFoodSupply ?? '0', icon: '📦' },
+                { label: 'Pending Distributions', value: stats.pendingDistributions ?? '0', icon: '🚚' },
+              ]
+
+              return items.map((item) => (
+                <article
+                  key={item.label}
+                  className={`rounded-xl border p-4 shadow-sm transition-colors ${isDarkMode ? 'border-slate-700 bg-slate-800 ' : 'border-slate-200 bg-white'}`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className={`text-xs leading-snug transition-colors ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{item.label}</p>
+                    <span className={`h-8 w-8 rounded-lg grid place-items-center text-sm transition-colors ${isDarkMode ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-50 text-blue-700'}`}>
+                      {item.icon}
+                    </span>
+                  </div>
+                  <p
+                    className={`mt-4 text-3xl font-black transition-colors ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}
+                    style={{ fontFamily: 'Arial Black, Trebuchet MS, sans-serif' }}
+                  >
+                    {item.value}
+                  </p>
+                </article>
+              ))
+            })()
+          )}
         </div>
 
         <div className="mt-5 grid grid-cols-1 xl:grid-cols-[2fr_1fr] gap-4">
@@ -268,15 +335,26 @@ function HomePage() {
             <p className={`mt-1 transition-colors ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Families needing assistance</p>
 
             <div className="mt-6 space-y-6">
-              {priorityAreas.map((area) => (
-                <div key={area.name} className="grid grid-cols-[80px_1fr] items-center gap-3">
+              {barangaysLoading && (
+                <p className={`${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Loading priority areas...</p>
+              )}
+
+              {barangaysError && (
+                <p className="text-sm text-red-500">Error: {barangaysError}</p>
+              )}
+
+              {!barangaysLoading && !barangaysError && barangayStats.length === 0 && (
+                <p className={`${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>No data available</p>
+              )}
+
+              {!barangaysLoading && !barangaysError && barangayStats.map((area) => (
+                <div key={area.barangay_id} className="grid grid-cols-[120px_1fr] items-center gap-3">
                   <p className={`text-sm text-right leading-tight transition-colors ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{area.name}</p>
-                  <div className={`h-9 w-full rounded-md border border-dashed p-1 transition-colors ${
-                    isDarkMode ? 'bg-slate-700 border-slate-600' : 'bg-slate-50 border-slate-200'
-                  }`}>
+                  <div className={`h-9 w-full rounded-md border border-dashed p-1 transition-colors ${isDarkMode ? 'bg-slate-700 border-slate-600' : 'bg-slate-50 border-slate-200'}`}>
                     <div
                       className="h-full rounded bg-sky-500"
                       style={{ width: area.width }}
+                      title={`${area.familyCount} families`}
                     />
                   </div>
                 </div>
