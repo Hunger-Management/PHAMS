@@ -35,7 +35,7 @@ const emptyMember = () => ({
     last_name: '',
     date_of_birth: '',
     gender: 'Male',
-    relationship: 'Head',
+    relationship: 'Other',
     is_pwd: false,
     nutritional_status: 'Unknown',
     height_cm: '',
@@ -62,7 +62,7 @@ function AddFamilyPage() {
         food_assistance_status: [],
     })
 
-    const [members, setMembers] = useState([emptyMember()])
+    const [members, setMembers] = useState([{ ...emptyMember(), relationship: 'Head' }])
 
     // Local storage helpers for offline/no-database mode
     const LOCAL_KEY = 'phams-local-families'
@@ -182,11 +182,21 @@ function AddFamilyPage() {
                 address: familyData.address,
                 head_of_family: familyData.head_of_family,
                 phone: familyData.contact_number,
+                monthly_income: familyData.monthly_income ? parseFloat(familyData.monthly_income) : null,
+                food_assistance_status: familyData.food_assistance_status.length
+                    ? familyData.food_assistance_status.join(',')
+                    : 'None',
+                is_npa: familyData.is_npa ? 1 : 0,
                 members: members.map(({ _bmi, ...m }) => ({
                     first_name: m.first_name,
                     last_name: m.last_name,
-                    age: getAgeInYears(m.date_of_birth),
+                    date_of_birth: m.date_of_birth || null,
                     gender: m.gender,
+                    relationship: m.relationship,
+                    is_pwd: m.is_pwd ? 1 : 0,
+                    height_cm: m.height_cm ? parseFloat(m.height_cm) : null,
+                    weight_kg: m.weight_kg ? parseFloat(m.weight_kg) : null,
+                    nutritional_status: m.nutritional_status,
                 })),
             }
 
@@ -210,7 +220,7 @@ function AddFamilyPage() {
                 monthly_income: '',
                 food_assistance_status: [],
             })
-            setMembers([emptyMember()])
+            setMembers([{ ...emptyMember(), relationship: 'Head' }])
 
             // Scroll to top to show success message
             window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -254,7 +264,7 @@ function AddFamilyPage() {
                     monthly_income: '',
                     food_assistance_status: [],
                 })
-                setMembers([emptyMember()])
+                setMembers([{ ...emptyMember(), relationship: 'Head' }])
 
                 window.scrollTo({ top: 0, behavior: 'smooth' })
 

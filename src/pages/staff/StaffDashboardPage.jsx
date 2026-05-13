@@ -4,6 +4,23 @@ import { apiFetch } from '../../api/api'
 import { useDarkMode } from '../../hooks/useDarkMode'
 import { useStaffAuth } from '../../context/StaffAuthContext'
 import StaffSidebar from './StaffSidebar'
+import { UserPlus, Trash2 } from 'lucide-react'
+
+const RELATIONSHIP_OPTIONS = ['Head', 'Spouse', 'Child', 'Parent', 'Sibling', 'Relative', 'Other']
+const NUTRITIONAL_OPTIONS = ['Normal', 'Underweight', 'Severely Underweight', 'Overweight', 'Obese', 'Unknown']
+
+const emptyMember = () => ({
+  first_name: '',
+  last_name: '',
+  date_of_birth: '',
+  gender: 'Male',
+  relationship: 'Other',
+  is_pwd: false,
+  nutritional_status: 'Unknown',
+  height_cm: '',
+  weight_kg: '',
+  _bmi: null,
+})
 
 // Barangay ID mapping - must match database exactly
 const BARANGAY_MAP = {
@@ -226,8 +243,88 @@ function StaffDashboardPage() {
     contactNumber: '',
     monthlyIncome: '',
     programs: [],
-    noPermanentAddress: false,
   })
+
+  const [members, setMembers] = useState([{ ...emptyMember(), relationship: 'Head' }])
+
+  const getAgeInYears = (dateOfBirth) => {
+    if (!dateOfBirth) return null
+    const today = new Date()
+    const dob = new Date(dateOfBirth)
+    let age = today.getFullYear() - dob.getFullYear()
+    const m = today.getMonth() - dob.getMonth()
+    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--
+    return age
+  }
+
+  const computeBMI = (heightCm, weightKg) => {
+    const h = parseFloat(heightCm)
+    const w = parseFloat(weightKg)
+    if (!h || !w || h <= 0 || w <= 0) return null
+    return w / Math.pow(h / 100, 2)
+  }
+
+  const bmiToNutritionalStatus = (bmi, dateOfBirth) => {
+    if (bmi === null) return null
+    const age = getAgeInYears(dateOfBirth)
+    if (age !== null && age < 5) {
+      if (bmi < 13.0) return 'Severely Underweight'
+      if (bmi < 15.0) return 'Underweight'
+      if (bmi < 18.0) return 'Normal'
+      if (bmi < 20.0) return 'Overweight'
+      return 'Obese'
+    }
+    if (age !== null && age < 18) {
+      if (bmi < 14.0) return 'Severely Underweight'
+      if (bmi < 16.5) return 'Underweight'
+      if (bmi < 23.0) return 'Normal'
+      if (bmi < 27.5) return 'Overweight'
+      return 'Obese'
+    }
+    if (bmi < 16.0) return 'Severely Underweight'
+    if (bmi < 18.5) return 'Underweight'
+    if (bmi < 23.0) return 'Normal'
+    if (bmi < 25.0) return 'Overweight'
+    return 'Obese'
+  }
+
+  const handleMemberChange = (index, e) => {
+    const { name, value, type, checked } = e.target
+    const updatedValue = type === 'checkbox' ? checked : value
+    setMembers((prev) => {
+      if (name === 'relationship' && updatedValue === 'Head') {
+        return prev.map((m, i) => {
+          if (i === index) return { ...m, relationship: 'Head' }
+          if (m.relationship === 'Head') return { ...m, relationship: 'Other' }
+          return m
+        })
+      }
+      return prev.map((m, i) => {
+        if (i !== index) return m
+        const updated = { ...m, [name]: updatedValue }
+        if (name === 'height_cm' || name === 'weight_kg') {
+          const h = name === 'height_cm' ? updatedValue : m.height_cm
+          const w = name === 'weight_kg' ? updatedValue : m.weight_kg
+          const bmi = computeBMI(h, w)
+          updated.nutritional_status = bmiToNutritionalStatus(bmi, updated.date_of_birth) || 'Unknown'
+          updated._bmi = bmi ? bmi.toFixed(1) : null
+        }
+        if (name === 'date_of_birth' && m.height_cm && m.weight_kg) {
+          const bmi = computeBMI(m.height_cm, m.weight_kg)
+          updated.nutritional_status = bmiToNutritionalStatus(bmi, updatedValue) || m.nutritional_status
+          updated._bmi = bmi ? bmi.toFixed(1) : null
+        }
+        return updated
+      })
+    })
+  }
+
+  const addMember = () => setMembers((prev) => [...prev, emptyMember()])
+
+  const removeMember = (index) => {
+    if (members.length === 1) return
+    setMembers((prev) => prev.filter((_, i) => i !== index))
+  }
 
   const [individualForm, setIndividualForm] = useState({
     name: '',
@@ -262,11 +359,7 @@ function StaffDashboardPage() {
   }
 
   function handleChange(e) {
-    const { name, value, type, checked } = e.target
-    if (type === 'checkbox' && name === 'noPermanentAddress') {
-      setFamilyForm((s) => ({ ...s, [name]: checked }))
-      return
-    }
+    const { name, value } = e.target
     setFamilyForm((s) => ({ ...s, [name]: value }))
   }
 
@@ -277,26 +370,37 @@ function StaffDashboardPage() {
     setFormSubmitting(true)
 
     try {
-      const barangayId = BARANGAY_MAP[familyForm.barangay] || 1
-
-      // Use placeholder address if NPA is selected
-      const addressValue = familyForm.noPermanentAddress ? 'No Permanent Address (NPA)' : familyForm.address
+      const barangayId = BARANGAY_MAP[staffBarangayName] || 1
 
       const payload = {
         family_name: familyForm.familyName,
         barangay_id: barangayId,
-        address: addressValue,
+        address: familyForm.address,
         head_of_family: familyForm.headOfFamily,
         phone: familyForm.contactNumber,
-        members: [], // Staff can add family without members initially
+        monthly_income: familyForm.monthlyIncome ? parseFloat(familyForm.monthlyIncome) : null,
+        food_assistance_status: familyForm.programs.length ? familyForm.programs.join(',') : 'None',
+        is_npa: 0,
+        members: members
+          .filter((m) => m.first_name.trim())
+          .map(({ _bmi, ...m }) => ({
+            first_name: m.first_name,
+            last_name: m.last_name,
+            date_of_birth: m.date_of_birth || null,
+            gender: m.gender,
+            relationship: m.relationship,
+            is_pwd: m.is_pwd ? 1 : 0,
+            height_cm: m.height_cm ? parseFloat(m.height_cm) : null,
+            weight_kg: m.weight_kg ? parseFloat(m.weight_kg) : null,
+            nutritional_status: m.nutritional_status,
+          })),
       }
 
-      // Validate required fields
       if (!payload.family_name.trim()) {
-        throw new Error('Family name is required')
+        throw new Error('Family name is required.')
       }
-      if (!addressValue.trim()) {
-        throw new Error('Please provide an address or mark as No Permanent Address (NPA)')
+      if (!payload.address.trim()) {
+        throw new Error('Complete address is required.')
       }
 
       const data = await apiFetch('/api/families', {
@@ -306,17 +410,16 @@ function StaffDashboardPage() {
 
       setFormSuccess(`✓ Family "${familyForm.familyName}" registered successfully!`)
 
-      // Reset form
       setFamilyForm({
         familyName: '',
-        barangay: staffUser?.barangay || 'Aguho',
+        barangay: staffBarangayName,
         address: '',
         headOfFamily: '',
         contactNumber: '',
         monthlyIncome: '',
         programs: [],
-        noPermanentAddress: false,
       })
+      setMembers([{ ...emptyMember(), relationship: 'Head' }])
 
       // Clear success message after 3 seconds
       setTimeout(() => {
@@ -341,7 +444,7 @@ function StaffDashboardPage() {
     setIndividualSubmitting(true)
 
     try {
-      const barangayId = BARANGAY_MAP[individualForm.barangay] || 1
+      const barangayId = BARANGAY_MAP[staffBarangayName] || 1
 
       if (!individualForm.name.trim()) {
         throw new Error('Full name is required')
@@ -369,7 +472,7 @@ function StaffDashboardPage() {
         name: '',
         age: '',
         gender: 'Male',
-        barangay: staffUser?.barangay || 'Aguho',
+        barangay: staffBarangayName,
         status: 'Registered',
       })
 
@@ -576,6 +679,7 @@ function StaffDashboardPage() {
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Members</th>
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Status</th>
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Contact</th>
+                        <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -597,6 +701,11 @@ function StaffDashboardPage() {
                               </span>
                             </td>
                             <td className={`px-6 py-3 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{family.phone || '—'}</td>
+                            <td className="px-6 py-3">
+                              <Link to={`/staff/families/${family.family_id}`} className="text-xs font-medium text-blue-600 hover:text-blue-700 transition">
+                                View →
+                              </Link>
+                            </td>
                           </tr>
                         )
                       })}
@@ -667,7 +776,13 @@ function StaffDashboardPage() {
                   <h3 className={`text-2xl font-black ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>Register New Family</h3>
                   <p className={`${isDarkMode ? 'text-slate-300' : 'text-slate-500'} mt-1`}>Fill in all required fields. Priority score is computed automatically.</p>
                 </div>
-                <Link to="/admin/families" className={`text-sm ${isDarkMode ? 'text-slate-300 hover:text-slate-100' : 'text-slate-600 hover:text-slate-900'}`}>← View All Families</Link>
+                <button
+                  type="button"
+                  onClick={() => document.getElementById('families-list-section')?.scrollIntoView({ behavior: 'smooth' })}
+                  className={`text-sm transition ${isDarkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'}`}
+                >
+                  View Families ↓
+                </button>
               </div>
 
               {formSuccess && (
@@ -691,29 +806,17 @@ function StaffDashboardPage() {
                   </div>
 
                   <div>
-                    <label className={labelClass}>Barangay *</label>
-                    <select name="barangay" value={familyForm.barangay} onChange={handleChange} className={`${inputClass} mt-2`}>
-                      <option>{staffUser?.barangay || 'Aguho'}</option>
-                      <option>Aguho</option>
-                      <option>Magtanggol</option>
-                      <option>Martires del 96</option>
-                      <option>Poblacion</option>
-                      <option>San Pedro</option>
-                      <option>San Roque</option>
-                      <option>Santa Ana</option>
-                      <option>Santo Rosario-Kanluran</option>
-                      <option>Santo Rosario-Silangan</option>
-                      <option>Tabacalera</option>
-                    </select>
+                    <label className={labelClass}>Barangay</label>
+                    <div className={`mt-2 flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm ${isDarkMode ? 'border-white/10 bg-[#0b1220]/50 text-slate-300' : 'border-slate-200 bg-slate-100 text-slate-700'}`}>
+                      <span>📍</span>
+                      <span className="font-medium">{staffBarangayName}</span>
+                      <span className={`ml-auto text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Assigned</span>
+                    </div>
                   </div>
 
                   <div className="lg:col-span-2">
-                    <label className={labelClass}>Complete Address</label>
-                    <input name="address" value={familyForm.address} onChange={handleChange} placeholder="House No., Street, Purok" className={`${inputClass} mt-2`} />
-                    <div className="mt-2 flex items-center gap-2 text-sm">
-                      <input id="npa" name="noPermanentAddress" type="checkbox" checked={familyForm.noPermanentAddress} onChange={handleChange} className="h-4 w-4" />
-                      <label htmlFor="npa" className={`text-sm ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>No Permanent Address (NPA)</label>
-                    </div>
+                    <label className={labelClass}>Complete Address *</label>
+                    <input name="address" value={familyForm.address} onChange={handleChange} placeholder="House No., Street, Purok" className={`${inputClass} mt-2`} required />
                   </div>
 
                   <div>
@@ -750,22 +853,115 @@ function StaffDashboardPage() {
                   </div>
                 </div>
 
+                {/* ── Family Members ── */}
+                <div className={`mt-6 rounded-xl border p-5 ${isDarkMode ? 'border-white/10 bg-[#0b1220]' : 'border-slate-200 bg-slate-50'}`}>
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h4 className={`font-semibold text-sm ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Family Members</h4>
+                      <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Nutritional status is auto-computed from height &amp; weight.</p>
+                    </div>
+                    <button type="button" onClick={addMember} className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 transition">
+                      <UserPlus size={13} /> Add Member
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    {members.map((member, index) => (
+                      <div key={index} className={`rounded-xl border p-4 ${isDarkMode ? 'border-white/10 bg-[#111c2e]' : 'border-slate-200 bg-white'}`}>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-xs font-semibold uppercase tracking-wide ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Member {index + 1}</span>
+                            {member.relationship === 'Head' && (
+                              <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">Head of Family</span>
+                            )}
+                          </div>
+                          {members.length > 1 && (
+                            <button type="button" onClick={() => removeMember(index)} className="text-red-400 hover:text-red-600 transition" aria-label="Remove member">
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                          <div>
+                            <label className={labelClass}>First Name *</label>
+                            <input name="first_name" value={member.first_name} onChange={(e) => handleMemberChange(index, e)} placeholder="First name" className={`${inputClass} mt-2`} />
+                          </div>
+                          <div>
+                            <label className={labelClass}>Last Name *</label>
+                            <input name="last_name" value={member.last_name} onChange={(e) => handleMemberChange(index, e)} placeholder="Last name" className={`${inputClass} mt-2`} />
+                          </div>
+                          <div>
+                            <label className={labelClass}>Date of Birth</label>
+                            <input name="date_of_birth" type="date" value={member.date_of_birth} onChange={(e) => handleMemberChange(index, e)} className={`${inputClass} mt-2`} />
+                          </div>
+                          <div>
+                            <label className={labelClass}>Height (cm)</label>
+                            <input name="height_cm" type="number" min="30" max="250" step="0.1" value={member.height_cm} onChange={(e) => handleMemberChange(index, e)} placeholder="e.g. 165" className={`${inputClass} mt-2`} />
+                          </div>
+                          <div>
+                            <label className={labelClass}>Weight (kg)</label>
+                            <input name="weight_kg" type="number" min="1" max="300" step="0.1" value={member.weight_kg} onChange={(e) => handleMemberChange(index, e)} placeholder="e.g. 55" className={`${inputClass} mt-2`} />
+                          </div>
+                          <div>
+                            <label className={labelClass}>Gender *</label>
+                            <select name="gender" value={member.gender} onChange={(e) => handleMemberChange(index, e)} className={`${inputClass} mt-2`}>
+                              <option value="Male">Male</option>
+                              <option value="Female">Female</option>
+                              <option value="Other">Other</option>
+                            </select>
+                          </div>
+
+                          {member._bmi && (
+                            <div className={`sm:col-span-2 lg:col-span-3 rounded-lg px-3 py-2 text-xs ${isDarkMode ? 'bg-blue-500/10 text-blue-300' : 'bg-blue-50 text-blue-700'}`}>
+                              <span className="font-semibold">BMI: {member._bmi}</span>
+                              {member.date_of_birth && (
+                                <span className="ml-2 opacity-75">
+                                  ({getAgeInYears(member.date_of_birth) < 5 ? 'Under-5' : getAgeInYears(member.date_of_birth) < 18 ? 'Adolescent' : 'Adult/Asian cutoff'} classification)
+                                </span>
+                              )}
+                              <span className="ml-2">— Nutritional status auto-set. You may override if needed.</span>
+                            </div>
+                          )}
+
+                          <div>
+                            <label className={labelClass}>Relationship</label>
+                            <select name="relationship" value={member.relationship} onChange={(e) => handleMemberChange(index, e)} className={`${inputClass} mt-2`}>
+                              {RELATIONSHIP_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className={labelClass}>Nutritional Status</label>
+                            <select name="nutritional_status" value={member.nutritional_status} onChange={(e) => handleMemberChange(index, e)} className={`${inputClass} mt-2`}>
+                              {NUTRITIONAL_OPTIONS.map((n) => <option key={n} value={n}>{n}</option>)}
+                            </select>
+                          </div>
+                          <div className="flex items-center gap-2 pt-5">
+                            <input type="checkbox" name="is_pwd" id={`pwd-${index}`} checked={member.is_pwd} onChange={(e) => handleMemberChange(index, e)} className="h-4 w-4 rounded" />
+                            <label htmlFor={`pwd-${index}`} className={`text-sm cursor-pointer ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Person with Disability (PWD)</label>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="mt-6 flex items-center justify-between">
                   <div className={`text-sm ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Priority score is computed automatically.</div>
                   <div className="flex items-center gap-3">
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       onClick={() => {
                         setFamilyForm({
                           familyName: '',
-                          barangay: staffUser?.barangay || 'Aguho',
+                          barangay: staffBarangayName,
                           address: '',
                           headOfFamily: '',
                           contactNumber: '',
                           monthlyIncome: '',
                           programs: [],
-                          noPermanentAddress: false,
                         })
+                        setMembers([{ ...emptyMember(), relationship: 'Head' }])
                         setFormError('')
                         setFormSuccess('')
                       }}
@@ -836,20 +1032,12 @@ function StaffDashboardPage() {
                     </div>
 
                     <div>
-                      <label className={labelClass}>Barangay *</label>
-                      <select name="barangay" value={individualForm.barangay} onChange={handleIndividualChange} className={`${inputClass} mt-2`}>
-                        <option>{staffUser?.barangay || 'Aguho'}</option>
-                        <option>Aguho</option>
-                        <option>Magtanggol</option>
-                        <option>Martires del 96</option>
-                        <option>Poblacion</option>
-                        <option>San Pedro</option>
-                        <option>San Roque</option>
-                        <option>Santa Ana</option>
-                        <option>Santo Rosario-Kanluran</option>
-                        <option>Santo Rosario-Silangan</option>
-                        <option>Tabacalera</option>
-                      </select>
+                      <label className={labelClass}>Barangay</label>
+                      <div className={`mt-2 flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm ${isDarkMode ? 'border-white/10 bg-[#0b1220]/50 text-slate-300' : 'border-slate-200 bg-slate-100 text-slate-700'}`}>
+                        <span>📍</span>
+                        <span className="font-medium">{staffBarangayName}</span>
+                        <span className={`ml-auto text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Assigned</span>
+                      </div>
                     </div>
 
                     <div>
