@@ -31,28 +31,23 @@ function StaffDashboardPage() {
   const [formSuccess, setFormSuccess] = useState('')
   const [formError, setFormError] = useState('')
 
-  const [staffBarangayName, setStaffBarangayName] = useState(staffUser?.barangay || 'Aguho')
+  const [staffBarangayName, setStaffBarangayName] = useState(
+    staffUser?.barangay || staffUser?.barangay_name || ''
+  )
 
-  // Ensure we have a barangay name for the logged-in staff user.
   useEffect(() => {
-    if (staffUser?.barangay) {
-      setStaffBarangayName(staffUser.barangay)
+    if (staffUser?.barangay || staffUser?.barangay_name) {
+      setStaffBarangayName(staffUser.barangay || staffUser.barangay_name)
       return
     }
-
-    // If only barangay_id exists, fetch the barangay name
     if (staffUser?.barangay_id) {
       apiFetch(`/api/barangays/${staffUser.barangay_id}`)
-        .then((b) => {
-          if (b && b.name) setStaffBarangayName(b.name)
-        })
-        .catch(() => {
-          // ignore
-        })
+        .then((b) => { if (b?.name) setStaffBarangayName(b.name) })
+        .catch(() => {})
     }
-  }, [staffUser?.barangay, staffUser?.barangay_id])
+  }, [staffUser?.barangay, staffUser?.barangay_name, staffUser?.barangay_id])
 
-  const staffBarangay = staffBarangayName || 'Aguho'
+  const staffBarangay = staffBarangayName || 'Unknown Barangay'
 
   useEffect(() => {
     Promise.all([

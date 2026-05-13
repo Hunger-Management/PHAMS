@@ -91,7 +91,7 @@ function StaffSidebar({ isDarkMode }) {
                             STAFF
                         </span>
                         <p className={`text-xs ${isDarkMode ? 'text-white/60' : 'text-slate-500'}`}>
-                            {staffUser?.barangay || 'Aguho'}
+                            {staffUser?.barangay || staffUser?.barangay_name || 'Unassigned'}
                         </p>
                     </div>
                 </div>

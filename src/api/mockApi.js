@@ -299,7 +299,8 @@ function handlePost(path, db, body) {
     const { password: _ignored, ...safeUser } = user
     return {
       token: `mock-token-${user.user_id}`,
-      user: safeUser,
+      // Normalize to match real backend shape: barangay = the name string
+      user: { ...safeUser, barangay: safeUser.barangay_name || safeUser.barangay || null },
     }
   }
 
