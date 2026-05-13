@@ -344,6 +344,7 @@ function FamilyListPage() {
                                                 ? 'border-white/10 text-slate-400'
                                                 : 'border-slate-200 text-slate-500'
                                             }`}>
+                                            <th className="px-6 py-4 text-left font-semibold">Image</th>
                                             <th className="px-6 py-4 text-left font-semibold">Family</th>
                                             <th className="px-6 py-4 text-left font-semibold">ID</th>
                                             <th className="px-6 py-4 text-left font-semibold">Barangay</th>
@@ -364,6 +365,19 @@ function FamilyListPage() {
                                                 key={family.family_id}
                                                 className={`transition ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-slate-50'
                                                     }`}>
+                                                <td className="px-6 py-4">
+                                                    {family.image ? (
+                                                        <img
+                                                            src={`data:image/jpeg;base64,${family.image}`}
+                                                            alt={`${family.family_name || 'Family'} photo`}
+                                                            className="h-10 w-10 rounded-md object-cover"
+                                                        />
+                                                    ) : (
+                                                        <span className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                                            —
+                                                        </span>
+                                                    )}
+                                                </td>
                                                 {/* Family name + address */}
                                                 <td className="px-6 py-4">
                                                     <p className={`font-semibold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>

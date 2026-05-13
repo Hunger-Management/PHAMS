@@ -277,6 +277,7 @@ function IndividualsListPage() {
                                 <table className="w-full text-sm">
                                     <thead>
                                         <tr className={`border-b text-xs uppercase tracking-wide ${isDarkMode ? 'border-white/10 text-slate-400' : 'border-slate-200 text-slate-500'}`}>
+                                            <th className="px-6 py-4 text-left font-semibold">Image</th>
                                             <th className="px-6 py-4 text-left font-semibold">Name</th>
                                             <th className="px-6 py-4 text-left font-semibold">Age</th>
                                             <th className="px-6 py-4 text-left font-semibold">Gender</th>
@@ -291,6 +292,19 @@ function IndividualsListPage() {
                                                 key={individual.individual_id}
                                                 className={`transition ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}
                                             >
+                                                <td className="px-6 py-4">
+                                                    {individual.image ? (
+                                                        <img
+                                                            src={`data:image/jpeg;base64,${individual.image}`}
+                                                            alt={`${individual.name || 'Individual'} photo`}
+                                                            className="h-10 w-10 rounded-md object-cover"
+                                                        />
+                                                    ) : (
+                                                        <span className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                                            —
+                                                        </span>
+                                                    )}
+                                                </td>
                                                 <td className={`px-6 py-4 ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
                                                     {individual.name || '—'}
                                                 </td>

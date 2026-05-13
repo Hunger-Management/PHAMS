@@ -33,6 +33,7 @@ function AddDistributionPage() {
   }
 
   const [formData, setFormData] = useState(DEFAULT_FORM)
+  const [imageFile, setImageFile] = useState(null)
   const [families, setFamilies] = useState([])
   const [individuals, setIndividuals] = useState([])
   const [barangays, setBarangays] = useState([])
@@ -130,24 +131,27 @@ function AddDistributionPage() {
     setSubmitting(true)
 
     try {
-      const payload = {
-        recipient_type: formData.recipient_type,
-        family_id: needsFamily ? Number(formData.family_id) : null,
-        individual_id: needsIndividual ? Number(formData.individual_id) : null,
-        barangay_id: Number(formData.barangay_id),
-        food_id: Number(formData.food_id),
-        quantity: Number(formData.quantity),
-        date_given: formData.date_given,
-        status: formData.status,
+      const payload = new FormData()
+      payload.append('recipient_type', formData.recipient_type)
+      payload.append('family_id', needsFamily ? String(Number(formData.family_id)) : '')
+      payload.append('individual_id', needsIndividual ? String(Number(formData.individual_id)) : '')
+      payload.append('barangay_id', String(Number(formData.barangay_id)))
+      payload.append('food_id', String(Number(formData.food_id)))
+      payload.append('quantity', String(Number(formData.quantity)))
+      payload.append('date_given', formData.date_given)
+      payload.append('status', formData.status)
+      if (imageFile) {
+        payload.append('image', imageFile)
       }
 
       await apiFetch('/api/distributions', {
         method: 'POST',
-        body: JSON.stringify(payload),
+        body: payload,
       })
 
       setSuccessMessage('Distribution recorded successfully.')
       setFormData(DEFAULT_FORM)
+      setImageFile(null)
       window.scrollTo({ top: 0, behavior: 'smooth' })
 
       setTimeout(() => {
@@ -356,6 +360,16 @@ function AddDistributionPage() {
                     <option value="Pending">Pending</option>
                     <option value="Received">Received</option>
                   </select>
+                </div>
+
+                <div>
+                  <label className={labelClass}>Photo (Optional)</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) => setImageFile(event.target.files?.[0] || null)}
+                    className={inputClass}
+                  />
                 </div>
               </div>
 

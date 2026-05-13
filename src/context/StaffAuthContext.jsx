@@ -4,7 +4,6 @@ import { apiFetch } from '../api/api'
 
 const STAFF_STORAGE_KEY = 'staff-auth-user'
 const STAFF_TOKEN_KEY = 'phams-token'
-const STAFF_ACCOUNTS_KEY = 'phams-staff-accounts'
 
 const StaffAuthContext = createContext(null)
 
@@ -26,23 +25,7 @@ export function StaffAuthProvider({ children }) {
     }
   })
 
-  const [staffAccounts, setStaffAccounts] = useState(() => {
-    if (typeof window === 'undefined') {
-      return []
-    }
-
-    const stored = localStorage.getItem(STAFF_ACCOUNTS_KEY)
-    if (!stored) {
-      return []
-    }
-
-    try {
-      const parsed = JSON.parse(stored)
-      return Array.isArray(parsed) ? parsed : []
-    } catch {
-      return []
-    }
-  })
+  const [staffAccounts] = useState([])
 
   const isAuthenticated = Boolean(staffUser)
   const login = async (emailOrUsername, password) => {
@@ -65,47 +48,6 @@ export function StaffAuthProvider({ children }) {
     }
   }
 
-  const persistStaffAccounts = (accounts) => {
-    if (typeof window === 'undefined') {
-      return
-    }
-
-    localStorage.setItem(STAFF_ACCOUNTS_KEY, JSON.stringify(accounts))
-  }
-
-  const createStaffAccount = (staffData) => {
-    if (!staffData?.name || !staffData?.username || !staffData?.password) {
-      return { ok: false, message: 'Name, username, and password are required.' }
-    }
-
-    const exists = staffAccounts.some((staff) => staff.username === staffData.username)
-    if (exists) {
-      return { ok: false, message: 'Username already exists.' }
-    }
-
-    const nextAccounts = [
-      {
-        name: staffData.name,
-        username: staffData.username,
-        password: staffData.password,
-        barangay: staffData.barangay || '',
-        createdAt: new Date().toISOString(),
-      },
-      ...staffAccounts,
-    ]
-
-    setStaffAccounts(nextAccounts)
-    persistStaffAccounts(nextAccounts)
-    return { ok: true }
-  }
-
-  const deleteStaffAccount = (username) => {
-    const nextAccounts = staffAccounts.filter((staff) => staff.username !== username)
-    setStaffAccounts(nextAccounts)
-    persistStaffAccounts(nextAccounts)
-    return { ok: true }
-  }
-
   const logout = () => {
     setStaffUser(null)
     localStorage.removeItem(STAFF_STORAGE_KEY)
@@ -118,8 +60,6 @@ export function StaffAuthProvider({ children }) {
       login,
       logout,
       staffAccounts,
-      createStaffAccount,
-      deleteStaffAccount,
     }),
     [staffUser, isAuthenticated, staffAccounts],
   )
