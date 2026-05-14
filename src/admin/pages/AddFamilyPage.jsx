@@ -62,6 +62,8 @@ function AddFamilyPage() {
         food_assistance_status: [],
     })
 
+    const [imageFile, setImageFile] = useState(null)
+
     const [members, setMembers] = useState([{ ...emptyMember(), relationship: 'Head' }])
 
     // Local storage helpers for offline/no-database mode
@@ -176,33 +178,37 @@ function AddFamilyPage() {
         setSubmitting(true)
 
         try {
-            const payload = {
-                family_name: familyData.family_name,
-                barangay_id: parseInt(familyData.barangay_id),
-                address: familyData.address,
-                head_of_family: familyData.head_of_family,
-                phone: familyData.contact_number,
-                monthly_income: familyData.monthly_income ? parseFloat(familyData.monthly_income) : null,
-                food_assistance_status: familyData.food_assistance_status.length
-                    ? familyData.food_assistance_status.join(',')
-                    : 'None',
-                is_npa: familyData.is_npa ? 1 : 0,
-                members: members.map(({ _bmi, ...m }) => ({
-                    first_name: m.first_name,
-                    last_name: m.last_name,
-                    date_of_birth: m.date_of_birth || null,
-                    gender: m.gender,
-                    relationship: m.relationship,
-                    is_pwd: m.is_pwd ? 1 : 0,
-                    height_cm: m.height_cm ? parseFloat(m.height_cm) : null,
-                    weight_kg: m.weight_kg ? parseFloat(m.weight_kg) : null,
-                    nutritional_status: m.nutritional_status,
-                })),
+            const membersPayload = members.map(({ _bmi, ...m }) => ({
+                first_name: m.first_name,
+                last_name: m.last_name,
+                date_of_birth: m.date_of_birth || null,
+                gender: m.gender,
+                relationship: m.relationship,
+                is_pwd: m.is_pwd ? 1 : 0,
+                height_cm: m.height_cm ? parseFloat(m.height_cm) : null,
+                weight_kg: m.weight_kg ? parseFloat(m.weight_kg) : null,
+                nutritional_status: m.nutritional_status,
+            }))
+
+            const formData = new FormData()
+            formData.append('family_name', familyData.family_name)
+            formData.append('barangay_id', String(parseInt(familyData.barangay_id)))
+            formData.append('address', familyData.address)
+            formData.append('head_of_family', familyData.head_of_family)
+            formData.append('phone', familyData.contact_number)
+            formData.append('monthly_income', familyData.monthly_income ? String(parseFloat(familyData.monthly_income)) : '')
+            formData.append('food_assistance_status', familyData.food_assistance_status.length
+                ? familyData.food_assistance_status.join(',')
+                : 'None')
+            formData.append('is_npa', familyData.is_npa ? '1' : '0')
+            formData.append('members', JSON.stringify(membersPayload))
+            if (imageFile) {
+                formData.append('image', imageFile)
             }
 
             const data = await apiFetch('/api/families', {
                 method: 'POST',
-                body: JSON.stringify(payload),
+                body: formData,
             })
 
             setSuccessMessage(
@@ -221,6 +227,7 @@ function AddFamilyPage() {
                 food_assistance_status: [],
             })
             setMembers([{ ...emptyMember(), relationship: 'Head' }])
+            setImageFile(null)
 
             // Scroll to top to show success message
             window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -265,6 +272,7 @@ function AddFamilyPage() {
                     food_assistance_status: [],
                 })
                 setMembers([{ ...emptyMember(), relationship: 'Head' }])
+                setImageFile(null)
 
                 window.scrollTo({ top: 0, behavior: 'smooth' })
 
@@ -489,6 +497,16 @@ function AddFamilyPage() {
                                         value={familyData.contact_number}
                                         onChange={handleFamilyChange}
                                         placeholder="09XX XXX XXXX"
+                                        className={inputClass}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className={labelClass}>Family Photo (Optional)</label>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={(event) => setImageFile(event.target.files?.[0] || null)}
                                         className={inputClass}
                                     />
                                 </div>

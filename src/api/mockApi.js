@@ -229,6 +229,24 @@ function withJoins(db) {
 
 function parseBody(options) {
   if (!options?.body) return {}
+  if (typeof FormData !== 'undefined' && options.body instanceof FormData) {
+    const data = {}
+    for (const [key, value] of options.body.entries()) {
+      if (typeof File !== 'undefined' && value instanceof File) {
+        data[key] = null
+        continue
+      }
+      data[key] = value
+    }
+    if (typeof data.members === 'string') {
+      try {
+        data.members = JSON.parse(data.members)
+      } catch {
+        data.members = []
+      }
+    }
+    return data
+  }
   if (typeof options.body === 'string') {
     try {
       return JSON.parse(options.body)

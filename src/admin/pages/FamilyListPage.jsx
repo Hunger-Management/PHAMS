@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Users, UserPlus, Search, AlertTriangle, Pencil, Trash2 } from 'lucide-react'
+import { Users, Search, AlertTriangle, Pencil, Trash2 } from 'lucide-react'
 import { useDarkMode } from '../../hooks/useDarkMode'
 import { useAdminAuth } from '../../context/AdminAuthContext'
 import AdminSidebar from '../components/AdminSidebar'
@@ -218,13 +218,6 @@ function FamilyListPage() {
                                 {families.length} registered {families.length === 1 ? 'family' : 'families'}
                             </p>
                         </div>
-                        <button
-                            onClick={() => navigate('/admin/families/add')}
-                            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition"
-                        >
-                            <UserPlus size={16} />
-                            Register New Family
-                        </button>
                     </div>
 
                     {/* Messages */}
@@ -247,12 +240,6 @@ function FamilyListPage() {
                                             className="rounded-md bg-red-600 text-white px-3 py-1.5 text-sm font-semibold hover:bg-red-700 transition"
                                         >
                                             Retry
-                                        </button>
-                                        <button
-                                            onClick={() => navigate('/admin/families/add')}
-                                            className="rounded-md bg-green-600 text-white px-3 py-1.5 text-sm font-semibold hover:bg-green-700 transition"
-                                        >
-                                            Register New Family
                                         </button>
                                         <span className="text-xs text-slate-500">(Check API server, CORS, and network connection)</span>
                                     </div>
@@ -327,14 +314,6 @@ function FamilyListPage() {
                                 <p className="text-sm">
                                     {searchQuery || selectedBarangayId ? 'No families match the current filters.' : 'No families registered yet.'}
                                 </p>
-                                {!searchQuery ? (
-                                    <button
-                                        onClick={() => navigate('/admin/families/add')}
-                                        className="mt-4 text-sm text-green-600 hover:underline font-medium"
-                                    >
-                                        Register the first family →
-                                    </button>
-                                ) : null}
                             </div>
                         ) : (
                             <div className="overflow-x-auto">
@@ -344,6 +323,7 @@ function FamilyListPage() {
                                                 ? 'border-white/10 text-slate-400'
                                                 : 'border-slate-200 text-slate-500'
                                             }`}>
+                                            <th className="px-6 py-4 text-left font-semibold">Image</th>
                                             <th className="px-6 py-4 text-left font-semibold">Family</th>
                                             <th className="px-6 py-4 text-left font-semibold">ID</th>
                                             <th className="px-6 py-4 text-left font-semibold">Barangay</th>
@@ -364,6 +344,19 @@ function FamilyListPage() {
                                                 key={family.family_id}
                                                 className={`transition ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-slate-50'
                                                     }`}>
+                                                <td className="px-6 py-4">
+                                                    {family.image ? (
+                                                        <img
+                                                            src={`data:image/jpeg;base64,${family.image}`}
+                                                            alt={`${family.family_name || 'Family'} photo`}
+                                                            className="h-10 w-10 rounded-md object-cover"
+                                                        />
+                                                    ) : (
+                                                        <span className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                                            —
+                                                        </span>
+                                                    )}
+                                                </td>
                                                 {/* Family name + address */}
                                                 <td className="px-6 py-4">
                                                     <p className={`font-semibold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>

@@ -26,9 +26,7 @@ import AdminCreateAccountPage from './admin/pages/AdminCreateAccountPage'
 import AdminProtectedRoute from './components/auth/AdminProtectedRoute'
 import { Route, Routes } from 'react-router-dom'
 import FamilyListPage from './admin/pages/FamilyListPage'
-import AddFamilyPage from './admin/pages/AddFamilyPage'
 import AddDistributionPage from './admin/pages/AddDistributionPage'
-import AddIndividualPage from './admin/pages/AddIndividualPage'
 import IndividualsListPage from './admin/pages/IndividualsListPage'
 import DonationsListPage from './admin/pages/DonationsListPage'
 import AddDonationPage from './admin/pages/AddDonationPage'
@@ -67,9 +65,7 @@ function App() {
         <Route path="/admin/transparency" element={<AdminTransparencyPage />} />
         <Route path="/admin/create-account" element={<AdminCreateAccountPage />} />
         <Route path="/admin/families" element={<FamilyListPage />} />
-        <Route path="/admin/families/add" element={<AddFamilyPage />} />
         <Route path="/admin/distributions/add" element={<AddDistributionPage />} />
-        <Route path="/admin/individuals/add" element={<AddIndividualPage />} />
         <Route path="/admin/individuals" element={<IndividualsListPage />} />
         <Route path="/admin/donations" element={<DonationsListPage />} />
         <Route path="/admin/donations/add" element={<AddDonationPage />} />

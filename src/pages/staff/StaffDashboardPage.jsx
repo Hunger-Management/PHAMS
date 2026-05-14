@@ -244,6 +244,7 @@ function StaffDashboardPage() {
     monthlyIncome: '',
     programs: [],
   })
+  const [familyImageFile, setFamilyImageFile] = useState(null)
 
   const [members, setMembers] = useState([{ ...emptyMember(), relationship: 'Head' }])
 
@@ -333,6 +334,7 @@ function StaffDashboardPage() {
     barangay: staffUser?.barangay || 'Aguho',
     status: 'Registered',
   })
+  const [individualImageFile, setIndividualImageFile] = useState(null)
   const [individualSubmitting, setIndividualSubmitting] = useState(false)
   const [individualSuccess, setIndividualSuccess] = useState('')
   const [individualError, setIndividualError] = useState('')
@@ -372,40 +374,44 @@ function StaffDashboardPage() {
     try {
       const barangayId = BARANGAY_MAP[staffBarangayName] || 1
 
-      const payload = {
-        family_name: familyForm.familyName,
-        barangay_id: barangayId,
-        address: familyForm.address,
-        head_of_family: familyForm.headOfFamily,
-        phone: familyForm.contactNumber,
-        monthly_income: familyForm.monthlyIncome ? parseFloat(familyForm.monthlyIncome) : null,
-        food_assistance_status: familyForm.programs.length ? familyForm.programs.join(',') : 'None',
-        is_npa: 0,
-        members: members
-          .filter((m) => m.first_name.trim())
-          .map(({ _bmi, ...m }) => ({
-            first_name: m.first_name,
-            last_name: m.last_name,
-            date_of_birth: m.date_of_birth || null,
-            gender: m.gender,
-            relationship: m.relationship,
-            is_pwd: m.is_pwd ? 1 : 0,
-            height_cm: m.height_cm ? parseFloat(m.height_cm) : null,
-            weight_kg: m.weight_kg ? parseFloat(m.weight_kg) : null,
-            nutritional_status: m.nutritional_status,
-          })),
-      }
-
-      if (!payload.family_name.trim()) {
+      if (!familyForm.familyName.trim()) {
         throw new Error('Family name is required.')
       }
-      if (!payload.address.trim()) {
+      if (!familyForm.address.trim()) {
         throw new Error('Complete address is required.')
+      }
+
+      const membersPayload = members
+        .filter((m) => m.first_name.trim())
+        .map(({ _bmi, ...m }) => ({
+          first_name: m.first_name,
+          last_name: m.last_name,
+          date_of_birth: m.date_of_birth || null,
+          gender: m.gender,
+          relationship: m.relationship,
+          is_pwd: m.is_pwd ? 1 : 0,
+          height_cm: m.height_cm ? parseFloat(m.height_cm) : null,
+          weight_kg: m.weight_kg ? parseFloat(m.weight_kg) : null,
+          nutritional_status: m.nutritional_status,
+        }))
+
+      const payload = new FormData()
+      payload.append('family_name', familyForm.familyName)
+      payload.append('barangay_id', String(barangayId))
+      payload.append('address', familyForm.address)
+      payload.append('head_of_family', familyForm.headOfFamily)
+      payload.append('phone', familyForm.contactNumber)
+      payload.append('monthly_income', familyForm.monthlyIncome ? String(parseFloat(familyForm.monthlyIncome)) : '')
+      payload.append('food_assistance_status', familyForm.programs.length ? familyForm.programs.join(',') : 'None')
+      payload.append('is_npa', '0')
+      payload.append('members', JSON.stringify(membersPayload))
+      if (familyImageFile) {
+        payload.append('image', familyImageFile)
       }
 
       const data = await apiFetch('/api/families', {
         method: 'POST',
-        body: JSON.stringify(payload),
+        body: payload,
       })
 
       setFormSuccess(`✓ Family "${familyForm.familyName}" registered successfully!`)
@@ -420,6 +426,7 @@ function StaffDashboardPage() {
         programs: [],
       })
       setMembers([{ ...emptyMember(), relationship: 'Head' }])
+      setFamilyImageFile(null)
 
       // Clear success message after 3 seconds
       setTimeout(() => {
@@ -453,17 +460,19 @@ function StaffDashboardPage() {
         throw new Error('Valid age is required')
       }
 
-      const payload = {
-        name: individualForm.name,
-        age: Number(individualForm.age),
-        gender: individualForm.gender,
-        barangay_id: barangayId,
-        status: individualForm.status,
+      const payload = new FormData()
+      payload.append('name', individualForm.name)
+      payload.append('age', String(Number(individualForm.age)))
+      payload.append('gender', individualForm.gender)
+      payload.append('barangay_id', String(barangayId))
+      payload.append('status', individualForm.status)
+      if (individualImageFile) {
+        payload.append('image', individualImageFile)
       }
 
       await apiFetch('/api/individuals', {
         method: 'POST',
-        body: JSON.stringify(payload),
+        body: payload,
       })
 
       setIndividualSuccess(`✓ Individual "${individualForm.name}" registered successfully!`)
@@ -475,6 +484,7 @@ function StaffDashboardPage() {
         barangay: staffBarangayName,
         status: 'Registered',
       })
+      setIndividualImageFile(null)
 
       setTimeout(() => {
         setIndividualSuccess('')
@@ -674,6 +684,7 @@ function StaffDashboardPage() {
                     <thead>
                       <tr className={`${isDarkMode ? 'bg-slate-900 border-b border-slate-700' : 'bg-slate-50 border-b border-slate-200'}`}>
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Family Name</th>
+                        <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Image</th>
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Head of Family</th>
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Address</th>
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Members</th>
@@ -688,6 +699,19 @@ function StaffDashboardPage() {
                         return (
                           <tr key={family.family_id} className={`border-b ${idx % 2 === 0 ? (isDarkMode ? 'bg-slate-900/30' : 'bg-slate-50/50') : ''} ${isDarkMode ? 'border-slate-700/50 hover:bg-slate-900/50' : 'border-slate-100 hover:bg-slate-100/50'} transition`}>
                             <td className={`px-6 py-3 font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}>{family.family_name}</td>
+                            <td className="px-6 py-3">
+                              {family.image ? (
+                                <img
+                                  src={`data:image/jpeg;base64,${family.image}`}
+                                  alt={`${family.family_name || 'Family'} photo`}
+                                  className="h-10 w-10 rounded-md object-cover"
+                                />
+                              ) : (
+                                <span className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                  —
+                                </span>
+                              )}
+                            </td>
                             <td className={`px-6 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{family.head_of_family || 'N/A'}</td>
                             <td className={`px-6 py-3 max-w-xs truncate ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`} title={family.address}>{family.address || 'N/A'}</td>
                             <td className={`px-6 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
@@ -738,6 +762,7 @@ function StaffDashboardPage() {
                     <thead>
                       <tr className={`${isDarkMode ? 'bg-slate-900 border-b border-slate-700' : 'bg-slate-50 border-b border-slate-200'}`}>
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Name</th>
+                        <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Image</th>
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Age</th>
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Gender</th>
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Barangay</th>
@@ -748,6 +773,19 @@ function StaffDashboardPage() {
                       {filteredIndividuals.map((individual, idx) => (
                         <tr key={individual.individual_id} className={`border-b ${idx % 2 === 0 ? (isDarkMode ? 'bg-slate-900/30' : 'bg-slate-50/50') : ''} ${isDarkMode ? 'border-slate-700/50 hover:bg-slate-900/50' : 'border-slate-100 hover:bg-slate-100/50'} transition`}>
                           <td className={`px-6 py-3 font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}>{individual.name || '—'}</td>
+                          <td className="px-6 py-3">
+                            {individual.image ? (
+                              <img
+                                src={`data:image/jpeg;base64,${individual.image}`}
+                                alt={`${individual.name || 'Individual'} photo`}
+                                className="h-10 w-10 rounded-md object-cover"
+                              />
+                            ) : (
+                              <span className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                —
+                              </span>
+                            )}
+                          </td>
                           <td className={`px-6 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{individual.age ?? '—'}</td>
                           <td className={`px-6 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{individual.gender || '—'}</td>
                           <td className={`px-6 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{individual.barangay_name || '—'}</td>
@@ -827,6 +865,16 @@ function StaffDashboardPage() {
                   <div>
                     <label className={labelClass}>Contact Number</label>
                     <input name="contactNumber" value={familyForm.contactNumber} onChange={handleChange} placeholder="09XX XXX XXXX" className={`${inputClass} mt-2`} />
+                  </div>
+
+                  <div>
+                    <label className={labelClass}>Family Photo (Optional)</label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(event) => setFamilyImageFile(event.target.files?.[0] || null)}
+                      className={`${inputClass} mt-2`}
+                    />
                   </div>
 
                   <div>
@@ -962,6 +1010,7 @@ function StaffDashboardPage() {
                           programs: [],
                         })
                         setMembers([{ ...emptyMember(), relationship: 'Head' }])
+                        setFamilyImageFile(null)
                         setFormError('')
                         setFormSuccess('')
                       }}
@@ -1047,6 +1096,16 @@ function StaffDashboardPage() {
                         <option value="Received">Received</option>
                       </select>
                     </div>
+
+                    <div>
+                      <label className={labelClass}>Photo (Optional)</label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(event) => setIndividualImageFile(event.target.files?.[0] || null)}
+                        className={`${inputClass} mt-2`}
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -1063,6 +1122,7 @@ function StaffDashboardPage() {
                           barangay: staffUser?.barangay || 'Aguho',
                           status: 'Registered',
                         })
+                        setIndividualImageFile(null)
                         setIndividualError('')
                         setIndividualSuccess('')
                       }}
