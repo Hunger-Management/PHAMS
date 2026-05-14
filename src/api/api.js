@@ -29,11 +29,15 @@ export async function apiFetch(path, options = {}) {
     const token = getToken()
     const controller = new AbortController()
     const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+    const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData
 
     const headers = {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(options.headers || {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    }
+
+    if (!isFormData && !headers['Content-Type']) {
+        headers['Content-Type'] = 'application/json'
     }
 
     try {
