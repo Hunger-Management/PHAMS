@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Users, UserPlus, Search, AlertTriangle, Pencil, Trash2 } from 'lucide-react'
+import { Users, Search, AlertTriangle, Pencil, Trash2 } from 'lucide-react'
 import { useDarkMode } from '../../hooks/useDarkMode'
 import { useAdminAuth } from '../../context/AdminAuthContext'
 import AdminSidebar from '../components/AdminSidebar'
@@ -165,13 +165,6 @@ function IndividualsListPage() {
                                 {individuals.length} registered {individuals.length === 1 ? 'individual' : 'individuals'}
                             </p>
                         </div>
-                        <button
-                            onClick={() => navigate('/admin/individuals/add')}
-                            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition"
-                        >
-                            <UserPlus size={16} />
-                            Register New Individual
-                        </button>
                     </div>
 
                     {successMessage ? (
@@ -193,12 +186,6 @@ function IndividualsListPage() {
                                             className="rounded-md bg-red-600 text-white px-3 py-1.5 text-sm font-semibold hover:bg-red-700 transition"
                                         >
                                             Retry
-                                        </button>
-                                        <button
-                                            onClick={() => navigate('/admin/individuals/add')}
-                                            className="rounded-md bg-green-600 text-white px-3 py-1.5 text-sm font-semibold hover:bg-green-700 transition"
-                                        >
-                                            Register New Individual
                                         </button>
                                         <span className="text-xs text-slate-500">(Check API server, CORS, and network connection)</span>
                                     </div>
@@ -263,14 +250,6 @@ function IndividualsListPage() {
                                 <p className="text-sm">
                                     {searchQuery || selectedBarangayId ? 'No individuals match the current filters.' : 'No individuals registered yet.'}
                                 </p>
-                                {!searchQuery ? (
-                                    <button
-                                        onClick={() => navigate('/admin/individuals/add')}
-                                        className="mt-4 text-sm text-green-600 hover:underline font-medium"
-                                    >
-                                        Register the first individual →
-                                    </button>
-                                ) : null}
                             </div>
                         ) : (
                             <div className="overflow-x-auto">
