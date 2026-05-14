@@ -250,7 +250,6 @@ function StaffDashboardPage() {
       setFamilyForm(prev => ({ ...prev, headOfFamily: fullName }))
     }
   }, [members])
-
   const getAgeInYears = (dateOfBirth) => {
     if (!dateOfBirth) return null
     const today = new Date()
