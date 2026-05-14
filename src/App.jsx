@@ -16,6 +16,7 @@ import DonationPage from './pages/DonationPage'
 import ContactPage from './pages/ContactPage'
 import StaffLoginPage from './pages/staff/StaffLoginPage'
 import StaffDashboardPage from './pages/staff/StaffDashboardPage'
+import StaffFamilyDetailPage from './pages/staff/StaffFamilyDetailPage'
 import StaffProtectedRoute from './components/auth/StaffProtectedRoute'
 import AdminDashboardPage from './admin/pages/AdminDashboardPage'
 import AdminBarangaysPage from './admin/pages/AdminBarangaysPage'
@@ -53,6 +54,7 @@ function App() {
       <Route path="/staff/login" element={<StaffLoginPage />} />
       <Route element={<StaffProtectedRoute />}>
         <Route path="/staff/dashboard" element={<StaffDashboardPage />} />
+        <Route path="/staff/families/:familyId" element={<StaffFamilyDetailPage />} />
         <Route path="/staff/barangays/:barangayId" element={<BarangayDetailPage />} />
         <Route path="/staff/distributions/add" element={<AddDistributionPage />} />
       </Route>

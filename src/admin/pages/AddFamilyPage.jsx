@@ -35,7 +35,7 @@ const emptyMember = () => ({
     last_name: '',
     date_of_birth: '',
     gender: 'Male',
-    relationship: 'Head',
+    relationship: 'Other',
     is_pwd: false,
     nutritional_status: 'Unknown',
     height_cm: '',
@@ -64,7 +64,7 @@ function AddFamilyPage() {
 
     const [imageFile, setImageFile] = useState(null)
 
-    const [members, setMembers] = useState([emptyMember()])
+    const [members, setMembers] = useState([{ ...emptyMember(), relationship: 'Head' }])
 
     // Local storage helpers for offline/no-database mode
     const LOCAL_KEY = 'phams-local-families'
@@ -181,8 +181,13 @@ function AddFamilyPage() {
             const membersPayload = members.map(({ _bmi, ...m }) => ({
                 first_name: m.first_name,
                 last_name: m.last_name,
-                age: getAgeInYears(m.date_of_birth),
+                date_of_birth: m.date_of_birth || null,
                 gender: m.gender,
+                relationship: m.relationship,
+                is_pwd: m.is_pwd ? 1 : 0,
+                height_cm: m.height_cm ? parseFloat(m.height_cm) : null,
+                weight_kg: m.weight_kg ? parseFloat(m.weight_kg) : null,
+                nutritional_status: m.nutritional_status,
             }))
 
             const formData = new FormData()
@@ -191,6 +196,11 @@ function AddFamilyPage() {
             formData.append('address', familyData.address)
             formData.append('head_of_family', familyData.head_of_family)
             formData.append('phone', familyData.contact_number)
+            formData.append('monthly_income', familyData.monthly_income ? String(parseFloat(familyData.monthly_income)) : '')
+            formData.append('food_assistance_status', familyData.food_assistance_status.length
+                ? familyData.food_assistance_status.join(',')
+                : 'None')
+            formData.append('is_npa', familyData.is_npa ? '1' : '0')
             formData.append('members', JSON.stringify(membersPayload))
             if (imageFile) {
                 formData.append('image', imageFile)
@@ -216,7 +226,7 @@ function AddFamilyPage() {
                 monthly_income: '',
                 food_assistance_status: [],
             })
-            setMembers([emptyMember()])
+            setMembers([{ ...emptyMember(), relationship: 'Head' }])
             setImageFile(null)
 
             // Scroll to top to show success message
@@ -261,7 +271,7 @@ function AddFamilyPage() {
                     monthly_income: '',
                     food_assistance_status: [],
                 })
-                setMembers([emptyMember()])
+                setMembers([{ ...emptyMember(), relationship: 'Head' }])
                 setImageFile(null)
 
                 window.scrollTo({ top: 0, behavior: 'smooth' })
