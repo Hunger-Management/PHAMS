@@ -48,28 +48,23 @@ function StaffDashboardPage() {
   const [formSuccess, setFormSuccess] = useState('')
   const [formError, setFormError] = useState('')
 
-  const [staffBarangayName, setStaffBarangayName] = useState(staffUser?.barangay || 'Aguho')
+  const [staffBarangayName, setStaffBarangayName] = useState(
+    staffUser?.barangay || staffUser?.barangay_name || ''
+  )
 
-  // Ensure we have a barangay name for the logged-in staff user.
   useEffect(() => {
-    if (staffUser?.barangay) {
-      setStaffBarangayName(staffUser.barangay)
+    if (staffUser?.barangay || staffUser?.barangay_name) {
+      setStaffBarangayName(staffUser.barangay || staffUser.barangay_name)
       return
     }
-
-    // If only barangay_id exists, fetch the barangay name
     if (staffUser?.barangay_id) {
       apiFetch(`/api/barangays/${staffUser.barangay_id}`)
-        .then((b) => {
-          if (b && b.name) setStaffBarangayName(b.name)
-        })
-        .catch(() => {
-          // ignore
-        })
+        .then((b) => { if (b?.name) setStaffBarangayName(b.name) })
+        .catch(() => {})
     }
-  }, [staffUser?.barangay, staffUser?.barangay_id])
+  }, [staffUser?.barangay, staffUser?.barangay_name, staffUser?.barangay_id])
 
-  const staffBarangay = staffBarangayName || 'Aguho'
+  const staffBarangay = staffBarangayName || 'Unknown Barangay'
 
   useEffect(() => {
     Promise.all([
@@ -248,6 +243,13 @@ function StaffDashboardPage() {
 
   const [members, setMembers] = useState([{ ...emptyMember(), relationship: 'Head' }])
 
+  useEffect(() => {
+    const headMember = members.find(m => m.relationship === 'Head')
+    if (headMember?.first_name) {
+      const fullName = `${headMember.first_name} ${headMember.last_name}`.trim()
+      setFamilyForm(prev => ({ ...prev, headOfFamily: fullName }))
+    }
+  }, [members])
   const getAgeInYears = (dateOfBirth) => {
     if (!dateOfBirth) return null
     const today = new Date()
@@ -977,6 +979,11 @@ function StaffDashboardPage() {
                             <select name="relationship" value={member.relationship} onChange={(e) => handleMemberChange(index, e)} className={`${inputClass} mt-2`}>
                               {RELATIONSHIP_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
                             </select>
+                            {member.relationship === 'Head' && member.date_of_birth && getAgeInYears(member.date_of_birth) < 18 && (
+                              <p className="mt-1.5 text-xs text-amber-600">
+                                ⚠ Note: Selected head of family is a minor ({getAgeInYears(member.date_of_birth)} yrs old). Please verify before submitting.
+                              </p>
+                            )}
                           </div>
                           <div>
                             <label className={labelClass}>Nutritional Status</label>

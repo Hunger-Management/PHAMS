@@ -9,17 +9,16 @@ const StaffAuthContext = createContext(null)
 
 export function StaffAuthProvider({ children }) {
   const [staffUser, setStaffUser] = useState(() => {
-    if (typeof window === 'undefined') {
-      return null
-    }
-
+    if (typeof window === 'undefined') return null
     const stored = localStorage.getItem(STAFF_STORAGE_KEY)
-    if (!stored) {
-      return null
-    }
-
+    if (!stored) return null
     try {
-      return JSON.parse(stored)
+      const user = JSON.parse(stored)
+      // Normalize sessions stored before barangay name was resolved
+      if (!user.barangay && user.barangay_name) {
+        return { ...user, barangay: user.barangay_name }
+      }
+      return user
     } catch {
       return null
     }
@@ -39,9 +38,24 @@ export function StaffAuthProvider({ children }) {
         return { ok: false, message: 'Access denied. Staff credentials required.' }
       }
 
+      // Normalize: real backend returns `barangay`, mock API returns `barangay_name`.
+      // Ensure staffUser.barangay is always the resolved name string.
+      let userData = { ...data.user }
+      if (!userData.barangay && userData.barangay_name) {
+        userData.barangay = userData.barangay_name
+      }
+      if (!userData.barangay && userData.barangay_id) {
+        try {
+          const b = await apiFetch(`/api/barangays/${userData.barangay_id}`)
+          if (b?.name) userData.barangay = b.name
+        } catch {
+          // non-fatal — sidebar will still render with barangay_id fallback
+        }
+      }
+
       localStorage.setItem(STAFF_TOKEN_KEY, data.token)
-      localStorage.setItem(STAFF_STORAGE_KEY, JSON.stringify(data.user))
-      setStaffUser(data.user)
+      localStorage.setItem(STAFF_STORAGE_KEY, JSON.stringify(userData))
+      setStaffUser(userData)
       return { ok: true }
     } catch (err) {
       return { ok: false, message: err.message || 'Invalid email or password.' }
