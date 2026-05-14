@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { ArrowLeft } from 'lucide-react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useDarkMode } from '../../hooks/useDarkMode'
 import { useStaffAuth } from '../../context/StaffAuthContext'
@@ -127,6 +128,19 @@ function StaffLoginPage() {
             <section className="mx-auto flex w-[95%] max-w-7xl items-center justify-center py-12 md:py-16">
                 <div className="w-full">
                     <div className="mx-auto max-w-5xl">
+                        <div className="mb-6 flex justify-start">
+                            <Link
+                                to="/"
+                                className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold transition-colors ${isDarkMode
+                                    ? 'border-slate-600 bg-slate-900 text-slate-200 hover:bg-slate-800'
+                                    : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                                }`}
+                            >
+                                <ArrowLeft size={16} />
+                                Back to Public View
+                            </Link>
+                        </div>
+
                         {!selectedRole && (
                             <>
                                 <div className="text-center">
