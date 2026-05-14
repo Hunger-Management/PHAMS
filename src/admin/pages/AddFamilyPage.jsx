@@ -738,6 +738,11 @@ function AddFamilyPage() {
                                                         <option key={r} value={r}>{r}</option>
                                                     ))}
                                                 </select>
+                                                {member.relationship === 'Head' && member.date_of_birth && getAgeInYears(member.date_of_birth) < 18 && (
+                                                    <p className="mt-1.5 text-xs text-amber-600">
+                                                        ⚠ Note: Selected head of family is a minor ({getAgeInYears(member.date_of_birth)} yrs old). Please verify before submitting.
+                                                    </p>
+                                                )}
                                             </div>
 
                                             <div>

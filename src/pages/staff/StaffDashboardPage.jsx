@@ -243,6 +243,14 @@ function StaffDashboardPage() {
 
   const [members, setMembers] = useState([{ ...emptyMember(), relationship: 'Head' }])
 
+  useEffect(() => {
+    const headMember = members.find(m => m.relationship === 'Head')
+    if (headMember?.first_name) {
+      const fullName = `${headMember.first_name} ${headMember.last_name}`.trim()
+      setFamilyForm(prev => ({ ...prev, headOfFamily: fullName }))
+    }
+  }, [members])
+
   const getAgeInYears = (dateOfBirth) => {
     if (!dateOfBirth) return null
     const today = new Date()
@@ -972,6 +980,11 @@ function StaffDashboardPage() {
                             <select name="relationship" value={member.relationship} onChange={(e) => handleMemberChange(index, e)} className={`${inputClass} mt-2`}>
                               {RELATIONSHIP_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
                             </select>
+                            {member.relationship === 'Head' && member.date_of_birth && getAgeInYears(member.date_of_birth) < 18 && (
+                              <p className="mt-1.5 text-xs text-amber-600">
+                                ⚠ Note: Selected head of family is a minor ({getAgeInYears(member.date_of_birth)} yrs old). Please verify before submitting.
+                              </p>
+                            )}
                           </div>
                           <div>
                             <label className={labelClass}>Nutritional Status</label>
