@@ -3,53 +3,41 @@ const mysql = require('mysql2')
 const cors = require('cors')
 const path = require('path')
 const bcrypt = require('bcryptjs')
+const multer = require('multer')
 require('dotenv').config({ path: path.join(__dirname, '.env') })
 
 const app = express()
 app.use(cors())
 app.use(express.json())
 
+const upload = multer({ storage: multer.memoryStorage() })
+
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`)
   next()
 })
 
-function buildDbConfig() {
-  const connectionUrl = process.env.DATABASE_URL || process.env.MYSQL_URL
+const dbConfig = {
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  port: Number(process.env.DB_PORT || 3306),
+}
 
-  if (connectionUrl) {
-    const parsedUrl = new URL(connectionUrl)
-
-    return {
-      host: parsedUrl.hostname,
-      port: Number(parsedUrl.port || 3306),
-      user: decodeURIComponent(parsedUrl.username),
-      password: decodeURIComponent(parsedUrl.password),
-      database: parsedUrl.pathname.replace(/^\//, ''),
-    }
-  }
-
-  if (process.env.MYSQLHOST) {
-    return {
-      host: process.env.MYSQLHOST,
-      port: Number(process.env.MYSQLPORT || 3306),
-      user: process.env.MYSQLUSER,
-      password: process.env.MYSQLPASSWORD,
-      database: process.env.MYSQLDATABASE,
-    }
-  }
-
+function encodeImage(row) {
+  if (!row) return row
   return {
-    host: process.env.DB_HOST,
-    port: Number(process.env.DB_PORT || 3306),
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
+    ...row,
+    image: row.image ? row.image.toString('base64') : null,
   }
 }
 
+function encodeImageList(rows) {
+  return Array.isArray(rows) ? rows.map(encodeImage) : []
+}
+
 // ─── DB CONNECTION ───────────────────────────────────────────────────────────
-const dbConfig = buildDbConfig()
 const db = mysql.createPool(dbConfig)
 
 db.query('SELECT 1', (err) => {
@@ -57,9 +45,7 @@ db.query('SELECT 1', (err) => {
     console.error('❌ Database pool test failed:', err)
     return
   }
-  console.log(
-    `✅ Connected to MySQL database ${dbConfig.database} at ${dbConfig.host}:${dbConfig.port}`,
-  )
+  console.log(`✅ Connected to ${process.env.DB_NAME} database at ${process.env.DB_HOST}`)
 })
 
 // ─── BARANGAYS ───────────────────────────────────────────────────────────────
@@ -94,7 +80,7 @@ app.get('/api/families', (req, res) => {
   `
   db.query(sql, (err, results) => {
     if (err) return res.status(500).json({ error: err.message })
-    res.json(results)
+    res.json(encodeImageList(results))
   })
 })
 
@@ -111,16 +97,27 @@ app.get('/api/families/:id', (req, res) => {
   `
   db.query(sql, [req.params.id], (err, results) => {
     if (err) return res.status(500).json({ error: err.message })
-    res.json(results[0])
+    res.json(encodeImage(results[0]))
   })
 })
 
 // POST add new family
-app.post('/api/families', (req, res) => {
-  const { barangay_id, family_name, address, head_of_family, phone, members = [] } = req.body
+app.post('/api/families', upload.single('image'), (req, res) => {
+  const { barangay_id, family_name, address, head_of_family, phone } = req.body
+  const image = req.file ? req.file.buffer : null
+  let members = []
+
+  if (req.body.members) {
+    try {
+      const parsed = JSON.parse(req.body.members)
+      members = Array.isArray(parsed) ? parsed : []
+    } catch {
+      members = []
+    }
+  }
   const familySql = `
-    INSERT INTO families (barangay_id, family_name, address, head_of_family, phone)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO families (barangay_id, family_name, address, head_of_family, phone, image)
+    VALUES (?, ?, ?, ?, ?, ?)
   `
 
   db.getConnection((connErr, connection) => {
@@ -134,7 +131,7 @@ app.post('/api/families', (req, res) => {
 
       connection.query(
         familySql,
-        [barangay_id, family_name, address, head_of_family, phone],
+        [barangay_id, family_name, address, head_of_family, phone, image],
         (familyErr, familyResult) => {
           if (familyErr) {
             return connection.rollback(() => {
@@ -200,13 +197,23 @@ app.post('/api/families', (req, res) => {
 })
 
 // PUT update family
-app.put('/api/families/:id', (req, res) => {
+app.put('/api/families/:id', upload.single('image'), (req, res) => {
   const { barangay_id, family_name, address, head_of_family, phone } = req.body
-  const sql = `
+  const image = req.file ? req.file.buffer : null
+  let sql = `
     UPDATE families SET barangay_id=?, family_name=?, address=?, head_of_family=?, phone=?
-    WHERE family_id=?
   `
-  db.query(sql, [barangay_id, family_name, address, head_of_family, phone, req.params.id], (err) => {
+  const params = [barangay_id, family_name, address, head_of_family, phone]
+
+  if (image) {
+    sql += ', image=?'
+    params.push(image)
+  }
+
+  sql += ' WHERE family_id=?'
+  params.push(req.params.id)
+
+  db.query(sql, params, (err) => {
     if (err) return res.status(500).json({ error: err.message })
     res.json({ message: 'Family updated!' })
   })
@@ -262,31 +269,46 @@ app.get('/api/individuals', (req, res) => {
   `
   db.query(sql, (err, results) => {
     if (err) return res.status(500).json({ error: err.message })
-    res.json(results)
+    res.json(encodeImageList(results))
   })
 })
 
 // POST add individual
-app.post('/api/individuals', (req, res) => {
+app.post('/api/individuals', upload.single('image'), (req, res) => {
   const { name, age, gender, barangay_id, status } = req.body
+  const image = req.file ? req.file.buffer : null
+  const ageValue = age === undefined || age === null || age === '' ? null : Number(age)
+  const barangayValue = barangay_id === undefined || barangay_id === null || barangay_id === '' ? null : Number(barangay_id)
   const sql = `
-    INSERT INTO individuals (name, age, gender, barangay_id, status)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO individuals (name, age, gender, barangay_id, status, image)
+    VALUES (?, ?, ?, ?, ?, ?)
   `
-  db.query(sql, [name, age, gender, barangay_id, status], (err, results) => {
+  db.query(sql, [name, ageValue, gender, barangayValue, status, image], (err, results) => {
     if (err) return res.status(500).json({ error: err.message })
     res.json({ message: 'Individual registered!', individual_id: results.insertId })
   })
 })
 
 // PUT update individual
-app.put('/api/individuals/:id', (req, res) => {
+app.put('/api/individuals/:id', upload.single('image'), (req, res) => {
   const { name, age, gender, barangay_id, status } = req.body
-  const sql = `
+  const image = req.file ? req.file.buffer : null
+  const ageValue = age === undefined || age === null || age === '' ? null : Number(age)
+  const barangayValue = barangay_id === undefined || barangay_id === null || barangay_id === '' ? null : Number(barangay_id)
+  let sql = `
     UPDATE individuals SET name=?, age=?, gender=?, barangay_id=?, status=?
-    WHERE individual_id=?
   `
-  db.query(sql, [name, age, gender, barangay_id, status, req.params.id], (err) => {
+  const params = [name, ageValue, gender, barangayValue, status]
+
+  if (image) {
+    sql += ', image=?'
+    params.push(image)
+  }
+
+  sql += ' WHERE individual_id=?'
+  params.push(req.params.id)
+
+  db.query(sql, params, (err) => {
     if (err) return res.status(500).json({ error: err.message })
     res.json({ message: 'Individual updated!' })
   })
@@ -370,15 +392,22 @@ app.get('/api/donations', (req, res) => {
   `
   db.query(sql, (err, results) => {
     if (err) return res.status(500).json({ error: err.message })
-    res.json(results)
+    res.json(encodeImageList(results))
   })
 })
 
 // POST add donation
-app.post('/api/donations', (req, res) => {
+app.post('/api/donations', upload.single('image'), (req, res) => {
   const { donor_id, food_id, quantity, date_given } = req.body
-  const sql = `INSERT INTO donations (donor_id, food_id, quantity, date_given) VALUES (?, ?, ?, ?)`
-  db.query(sql, [donor_id, food_id, quantity, date_given], (err, results) => {
+  const image = req.file ? req.file.buffer : null
+  const donorValue = donor_id === undefined || donor_id === null || donor_id === '' ? null : Number(donor_id)
+  const foodValue = food_id === undefined || food_id === null || food_id === '' ? null : Number(food_id)
+  const quantityValue = quantity === undefined || quantity === null || quantity === '' ? null : Number(quantity)
+  const sql = `
+    INSERT INTO donations (donor_id, food_id, quantity, date_given, image)
+    VALUES (?, ?, ?, ?, ?)
+  `
+  db.query(sql, [donorValue, foodValue, quantityValue, date_given, image], (err, results) => {
     if (err) return res.status(500).json({ error: err.message })
     res.json({ message: 'Donation recorded!', donation_id: results.insertId })
   })
@@ -443,28 +472,46 @@ app.get('/api/distributions', (req, res) => {
   `
   db.query(sql, (err, results) => {
     if (err) return res.status(500).json({ error: err.message })
-    res.json(results)
+    res.json(encodeImageList(results))
   })
 })
 
 // POST add distribution
-app.post('/api/distributions', (req, res) => {
+app.post('/api/distributions', upload.single('image'), (req, res) => {
   const { recipient_type, family_id, individual_id, barangay_id, food_id, quantity, date_given, status } = req.body
+  const image = req.file ? req.file.buffer : null
+  const familyValue = family_id === undefined || family_id === null || family_id === '' ? null : Number(family_id)
+  const individualValue = individual_id === undefined || individual_id === null || individual_id === '' ? null : Number(individual_id)
+  const barangayValue = barangay_id === undefined || barangay_id === null || barangay_id === '' ? null : Number(barangay_id)
+  const foodValue = food_id === undefined || food_id === null || food_id === '' ? null : Number(food_id)
+  const quantityValue = quantity === undefined || quantity === null || quantity === '' ? null : Number(quantity)
   const sql = `
     INSERT INTO distribution 
-    (recipient_type, family_id, individual_id, barangay_id, food_id, quantity, date_given, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    (recipient_type, family_id, individual_id, barangay_id, food_id, quantity, date_given, status, image)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `
-  db.query(sql, [recipient_type, family_id, individual_id, barangay_id, food_id, quantity, date_given, status], (err, results) => {
+  db.query(sql, [recipient_type, familyValue, individualValue, barangayValue, foodValue, quantityValue, date_given, status, image], (err, results) => {
     if (err) return res.status(500).json({ error: err.message })
     res.json({ message: 'Distribution recorded!', distribution_id: results.insertId })
   })
 })
 
 // PUT update distribution status
-app.put('/api/distributions/:id', (req, res) => {
+app.put('/api/distributions/:id', upload.single('image'), (req, res) => {
   const { status } = req.body
-  db.query('UPDATE distribution SET status=? WHERE distribution_id=?', [status, req.params.id], (err) => {
+  const image = req.file ? req.file.buffer : null
+  let sql = 'UPDATE distribution SET status=?'
+  const params = [status]
+
+  if (image) {
+    sql += ', image=?'
+    params.push(image)
+  }
+
+  sql += ' WHERE distribution_id=?'
+  params.push(req.params.id)
+
+  db.query(sql, params, (err) => {
     if (err) return res.status(500).json({ error: err.message })
     res.json({ message: 'Distribution status updated!' })
   })
