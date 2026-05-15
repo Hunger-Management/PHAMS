@@ -58,10 +58,16 @@ function buildSeedDb() {
         barangay_id: 1,
         barangay_name: 'Aguho',
         member_count: 5,
+        members: [
+          { first_name: 'Juan', last_name: 'Dela Cruz', age: 54, gender: 'Male', added_at: nowIso() },
+          { first_name: 'María', last_name: 'Dela Cruz', age: 50, gender: 'Female', added_at: nowIso() },
+          { first_name: 'Pedro', last_name: 'Dela Cruz', age: 20, gender: 'Male', added_at: nowIso() },
+          { first_name: 'Ana', last_name: 'Dela Cruz', age: 16, gender: 'Female', added_at: nowIso() },
+          { first_name: 'Rosie', last_name: 'Dela Cruz', age: 8, gender: 'Female', added_at: nowIso() },
+        ],
         priority_score: 82,
         food_assistance_status: '4Ps',
         is_npa: 0,
-        monthly_income: 9500,
       },
       {
         family_id: 2,
@@ -73,22 +79,16 @@ function buildSeedDb() {
         barangay_id: 4,
         barangay_name: 'Poblacion',
         member_count: 4,
+        members: [
+          { first_name: 'Maria', last_name: 'Santos', age: 48, gender: 'Female', added_at: nowIso() },
+          { first_name: 'Jose', last_name: 'Santos', age: 50, gender: 'Male', added_at: nowIso() },
+          { first_name: 'Liza', last_name: 'Santos', age: 22, gender: 'Female', added_at: nowIso() },
+          { first_name: 'Mark', last_name: 'Santos', age: 18, gender: 'Male', added_at: nowIso() },
+        ],
         priority_score: 76,
         food_assistance_status: 'Senior Citizen',
         is_npa: 0,
-        monthly_income: 11000,
       },
-    ],
-    family_members: [
-      { member_id: 1, family_id: 1, first_name: 'Juan', last_name: 'Dela Cruz', date_of_birth: '1975-06-12', gender: 'Male', relationship: 'Head', is_pwd: 0, height_cm: 168, weight_kg: 62, nutritional_status: 'Normal' },
-      { member_id: 2, family_id: 1, first_name: 'Rosa', last_name: 'Dela Cruz', date_of_birth: '1978-03-25', gender: 'Female', relationship: 'Spouse', is_pwd: 0, height_cm: 155, weight_kg: 50, nutritional_status: 'Normal' },
-      { member_id: 3, family_id: 1, first_name: 'Carlo', last_name: 'Dela Cruz', date_of_birth: '2005-09-14', gender: 'Male', relationship: 'Child', is_pwd: 0, height_cm: 160, weight_kg: 45, nutritional_status: 'Underweight' },
-      { member_id: 4, family_id: 1, first_name: 'Ana', last_name: 'Dela Cruz', date_of_birth: '2010-01-08', gender: 'Female', relationship: 'Child', is_pwd: 0, height_cm: 138, weight_kg: 30, nutritional_status: 'Underweight' },
-      { member_id: 5, family_id: 1, first_name: 'Pedro', last_name: 'Dela Cruz', date_of_birth: '1945-11-30', gender: 'Male', relationship: 'Parent', is_pwd: 0, height_cm: 162, weight_kg: 55, nutritional_status: 'Normal' },
-      { member_id: 6, family_id: 2, first_name: 'Maria', last_name: 'Santos', date_of_birth: '1955-04-18', gender: 'Female', relationship: 'Head', is_pwd: 0, height_cm: 152, weight_kg: 48, nutritional_status: 'Normal' },
-      { member_id: 7, family_id: 2, first_name: 'Roberto', last_name: 'Santos', date_of_birth: '1952-08-22', gender: 'Male', relationship: 'Spouse', is_pwd: 1, height_cm: 164, weight_kg: 60, nutritional_status: 'Normal' },
-      { member_id: 8, family_id: 2, first_name: 'Luisa', last_name: 'Santos', date_of_birth: '1985-12-05', gender: 'Female', relationship: 'Child', is_pwd: 0, height_cm: 158, weight_kg: 55, nutritional_status: 'Normal' },
-      { member_id: 9, family_id: 2, first_name: 'Jose', last_name: 'Santos', date_of_birth: '1990-07-14', gender: 'Male', relationship: 'Child', is_pwd: 0, height_cm: 170, weight_kg: 65, nutritional_status: 'Normal' },
     ],
     individuals: [
       {
@@ -229,24 +229,6 @@ function withJoins(db) {
 
 function parseBody(options) {
   if (!options?.body) return {}
-  if (typeof FormData !== 'undefined' && options.body instanceof FormData) {
-    const data = {}
-    for (const [key, value] of options.body.entries()) {
-      if (typeof File !== 'undefined' && value instanceof File) {
-        data[key] = null
-        continue
-      }
-      data[key] = value
-    }
-    if (typeof data.members === 'string') {
-      try {
-        data.members = JSON.parse(data.members)
-      } catch {
-        data.members = []
-      }
-    }
-    return data
-  }
   if (typeof options.body === 'string') {
     try {
       return JSON.parse(options.body)
@@ -291,30 +273,16 @@ function handleGet(path, db) {
   const joins = withJoins(db)
 
   if (path === '/api/barangays') return BARANGAYS
-
+  
+  // GET single barangay
   const barangayMatch = path.match(/^\/api\/barangays\/(\d+)$/)
   if (barangayMatch) {
     const barangayId = Number(barangayMatch[1])
     return BARANGAYS.find((item) => item.barangay_id === barangayId)
   }
-
+  
   if (path === '/api/stats') return getStats(db)
   if (path === '/api/families') return db.families
-
-  const familyMembersMatch = path.match(/^\/api\/families\/(\d+)\/members$/)
-  if (familyMembersMatch) {
-    const family_id = Number(familyMembersMatch[1])
-    return (db.family_members || []).filter((m) => m.family_id === family_id)
-  }
-
-  const familyByIdMatch = path.match(/^\/api\/families\/(\d+)$/)
-  if (familyByIdMatch) {
-    const family_id = Number(familyByIdMatch[1])
-    const family = db.families.find((f) => f.family_id === family_id)
-    if (!family) throw makeError('Family not found.', 404)
-    return family
-  }
-
   if (path === '/api/individuals') return db.individuals
   if (path === '/api/donors') return db.donors
   if (path === '/api/food-supplies') return db.foodSupplies
@@ -344,8 +312,7 @@ function handlePost(path, db, body) {
     const { password: _ignored, ...safeUser } = user
     return {
       token: `mock-token-${user.user_id}`,
-      // Normalize to match real backend shape: barangay = the name string
-      user: { ...safeUser, barangay: safeUser.barangay_name || safeUser.barangay || null },
+      user: safeUser,
     }
   }
 
@@ -383,7 +350,6 @@ function handlePost(path, db, body) {
   if (path === '/api/families') {
     const family_id = nextId(db.families, 'family_id')
     const barangay_id = Number(body.barangay_id) || 1
-    const rawMembers = Array.isArray(body.members) ? body.members : []
     const item = {
       family_id,
       family_name: body.family_name || `Family ${family_id}`,
@@ -393,70 +359,33 @@ function handlePost(path, db, body) {
       phone: body.phone || '',
       barangay_id,
       barangay_name: getBarangayName(barangay_id),
-      member_count: rawMembers.length,
+      member_count: Array.isArray(body.members) ? body.members.length : Number(body.member_count || 1),
+      members: Array.isArray(body.members)
+        ? body.members.map((m) => ({ first_name: m.first_name || '', last_name: m.last_name || '', age: m.age ?? null, gender: m.gender || 'Male', added_at: nowIso() }))
+        : [],
       priority_score: Number(body.priority_score || 0),
       food_assistance_status: body.food_assistance_status || 'None',
       is_npa: body.is_npa ? 1 : 0,
-      monthly_income: body.monthly_income != null ? Number(body.monthly_income) : null,
     }
     db.families.unshift(item)
-
-    if (rawMembers.length > 0) {
-      const startId = nextId(db.family_members || [], 'member_id')
-      const newMembers = rawMembers.map((m, i) => ({
-        member_id: startId + i,
-        family_id,
-        first_name: m.first_name || '',
-        last_name: m.last_name || '',
-        date_of_birth: m.date_of_birth || null,
-        gender: m.gender || 'Male',
-        relationship: m.relationship || 'Other',
-        is_pwd: m.is_pwd ? 1 : 0,
-        height_cm: m.height_cm != null ? parseFloat(m.height_cm) : null,
-        weight_kg: m.weight_kg != null ? parseFloat(m.weight_kg) : null,
-        nutritional_status: m.nutritional_status || 'Unknown',
-      }))
-      db.family_members = [...(db.family_members || []), ...newMembers]
-    }
-
     saveDb(db)
     return item
   }
 
-  const addMemberMatch = path.match(/^\/api\/families\/(\d+)\/members$/)
-  if (addMemberMatch) {
-    const family_id = Number(addMemberMatch[1])
-    const family = db.families.find((f) => f.family_id === family_id)
-    if (!family) throw makeError('Family not found.', 404)
-
-    const member_id = nextId(db.family_members || [], 'member_id')
-    const newMember = {
-      member_id,
-      family_id,
-      first_name: body.first_name || '',
-      last_name: body.last_name || '',
-      date_of_birth: body.date_of_birth || null,
-      gender: body.gender || 'Male',
-      relationship: body.relationship || 'Other',
-      is_pwd: body.is_pwd ? 1 : 0,
-      height_cm: body.height_cm != null ? parseFloat(body.height_cm) : null,
-      weight_kg: body.weight_kg != null ? parseFloat(body.weight_kg) : null,
-      nutritional_status: body.nutritional_status || 'Unknown',
-    }
-    db.family_members = [...(db.family_members || []), newMember]
-
-    const memberCount = db.family_members.filter((m) => m.family_id === family_id).length
-    db.families = db.families.map((f) =>
-      f.family_id === family_id ? { ...f, member_count: memberCount } : f
-    )
-
-    saveDb(db)
-    return newMember
-  }
-
   if (path === '/api/individuals') {
     const individual_id = nextId(db.individuals, 'individual_id')
-    const barangay_id = Number(body.barangay_id) || 1
+    // allow explicit null barangay for NPA individuals
+    let barangay_id
+    if (Object.prototype.hasOwnProperty.call(body, 'barangay_id')) {
+      if (body.barangay_id === null || body.barangay_id === '') {
+        barangay_id = null
+      } else {
+        barangay_id = Number(body.barangay_id) || 1
+      }
+    } else {
+      barangay_id = 1
+    }
+
     const item = {
       individual_id,
       name: body.name || `Individual ${individual_id}`,
@@ -569,21 +498,6 @@ function handleDelete(path, db) {
     return { ok: true }
   }
 
-  match = path.match(/^\/api\/members\/(\d+)$/)
-  if (match) {
-    const member_id = Number(match[1])
-    const existing = (db.family_members || []).find((m) => m.member_id === member_id)
-    db.family_members = (db.family_members || []).filter((m) => m.member_id !== member_id)
-    if (existing) {
-      const memberCount = db.family_members.filter((m) => m.family_id === existing.family_id).length
-      db.families = db.families.map((f) =>
-        f.family_id === existing.family_id ? { ...f, member_count: memberCount } : f
-      )
-    }
-    saveDb(db)
-    return { ok: true }
-  }
-
   throw makeError('Endpoint not found.', 404)
 }
 
@@ -594,15 +508,38 @@ function handlePut(path, db, body) {
     db.families = db.families.map((item) => {
       if (item.family_id !== family_id) return item
       const barangay_id = body.barangay_id ? Number(body.barangay_id) : item.barangay_id
-      return {
+      const updated = {
         ...item,
         family_name: body.family_name ?? item.family_name,
         address: body.address ?? item.address,
         head_of_family: body.head_of_family ?? item.head_of_family,
         phone: body.phone ?? item.phone,
         barangay_id,
+        member_count: body.member_count !== undefined ? Number(body.member_count) : item.member_count,
         barangay_name: getBarangayName(barangay_id),
       }
+
+      // support adding a member via { add_member: { first_name, last_name, age, gender } }
+      if (body && body.add_member) {
+        const m = body.add_member
+        const memberObj = {
+          first_name: m.first_name || '',
+          last_name: m.last_name || '',
+          age: m.age !== undefined ? Number(m.age) : null,
+          gender: m.gender || 'Male',
+          added_at: nowIso(),
+        }
+        updated.members = Array.isArray(item.members) ? [...item.members, memberObj] : [memberObj]
+        updated.member_count = Number(updated.members.length)
+      }
+
+      // support replacing entire members list
+      if (Array.isArray(body.members)) {
+        updated.members = body.members.map((m) => ({ first_name: m.first_name || '', last_name: m.last_name || '', age: m.age ?? null, gender: m.gender || 'Male', added_at: m.added_at || nowIso() }))
+        updated.member_count = updated.members.length
+      }
+
+      return updated
     })
     saveDb(db)
     return { ok: true }
@@ -636,28 +573,6 @@ function handlePut(path, db, body) {
       return {
         ...item,
         status: body.status ?? item.status,
-      }
-    })
-    saveDb(db)
-    return { ok: true }
-  }
-
-  match = path.match(/^\/api\/members\/(\d+)$/)
-  if (match) {
-    const member_id = Number(match[1])
-    db.family_members = (db.family_members || []).map((m) => {
-      if (m.member_id !== member_id) return m
-      return {
-        ...m,
-        first_name: body.first_name ?? m.first_name,
-        last_name: body.last_name ?? m.last_name,
-        date_of_birth: body.date_of_birth !== undefined ? body.date_of_birth : m.date_of_birth,
-        gender: body.gender ?? m.gender,
-        relationship: body.relationship ?? m.relationship,
-        is_pwd: body.is_pwd !== undefined ? (body.is_pwd ? 1 : 0) : m.is_pwd,
-        height_cm: body.height_cm !== undefined ? (body.height_cm != null ? parseFloat(body.height_cm) : null) : m.height_cm,
-        weight_kg: body.weight_kg !== undefined ? (body.weight_kg != null ? parseFloat(body.weight_kg) : null) : m.weight_kg,
-        nutritional_status: body.nutritional_status ?? m.nutritional_status,
       }
     })
     saveDb(db)
