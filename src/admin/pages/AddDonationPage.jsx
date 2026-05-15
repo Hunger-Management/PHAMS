@@ -24,7 +24,6 @@ function AddDonationPage() {
   const [submitting, setSubmitting] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
-  const [imageFile, setImageFile] = useState(null)
 
   useEffect(() => {
     const loadData = async () => {
@@ -66,23 +65,20 @@ function AddDonationPage() {
     setSubmitting(true)
 
     try {
-      const payload = new FormData()
-      payload.append('donor_id', String(Number(formData.donor_id)))
-      payload.append('food_id', String(Number(formData.food_id)))
-      payload.append('quantity', String(Number(formData.quantity)))
-      payload.append('date_given', formData.date_given)
-      if (imageFile) {
-        payload.append('image', imageFile)
+      const payload = {
+        donor_id: Number(formData.donor_id),
+        food_id: Number(formData.food_id),
+        quantity: Number(formData.quantity),
+        date_given: formData.date_given,
       }
 
       await apiFetch('/api/donations', {
         method: 'POST',
-        body: payload,
+        body: JSON.stringify(payload),
       })
 
       setSuccessMessage('Donation recorded successfully.')
       setFormData(DEFAULT_FORM)
-      setImageFile(null)
       window.scrollTo({ top: 0, behavior: 'smooth' })
 
       setTimeout(() => {
@@ -223,16 +219,6 @@ function AddDonationPage() {
                     type="date"
                     value={formData.date_given}
                     onChange={handleChange}
-                    className={inputClass}
-                  />
-                </div>
-
-                <div>
-                  <label className={labelClass}>Donation Photo (Optional)</label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(event) => setImageFile(event.target.files?.[0] || null)}
                     className={inputClass}
                   />
                 </div>

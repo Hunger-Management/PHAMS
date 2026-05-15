@@ -16,7 +16,6 @@ import DonationPage from './pages/DonationPage'
 import ContactPage from './pages/ContactPage'
 import StaffLoginPage from './pages/staff/StaffLoginPage'
 import StaffDashboardPage from './pages/staff/StaffDashboardPage'
-import StaffFamilyDetailPage from './pages/staff/StaffFamilyDetailPage'
 import StaffProtectedRoute from './components/auth/StaffProtectedRoute'
 import AdminDashboardPage from './admin/pages/AdminDashboardPage'
 import AdminBarangaysPage from './admin/pages/AdminBarangaysPage'
@@ -26,9 +25,10 @@ import AdminCreateAccountPage from './admin/pages/AdminCreateAccountPage'
 import AdminProtectedRoute from './components/auth/AdminProtectedRoute'
 import { Route, Routes } from 'react-router-dom'
 import FamilyListPage from './admin/pages/FamilyListPage'
+import AddFamilyPage from './admin/pages/AddFamilyPage'
 import AddDistributionPage from './admin/pages/AddDistributionPage'
+import AddIndividualPage from './admin/pages/AddIndividualPage'
 import IndividualsListPage from './admin/pages/IndividualsListPage'
-import IndividualsNoAddressPage from './pages/staff/IndividualsNoAddressPage'
 import DonationsListPage from './admin/pages/DonationsListPage'
 import AddDonationPage from './admin/pages/AddDonationPage'
 import UsersListPage from './admin/pages/UsersListPage'
@@ -55,10 +55,8 @@ function App() {
       <Route path="/staff/login" element={<StaffLoginPage />} />
       <Route element={<StaffProtectedRoute />}>
         <Route path="/staff/dashboard" element={<StaffDashboardPage />} />
-        <Route path="/staff/families/:familyId" element={<StaffFamilyDetailPage />} />
         <Route path="/staff/barangays/:barangayId" element={<BarangayDetailPage />} />
         <Route path="/staff/distributions/add" element={<AddDistributionPage />} />
-        <Route path="/staff/individuals/no-address" element={<IndividualsNoAddressPage />} />
       </Route>
       <Route element={<AdminProtectedRoute />}>
         <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
@@ -67,7 +65,9 @@ function App() {
         <Route path="/admin/transparency" element={<AdminTransparencyPage />} />
         <Route path="/admin/create-account" element={<AdminCreateAccountPage />} />
         <Route path="/admin/families" element={<FamilyListPage />} />
+        <Route path="/admin/families/add" element={<AddFamilyPage />} />
         <Route path="/admin/distributions/add" element={<AddDistributionPage />} />
+        <Route path="/admin/individuals/add" element={<AddIndividualPage />} />
         <Route path="/admin/individuals" element={<IndividualsListPage />} />
         <Route path="/admin/donations" element={<DonationsListPage />} />
         <Route path="/admin/donations/add" element={<AddDonationPage />} />

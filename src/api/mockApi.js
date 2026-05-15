@@ -58,13 +58,6 @@ function buildSeedDb() {
         barangay_id: 1,
         barangay_name: 'Aguho',
         member_count: 5,
-        members: [
-          { first_name: 'Juan', last_name: 'Dela Cruz', age: 54, gender: 'Male', added_at: nowIso() },
-          { first_name: 'María', last_name: 'Dela Cruz', age: 50, gender: 'Female', added_at: nowIso() },
-          { first_name: 'Pedro', last_name: 'Dela Cruz', age: 20, gender: 'Male', added_at: nowIso() },
-          { first_name: 'Ana', last_name: 'Dela Cruz', age: 16, gender: 'Female', added_at: nowIso() },
-          { first_name: 'Rosie', last_name: 'Dela Cruz', age: 8, gender: 'Female', added_at: nowIso() },
-        ],
         priority_score: 82,
         food_assistance_status: '4Ps',
         is_npa: 0,
@@ -79,12 +72,6 @@ function buildSeedDb() {
         barangay_id: 4,
         barangay_name: 'Poblacion',
         member_count: 4,
-        members: [
-          { first_name: 'Maria', last_name: 'Santos', age: 48, gender: 'Female', added_at: nowIso() },
-          { first_name: 'Jose', last_name: 'Santos', age: 50, gender: 'Male', added_at: nowIso() },
-          { first_name: 'Liza', last_name: 'Santos', age: 22, gender: 'Female', added_at: nowIso() },
-          { first_name: 'Mark', last_name: 'Santos', age: 18, gender: 'Male', added_at: nowIso() },
-        ],
         priority_score: 76,
         food_assistance_status: 'Senior Citizen',
         is_npa: 0,
@@ -360,9 +347,6 @@ function handlePost(path, db, body) {
       barangay_id,
       barangay_name: getBarangayName(barangay_id),
       member_count: Array.isArray(body.members) ? body.members.length : Number(body.member_count || 1),
-      members: Array.isArray(body.members)
-        ? body.members.map((m) => ({ first_name: m.first_name || '', last_name: m.last_name || '', age: m.age ?? null, gender: m.gender || 'Male', added_at: nowIso() }))
-        : [],
       priority_score: Number(body.priority_score || 0),
       food_assistance_status: body.food_assistance_status || 'None',
       is_npa: body.is_npa ? 1 : 0,
@@ -374,18 +358,7 @@ function handlePost(path, db, body) {
 
   if (path === '/api/individuals') {
     const individual_id = nextId(db.individuals, 'individual_id')
-    // allow explicit null barangay for NPA individuals
-    let barangay_id
-    if (Object.prototype.hasOwnProperty.call(body, 'barangay_id')) {
-      if (body.barangay_id === null || body.barangay_id === '') {
-        barangay_id = null
-      } else {
-        barangay_id = Number(body.barangay_id) || 1
-      }
-    } else {
-      barangay_id = 1
-    }
-
+    const barangay_id = Number(body.barangay_id) || 1
     const item = {
       individual_id,
       name: body.name || `Individual ${individual_id}`,
@@ -508,38 +481,15 @@ function handlePut(path, db, body) {
     db.families = db.families.map((item) => {
       if (item.family_id !== family_id) return item
       const barangay_id = body.barangay_id ? Number(body.barangay_id) : item.barangay_id
-      const updated = {
+      return {
         ...item,
         family_name: body.family_name ?? item.family_name,
         address: body.address ?? item.address,
         head_of_family: body.head_of_family ?? item.head_of_family,
         phone: body.phone ?? item.phone,
         barangay_id,
-        member_count: body.member_count !== undefined ? Number(body.member_count) : item.member_count,
         barangay_name: getBarangayName(barangay_id),
       }
-
-      // support adding a member via { add_member: { first_name, last_name, age, gender } }
-      if (body && body.add_member) {
-        const m = body.add_member
-        const memberObj = {
-          first_name: m.first_name || '',
-          last_name: m.last_name || '',
-          age: m.age !== undefined ? Number(m.age) : null,
-          gender: m.gender || 'Male',
-          added_at: nowIso(),
-        }
-        updated.members = Array.isArray(item.members) ? [...item.members, memberObj] : [memberObj]
-        updated.member_count = Number(updated.members.length)
-      }
-
-      // support replacing entire members list
-      if (Array.isArray(body.members)) {
-        updated.members = body.members.map((m) => ({ first_name: m.first_name || '', last_name: m.last_name || '', age: m.age ?? null, gender: m.gender || 'Male', added_at: m.added_at || nowIso() }))
-        updated.member_count = updated.members.length
-      }
-
-      return updated
     })
     saveDb(db)
     return { ok: true }

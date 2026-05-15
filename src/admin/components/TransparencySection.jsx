@@ -475,7 +475,6 @@ export default function TransparencySection({ isDarkMode }) {
                 }`}>
                   <th className="px-4 py-3 text-left font-semibold">ID</th>
                   <th className="px-4 py-3 text-left font-semibold">Recipient</th>
-                  <th className="px-4 py-3 text-left font-semibold">Image</th>
                   <th className="px-4 py-3 text-left font-semibold">Barangay</th>
                   <th className="px-4 py-3 text-left font-semibold">Item</th>
                   <th className="px-4 py-3 text-left font-semibold">Status</th>
@@ -498,19 +497,6 @@ export default function TransparencySection({ isDarkMode }) {
                       </td>
                       <td className={`px-4 py-3 ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
                         {recipient}
-                      </td>
-                      <td className="px-4 py-3">
-                        {distribution.image ? (
-                          <img
-                            src={`data:image/jpeg;base64,${distribution.image}`}
-                            alt="Distribution photo"
-                            className="h-10 w-10 rounded-md object-cover"
-                          />
-                        ) : (
-                          <span className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                            —
-                          </span>
-                        )}
                       </td>
                       <td className={`px-4 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
                         {distribution.barangay_name || '—'}

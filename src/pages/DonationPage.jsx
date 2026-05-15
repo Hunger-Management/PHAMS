@@ -43,7 +43,6 @@ function DonationPage() {
   const [foodSubmitting, setFoodSubmitting] = useState(false)
   const [foodSuccess, setFoodSuccess] = useState('')
   const [foodError, setFoodError] = useState('')
-  const [foodImageFile, setFoodImageFile] = useState(null)
   const [foodForm, setFoodForm] = useState({
     foodId: '',
     quantity: '',
@@ -56,7 +55,6 @@ function DonationPage() {
   const [suppliesSubmitting, setSuppliesSubmitting] = useState(false)
   const [suppliesSuccess, setSuppliesSuccess] = useState('')
   const [suppliesError, setSuppliesError] = useState('')
-  const [suppliesImageFile, setSuppliesImageFile] = useState(null)
   const [suppliesForm, setSuppliesForm] = useState({
     foodId: '',
     quantity: '',
@@ -90,7 +88,6 @@ function DonationPage() {
           amount: item.quantity ? `${item.quantity} ${item.unit || ''}`.trim() : '—',
           when: formatDonationDate(item.date_given),
           id: item.donation_id || `${item.donor_name || 'donor'}-${index}`,
-          image: item.image || null,
         }))
         setRecentDonors(mapped)
         setDonorError('')
@@ -149,18 +146,14 @@ function DonationPage() {
         }),
       })
 
-      const donationPayload = new FormData()
-      donationPayload.append('donor_id', String(donor.donor_id))
-      donationPayload.append('food_id', String(Number(foodForm.foodId)))
-      donationPayload.append('quantity', String(Number(foodForm.quantity)))
-      donationPayload.append('date_given', foodForm.dateGiven)
-      if (foodImageFile) {
-        donationPayload.append('image', foodImageFile)
-      }
-
       await apiFetch('/api/donations', {
         method: 'POST',
-        body: donationPayload,
+        body: JSON.stringify({
+          donor_id: donor.donor_id,
+          food_id: Number(foodForm.foodId),
+          quantity: Number(foodForm.quantity),
+          date_given: foodForm.dateGiven,
+        }),
       })
 
       setFoodSuccess('Thank you! Your food donation has been recorded.')
@@ -173,7 +166,6 @@ function DonationPage() {
         deliveryMethod: 'I will drop off at the municipal office',
         pickupAddress: '',
       })
-      setFoodImageFile(null)
       loadRecentDonors()
     } catch (err) {
       setFoodError(err.message || 'Unable to record donation right now.')
@@ -203,18 +195,14 @@ function DonationPage() {
         }),
       })
 
-      const donationPayload = new FormData()
-      donationPayload.append('donor_id', String(donor.donor_id))
-      donationPayload.append('food_id', String(Number(suppliesForm.foodId)))
-      donationPayload.append('quantity', String(Number(suppliesForm.quantity)))
-      donationPayload.append('date_given', suppliesForm.dateGiven)
-      if (suppliesImageFile) {
-        donationPayload.append('image', suppliesImageFile)
-      }
-
       await apiFetch('/api/donations', {
         method: 'POST',
-        body: donationPayload,
+        body: JSON.stringify({
+          donor_id: donor.donor_id,
+          food_id: Number(suppliesForm.foodId),
+          quantity: Number(suppliesForm.quantity),
+          date_given: suppliesForm.dateGiven,
+        }),
       })
 
       setSuppliesSuccess('Thank you! Your supplies donation has been recorded.')
@@ -227,7 +215,6 @@ function DonationPage() {
         condition: 'Brand New',
         notes: '',
       })
-      setSuppliesImageFile(null)
       loadRecentDonors()
     } catch (err) {
       setSuppliesError(err.message || 'Unable to record donation right now.')
@@ -655,23 +642,6 @@ function DonationPage() {
                 />
               </div>
 
-              <div>
-                <label htmlFor="food-image" className={`mb-1 block text-base md:text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
-                  Donation Photo (Optional)
-                </label>
-                <input
-                  id="food-image"
-                  type="file"
-                  accept="image/*"
-                  onChange={(event) => setFoodImageFile(event.target.files?.[0] || null)}
-                  className={`w-full rounded-lg border px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-blue-500/40 ${
-                    isDarkMode
-                      ? 'border-slate-600 bg-slate-800 text-slate-100'
-                      : 'border-slate-300 bg-[#f5f7f9] text-slate-900'
-                  }`}
-                />
-              </div>
-
               <button
                 type="submit"
                 disabled={foodSubmitting}
@@ -838,23 +808,6 @@ function DonationPage() {
               </div>
 
               <div>
-                <label htmlFor="supplies-image" className={`mb-1 block text-base md:text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
-                  Donation Photo (Optional)
-                </label>
-                <input
-                  id="supplies-image"
-                  type="file"
-                  accept="image/*"
-                  onChange={(event) => setSuppliesImageFile(event.target.files?.[0] || null)}
-                  className={`w-full rounded-lg border px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-blue-500/40 ${
-                    isDarkMode
-                      ? 'border-slate-600 bg-slate-800 text-slate-100'
-                      : 'border-slate-300 bg-[#f5f7f9] text-slate-900'
-                  }`}
-                />
-              </div>
-
-              <div>
                 <label htmlFor="supplies-notes" className={`mb-1 block text-base md:text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
                   Additional Notes
                 </label>
@@ -913,21 +866,13 @@ function DonationPage() {
                   }`}
                 >
                   <div className="flex items-center gap-3 md:gap-4">
-                    {donor.image ? (
-                      <img
-                        src={`data:image/jpeg;base64,${donor.image}`}
-                        alt="Donation photo"
-                        className="h-10 w-10 rounded-full object-cover"
-                      />
-                    ) : (
-                      <span className={`grid h-10 w-10 place-items-center rounded-full ${
-                        isDarkMode ? 'bg-slate-700 text-slate-100' : 'bg-[#d3dde7] text-blue-700'
-                      }`}>
-                        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                          <path d="M12 21s-6.5-4.35-9-8.5A5.4 5.4 0 0 1 12 5a5.4 5.4 0 0 1 9 7.5C18.5 16.65 12 21 12 21Z" />
-                        </svg>
-                      </span>
-                    )}
+                    <span className={`grid h-10 w-10 place-items-center rounded-full ${
+                      isDarkMode ? 'bg-slate-700 text-slate-100' : 'bg-[#d3dde7] text-blue-700'
+                    }`}>
+                      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M12 21s-6.5-4.35-9-8.5A5.4 5.4 0 0 1 12 5a5.4 5.4 0 0 1 9 7.5C18.5 16.65 12 21 12 21Z" />
+                      </svg>
+                    </span>
                     <div>
                       <p className={`text-lg md:text-xl font-semibold ${isDarkMode ? 'text-slate-100' : 'text-[#071a2f]'}`}>
                         {donor.name}

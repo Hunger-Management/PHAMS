@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Users, Search, AlertTriangle, Pencil, Trash2 } from 'lucide-react'
+import { Users, UserPlus, Search, AlertTriangle, Pencil, Trash2 } from 'lucide-react'
 import { useDarkMode } from '../../hooks/useDarkMode'
 import { useAdminAuth } from '../../context/AdminAuthContext'
 import AdminSidebar from '../components/AdminSidebar'
@@ -165,6 +165,13 @@ function IndividualsListPage() {
                                 {individuals.length} registered {individuals.length === 1 ? 'individual' : 'individuals'}
                             </p>
                         </div>
+                        <button
+                            onClick={() => navigate('/admin/individuals/add')}
+                            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition"
+                        >
+                            <UserPlus size={16} />
+                            Register New Individual
+                        </button>
                     </div>
 
                     {successMessage ? (
@@ -186,6 +193,12 @@ function IndividualsListPage() {
                                             className="rounded-md bg-red-600 text-white px-3 py-1.5 text-sm font-semibold hover:bg-red-700 transition"
                                         >
                                             Retry
+                                        </button>
+                                        <button
+                                            onClick={() => navigate('/admin/individuals/add')}
+                                            className="rounded-md bg-green-600 text-white px-3 py-1.5 text-sm font-semibold hover:bg-green-700 transition"
+                                        >
+                                            Register New Individual
                                         </button>
                                         <span className="text-xs text-slate-500">(Check API server, CORS, and network connection)</span>
                                     </div>
@@ -250,13 +263,20 @@ function IndividualsListPage() {
                                 <p className="text-sm">
                                     {searchQuery || selectedBarangayId ? 'No individuals match the current filters.' : 'No individuals registered yet.'}
                                 </p>
+                                {!searchQuery ? (
+                                    <button
+                                        onClick={() => navigate('/admin/individuals/add')}
+                                        className="mt-4 text-sm text-green-600 hover:underline font-medium"
+                                    >
+                                        Register the first individual →
+                                    </button>
+                                ) : null}
                             </div>
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
                                     <thead>
                                         <tr className={`border-b text-xs uppercase tracking-wide ${isDarkMode ? 'border-white/10 text-slate-400' : 'border-slate-200 text-slate-500'}`}>
-                                            <th className="px-6 py-4 text-left font-semibold">Image</th>
                                             <th className="px-6 py-4 text-left font-semibold">Name</th>
                                             <th className="px-6 py-4 text-left font-semibold">Age</th>
                                             <th className="px-6 py-4 text-left font-semibold">Gender</th>
@@ -271,19 +291,6 @@ function IndividualsListPage() {
                                                 key={individual.individual_id}
                                                 className={`transition ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}
                                             >
-                                                <td className="px-6 py-4">
-                                                    {individual.image ? (
-                                                        <img
-                                                            src={`data:image/jpeg;base64,${individual.image}`}
-                                                            alt={`${individual.name || 'Individual'} photo`}
-                                                            className="h-10 w-10 rounded-md object-cover"
-                                                        />
-                                                    ) : (
-                                                        <span className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                                                            —
-                                                        </span>
-                                                    )}
-                                                </td>
                                                 <td className={`px-6 py-4 ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
                                                     {individual.name || '—'}
                                                 </td>

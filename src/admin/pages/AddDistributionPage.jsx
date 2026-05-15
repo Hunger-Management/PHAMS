@@ -33,7 +33,6 @@ function AddDistributionPage() {
   }
 
   const [formData, setFormData] = useState(DEFAULT_FORM)
-  const [imageFile, setImageFile] = useState(null)
   const [families, setFamilies] = useState([])
   const [individuals, setIndividuals] = useState([])
   const [barangays, setBarangays] = useState([])
@@ -69,18 +68,6 @@ function AddDistributionPage() {
 
     loadData()
   }, [])
-
-  // Prefill form when navigated from staff view with a family or barangay
-  useEffect(() => {
-    if (!location.state) return
-    const { familyId, barangayId } = location.state
-    setFormData((prev) => ({
-      ...prev,
-      family_id: familyId || prev.family_id,
-      barangay_id: barangayId || prev.barangay_id,
-      recipient_type: familyId ? 'Family' : prev.recipient_type,
-    }))
-  }, [location.state])
 
   const handleChange = (event) => {
     const { name, value } = event.target
@@ -143,27 +130,24 @@ function AddDistributionPage() {
     setSubmitting(true)
 
     try {
-      const payload = new FormData()
-      payload.append('recipient_type', formData.recipient_type)
-      payload.append('family_id', needsFamily ? String(Number(formData.family_id)) : '')
-      payload.append('individual_id', needsIndividual ? String(Number(formData.individual_id)) : '')
-      payload.append('barangay_id', String(Number(formData.barangay_id)))
-      payload.append('food_id', String(Number(formData.food_id)))
-      payload.append('quantity', String(Number(formData.quantity)))
-      payload.append('date_given', formData.date_given)
-      payload.append('status', formData.status)
-      if (imageFile) {
-        payload.append('image', imageFile)
+      const payload = {
+        recipient_type: formData.recipient_type,
+        family_id: needsFamily ? Number(formData.family_id) : null,
+        individual_id: needsIndividual ? Number(formData.individual_id) : null,
+        barangay_id: Number(formData.barangay_id),
+        food_id: Number(formData.food_id),
+        quantity: Number(formData.quantity),
+        date_given: formData.date_given,
+        status: formData.status,
       }
 
       await apiFetch('/api/distributions', {
         method: 'POST',
-        body: payload,
+        body: JSON.stringify(payload),
       })
 
       setSuccessMessage('Distribution recorded successfully.')
       setFormData(DEFAULT_FORM)
-      setImageFile(null)
       window.scrollTo({ top: 0, behavior: 'smooth' })
 
       setTimeout(() => {
@@ -300,7 +284,25 @@ function AddDistributionPage() {
                     ))}
                   </select>
                 </div>
-              
+
+                <div>
+                  <label className={labelClass}>Individual *</label>
+                  <select
+                    name="individual_id"
+                    value={formData.individual_id}
+                    onChange={handleChange}
+                    className={inputClass}
+                    disabled={loading}
+                  >
+                    <option value="">Select individual</option>
+                    {individuals.map((individual) => (
+                      <option key={individual.individual_id} value={individual.individual_id}>
+                        {individual.name || `Individual ${individual.individual_id}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <div>
                   <label className={labelClass}>Food Supply *</label>
                   <select
@@ -354,16 +356,6 @@ function AddDistributionPage() {
                     <option value="Pending">Pending</option>
                     <option value="Received">Received</option>
                   </select>
-                </div>
-
-                <div>
-                  <label className={labelClass}>Photo (Optional)</label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(event) => setImageFile(event.target.files?.[0] || null)}
-                    className={inputClass}
-                  />
                 </div>
               </div>
 

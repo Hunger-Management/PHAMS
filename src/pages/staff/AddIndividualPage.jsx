@@ -24,7 +24,6 @@ function AddIndividualPage() {
   const [submitting, setSubmitting] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
-  const [imageFile, setImageFile] = useState(null)
 
   useEffect(() => {
     const loadBarangays = async () => {
@@ -61,24 +60,21 @@ function AddIndividualPage() {
     setSubmitting(true)
 
     try {
-      const payload = new FormData()
-      payload.append('name', formData.name)
-      payload.append('age', String(Number(formData.age)))
-      payload.append('gender', formData.gender)
-      payload.append('barangay_id', String(Number(formData.barangay_id)))
-      payload.append('status', formData.status)
-      if (imageFile) {
-        payload.append('image', imageFile)
+      const payload = {
+        name: formData.name,
+        age: Number(formData.age),
+        gender: formData.gender,
+        barangay_id: Number(formData.barangay_id),
+        status: formData.status,
       }
 
       await apiFetch('/api/individuals', {
         method: 'POST',
-        body: payload,
+        body: JSON.stringify(payload),
       })
 
       setSuccessMessage('Individual registered successfully.')
       setFormData(DEFAULT_FORM)
-      setImageFile(null)
       window.scrollTo({ top: 0, behavior: 'smooth' })
 
       setTimeout(() => {
@@ -230,16 +226,6 @@ function AddIndividualPage() {
                     <option value="Registered">Registered</option>
                     <option value="Received">Received</option>
                   </select>
-                </div>
-
-                <div>
-                  <label className={labelClass}>Photo (Optional)</label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(event) => setImageFile(event.target.files?.[0] || null)}
-                    className={inputClass}
-                  />
                 </div>
               </div>
 

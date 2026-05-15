@@ -32,7 +32,7 @@ function StaffSidebar({ isDarkMode }) {
         { name: 'Barangays', icon: MapPin, path: '/staff/dashboard', sectionId: 'barangays-section' },
         { name: 'Families List', icon: UserPlus, path: '/staff/dashboard', sectionId: 'families-list-section' },
         { name: 'Add Family', icon: UserPlus, path: '/staff/dashboard', sectionId: 'add-family-section' },
-        { name: 'Individuals (NPA)', icon: UserPlus, path: '/staff/individuals/no-address' },
+        { name: 'Add Individual', icon: UserPlus, path: '/staff/dashboard', sectionId: 'add-individual-section' },
         { name: 'Add Distribution', icon: FileText, path: '/staff/distributions/add' },
         { name: 'Transparency', icon: Eye, path: '/staff/dashboard', sectionId: 'transparency-section' },
     ]
@@ -91,7 +91,7 @@ function StaffSidebar({ isDarkMode }) {
                             STAFF
                         </span>
                         <p className={`text-xs ${isDarkMode ? 'text-white/60' : 'text-slate-500'}`}>
-                            {staffUser?.barangay || staffUser?.barangay_name || 'Unassigned'}
+                            {staffUser?.barangay || 'Aguho'}
                         </p>
                     </div>
                 </div>
