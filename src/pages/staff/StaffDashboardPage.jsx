@@ -4,6 +4,23 @@ import { apiFetch } from '../../api/api'
 import { useDarkMode } from '../../hooks/useDarkMode'
 import { useStaffAuth } from '../../context/StaffAuthContext'
 import StaffSidebar from './StaffSidebar'
+import { UserPlus, Trash2 } from 'lucide-react'
+
+const RELATIONSHIP_OPTIONS = ['Head', 'Spouse', 'Child', 'Parent', 'Sibling', 'Relative', 'Other']
+const NUTRITIONAL_OPTIONS = ['Normal', 'Underweight', 'Severely Underweight', 'Overweight', 'Obese', 'Unknown']
+
+const emptyMember = () => ({
+  first_name: '',
+  last_name: '',
+  date_of_birth: '',
+  gender: 'Male',
+  relationship: 'Other',
+  is_pwd: false,
+  nutritional_status: 'Unknown',
+  height_cm: '',
+  weight_kg: '',
+  _bmi: null,
+})
 
 // Barangay ID mapping - must match database exactly
 const BARANGAY_MAP = {
@@ -31,28 +48,23 @@ function StaffDashboardPage() {
   const [formSuccess, setFormSuccess] = useState('')
   const [formError, setFormError] = useState('')
 
-  const [staffBarangayName, setStaffBarangayName] = useState(staffUser?.barangay || 'Aguho')
+  const [staffBarangayName, setStaffBarangayName] = useState(
+    staffUser?.barangay || staffUser?.barangay_name || ''
+  )
 
-  // Ensure we have a barangay name for the logged-in staff user.
   useEffect(() => {
-    if (staffUser?.barangay) {
-      setStaffBarangayName(staffUser.barangay)
+    if (staffUser?.barangay || staffUser?.barangay_name) {
+      setStaffBarangayName(staffUser.barangay || staffUser.barangay_name)
       return
     }
-
-    // If only barangay_id exists, fetch the barangay name
     if (staffUser?.barangay_id) {
       apiFetch(`/api/barangays/${staffUser.barangay_id}`)
-        .then((b) => {
-          if (b && b.name) setStaffBarangayName(b.name)
-        })
-        .catch(() => {
-          // ignore
-        })
+        .then((b) => { if (b?.name) setStaffBarangayName(b.name) })
+        .catch(() => {})
     }
-  }, [staffUser?.barangay, staffUser?.barangay_id])
+  }, [staffUser?.barangay, staffUser?.barangay_name, staffUser?.barangay_id])
 
-  const staffBarangay = staffBarangayName || 'Aguho'
+  const staffBarangay = staffBarangayName || 'Unknown Barangay'
 
   useEffect(() => {
     Promise.all([
@@ -218,7 +230,6 @@ function StaffDashboardPage() {
   ]
 
   const navigate = useNavigate()
-  const [expandedFamilies, setExpandedFamilies] = useState([])
   const [familyForm, setFamilyForm] = useState({
     familyName: '',
     barangay: staffUser?.barangay || 'Aguho',
@@ -227,8 +238,97 @@ function StaffDashboardPage() {
     contactNumber: '',
     monthlyIncome: '',
     programs: [],
-    noPermanentAddress: false,
   })
+  const [familyImageFile, setFamilyImageFile] = useState(null)
+
+  const [members, setMembers] = useState([{ ...emptyMember(), relationship: 'Head' }])
+
+  useEffect(() => {
+    const headMember = members.find(m => m.relationship === 'Head')
+    if (headMember?.first_name) {
+      const fullName = `${headMember.first_name} ${headMember.last_name}`.trim()
+      setFamilyForm(prev => ({ ...prev, headOfFamily: fullName }))
+    }
+  }, [members])
+
+  const getAgeInYears = (dateOfBirth) => {
+    if (!dateOfBirth) return null
+    const today = new Date()
+    const dob = new Date(dateOfBirth)
+    let age = today.getFullYear() - dob.getFullYear()
+    const m = today.getMonth() - dob.getMonth()
+    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--
+    return age
+  }
+
+  const computeBMI = (heightCm, weightKg) => {
+    const h = parseFloat(heightCm)
+    const w = parseFloat(weightKg)
+    if (!h || !w || h <= 0 || w <= 0) return null
+    return w / Math.pow(h / 100, 2)
+  }
+
+  const bmiToNutritionalStatus = (bmi, dateOfBirth) => {
+    if (bmi === null) return null
+    const age = getAgeInYears(dateOfBirth)
+    if (age !== null && age < 5) {
+      if (bmi < 13.0) return 'Severely Underweight'
+      if (bmi < 15.0) return 'Underweight'
+      if (bmi < 18.0) return 'Normal'
+      if (bmi < 20.0) return 'Overweight'
+      return 'Obese'
+    }
+    if (age !== null && age < 18) {
+      if (bmi < 14.0) return 'Severely Underweight'
+      if (bmi < 16.5) return 'Underweight'
+      if (bmi < 23.0) return 'Normal'
+      if (bmi < 27.5) return 'Overweight'
+      return 'Obese'
+    }
+    if (bmi < 16.0) return 'Severely Underweight'
+    if (bmi < 18.5) return 'Underweight'
+    if (bmi < 23.0) return 'Normal'
+    if (bmi < 25.0) return 'Overweight'
+    return 'Obese'
+  }
+
+  const handleMemberChange = (index, e) => {
+    const { name, value, type, checked } = e.target
+    const updatedValue = type === 'checkbox' ? checked : value
+    setMembers((prev) => {
+      if (name === 'relationship' && updatedValue === 'Head') {
+        return prev.map((m, i) => {
+          if (i === index) return { ...m, relationship: 'Head' }
+          if (m.relationship === 'Head') return { ...m, relationship: 'Other' }
+          return m
+        })
+      }
+      return prev.map((m, i) => {
+        if (i !== index) return m
+        const updated = { ...m, [name]: updatedValue }
+        if (name === 'height_cm' || name === 'weight_kg') {
+          const h = name === 'height_cm' ? updatedValue : m.height_cm
+          const w = name === 'weight_kg' ? updatedValue : m.weight_kg
+          const bmi = computeBMI(h, w)
+          updated.nutritional_status = bmiToNutritionalStatus(bmi, updated.date_of_birth) || 'Unknown'
+          updated._bmi = bmi ? bmi.toFixed(1) : null
+        }
+        if (name === 'date_of_birth' && m.height_cm && m.weight_kg) {
+          const bmi = computeBMI(m.height_cm, m.weight_kg)
+          updated.nutritional_status = bmiToNutritionalStatus(bmi, updatedValue) || m.nutritional_status
+          updated._bmi = bmi ? bmi.toFixed(1) : null
+        }
+        return updated
+      })
+    })
+  }
+
+  const addMember = () => setMembers((prev) => [...prev, emptyMember()])
+
+  const removeMember = (index) => {
+    if (members.length === 1) return
+    setMembers((prev) => prev.filter((_, i) => i !== index))
+  }
 
   const [individualForm, setIndividualForm] = useState({
     name: '',
@@ -237,12 +337,10 @@ function StaffDashboardPage() {
     barangay: staffUser?.barangay || 'Aguho',
     status: 'Registered',
   })
+  const [individualImageFile, setIndividualImageFile] = useState(null)
   const [individualSubmitting, setIndividualSubmitting] = useState(false)
   const [individualSuccess, setIndividualSuccess] = useState('')
   const [individualError, setIndividualError] = useState('')
-
-  // Add member modal state for staff to add family members
-  const [addMemberModal, setAddMemberModal] = useState({ open: false, family: null, submitting: false, success: '', error: '', form: { first_name: '', last_name: '', age: '', gender: 'Male', relationship: 'Other' } })
 
   // Initialize form with staff user's barangay name when available
   useEffect(() => {
@@ -266,11 +364,7 @@ function StaffDashboardPage() {
   }
 
   function handleChange(e) {
-    const { name, value, type, checked } = e.target
-    if (type === 'checkbox' && name === 'noPermanentAddress') {
-      setFamilyForm((s) => ({ ...s, [name]: checked }))
-      return
-    }
+    const { name, value } = e.target
     setFamilyForm((s) => ({ ...s, [name]: value }))
   }
 
@@ -281,46 +375,61 @@ function StaffDashboardPage() {
     setFormSubmitting(true)
 
     try {
-      const barangayId = BARANGAY_MAP[familyForm.barangay] || 1
+      const barangayId = BARANGAY_MAP[staffBarangayName] || 1
 
-      // Use placeholder address if NPA is selected
-      const addressValue = familyForm.noPermanentAddress ? 'No Permanent Address (NPA)' : familyForm.address
-
-      const payload = {
-        family_name: familyForm.familyName,
-        barangay_id: barangayId,
-        address: addressValue,
-        head_of_family: familyForm.headOfFamily,
-        phone: familyForm.contactNumber,
-        members: [], // Staff can add family without members initially
+      if (!familyForm.familyName.trim()) {
+        throw new Error('Family name is required.')
+      }
+      if (!familyForm.address.trim()) {
+        throw new Error('Complete address is required.')
       }
 
-      // Validate required fields
-      if (!payload.family_name.trim()) {
-        throw new Error('Family name is required')
-      }
-      if (!addressValue.trim()) {
-        throw new Error('Please provide an address or mark as No Permanent Address (NPA)')
+      const membersPayload = members
+        .filter((m) => m.first_name.trim())
+        .map(({ _bmi, ...m }) => ({
+          first_name: m.first_name,
+          last_name: m.last_name,
+          date_of_birth: m.date_of_birth || null,
+          gender: m.gender,
+          relationship: m.relationship,
+          is_pwd: m.is_pwd ? 1 : 0,
+          height_cm: m.height_cm ? parseFloat(m.height_cm) : null,
+          weight_kg: m.weight_kg ? parseFloat(m.weight_kg) : null,
+          nutritional_status: m.nutritional_status,
+        }))
+
+      const payload = new FormData()
+      payload.append('family_name', familyForm.familyName)
+      payload.append('barangay_id', String(barangayId))
+      payload.append('address', familyForm.address)
+      payload.append('head_of_family', familyForm.headOfFamily)
+      payload.append('phone', familyForm.contactNumber)
+      payload.append('monthly_income', familyForm.monthlyIncome ? String(parseFloat(familyForm.monthlyIncome)) : '')
+      payload.append('food_assistance_status', familyForm.programs.length ? familyForm.programs.join(',') : 'None')
+      payload.append('is_npa', '0')
+      payload.append('members', JSON.stringify(membersPayload))
+      if (familyImageFile) {
+        payload.append('image', familyImageFile)
       }
 
       const data = await apiFetch('/api/families', {
         method: 'POST',
-        body: JSON.stringify(payload),
+        body: payload,
       })
 
       setFormSuccess(`✓ Family "${familyForm.familyName}" registered successfully!`)
 
-      // Reset form
       setFamilyForm({
         familyName: '',
-        barangay: staffUser?.barangay || 'Aguho',
+        barangay: staffBarangayName,
         address: '',
         headOfFamily: '',
         contactNumber: '',
         monthlyIncome: '',
         programs: [],
-        noPermanentAddress: false,
       })
+      setMembers([{ ...emptyMember(), relationship: 'Head' }])
+      setFamilyImageFile(null)
 
       // Clear success message after 3 seconds
       setTimeout(() => {
@@ -345,7 +454,7 @@ function StaffDashboardPage() {
     setIndividualSubmitting(true)
 
     try {
-      const barangayId = BARANGAY_MAP[individualForm.barangay] || 1
+      const barangayId = BARANGAY_MAP[staffBarangayName] || 1
 
       if (!individualForm.name.trim()) {
         throw new Error('Full name is required')
@@ -354,17 +463,19 @@ function StaffDashboardPage() {
         throw new Error('Valid age is required')
       }
 
-      const payload = {
-        name: individualForm.name,
-        age: Number(individualForm.age),
-        gender: individualForm.gender,
-        barangay_id: barangayId,
-        status: individualForm.status,
+      const payload = new FormData()
+      payload.append('name', individualForm.name)
+      payload.append('age', String(Number(individualForm.age)))
+      payload.append('gender', individualForm.gender)
+      payload.append('barangay_id', String(barangayId))
+      payload.append('status', individualForm.status)
+      if (individualImageFile) {
+        payload.append('image', individualImageFile)
       }
 
       await apiFetch('/api/individuals', {
         method: 'POST',
-        body: JSON.stringify(payload),
+        body: payload,
       })
 
       setIndividualSuccess(`✓ Individual "${individualForm.name}" registered successfully!`)
@@ -373,9 +484,10 @@ function StaffDashboardPage() {
         name: '',
         age: '',
         gender: 'Male',
-        barangay: staffUser?.barangay || 'Aguho',
+        barangay: staffBarangayName,
         status: 'Registered',
       })
+      setIndividualImageFile(null)
 
       setTimeout(() => {
         setIndividualSuccess('')
@@ -398,57 +510,6 @@ function StaffDashboardPage() {
       setIndividualError(err.message || 'Failed to add individual. Please try again.')
     } finally {
       setIndividualSubmitting(false)
-    }
-  }
-
-  // ── Add family member (staff) ─────────────────────────────────
-  function openAddMemberModal(family) {
-    setAddMemberModal((s) => ({ ...s, open: true, family, success: '', error: '', form: { first_name: '', last_name: '', age: '', gender: 'Male', relationship: 'Other' } }))
-  }
-
-  function closeAddMemberModal() {
-    setAddMemberModal((s) => ({ ...s, open: false, family: null, submitting: false, success: '', error: '' }))
-  }
-
-  function handleAddMemberChange(e) {
-    const { name, value } = e.target
-    setAddMemberModal((s) => ({ ...s, form: { ...s.form, [name]: value } }))
-  }
-
-  async function submitAddMember(e) {
-    e && e.preventDefault()
-    const { family, form } = addMemberModal
-    if (!family) return
-    setAddMemberModal((s) => ({ ...s, submitting: true, error: '', success: '' }))
-
-    try {
-      // Add member to family's members list (do NOT create an individual record)
-      const payload = {
-        add_member: {
-          first_name: form.first_name || '',
-          last_name: form.last_name || '',
-          age: form.age ? Number(form.age) : null,
-          gender: form.gender || 'Male',
-        },
-      }
-
-      await apiFetch(`/api/families/${family.family_id}`, {
-        method: 'PUT',
-        body: JSON.stringify(payload),
-      })
-
-      // Refresh families + distributions only (new member should not appear in individuals list)
-      const [familiesData, distributionsData] = await Promise.all([
-        apiFetch('/api/families'),
-        apiFetch('/api/distributions'),
-      ])
-      setFamilies(Array.isArray(familiesData) ? familiesData : [])
-      setDistributions(Array.isArray(distributionsData) ? distributionsData : [])
-
-      setAddMemberModal((s) => ({ ...s, submitting: false, success: `Member added to ${family.family_name}` }))
-      setTimeout(() => closeAddMemberModal(), 900)
-    } catch (err) {
-      setAddMemberModal((s) => ({ ...s, submitting: false, error: err.message || 'Failed to add member.' }))
     }
   }
 
@@ -490,51 +551,6 @@ function StaffDashboardPage() {
               </div>
             </div>
           </section>
-
-          {/* Add Member Modal (staff) */}
-          {addMemberModal.open ? (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-              <div className={`w-full max-w-md rounded-2xl border p-6 shadow-xl ${isDarkMode ? 'bg-[#111c2e] border-white/10 text-slate-100' : 'bg-white border-slate-200 text-slate-900'}`}>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold">Add Family Member</h3>
-                  <button onClick={closeAddMemberModal} className={`text-xs font-semibold px-3 py-1 rounded ${isDarkMode ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-700'}`}>Close</button>
-                </div>
-
-                <form onSubmit={submitAddMember} className="space-y-3">
-                  <div>
-                    <label className={labelClass}>First name</label>
-                    <input name="first_name" value={addMemberModal.form.first_name} onChange={handleAddMemberChange} className={inputClass} />
-                  </div>
-                  <div>
-                    <label className={labelClass}>Last name</label>
-                    <input name="last_name" value={addMemberModal.form.last_name} onChange={handleAddMemberChange} className={inputClass} />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className={labelClass}>Age</label>
-                      <input name="age" type="number" min="0" value={addMemberModal.form.age} onChange={handleAddMemberChange} className={inputClass} />
-                    </div>
-                    <div>
-                      <label className={labelClass}>Gender</label>
-                      <select name="gender" value={addMemberModal.form.gender} onChange={handleAddMemberChange} className={inputClass}>
-                        <option>Male</option>
-                        <option>Female</option>
-                        <option>Other</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {addMemberModal.error && <div className="text-sm text-red-600">{addMemberModal.error}</div>}
-                  {addMemberModal.success && <div className="text-sm text-emerald-600">{addMemberModal.success}</div>}
-
-                  <div className="flex items-center justify-end gap-3">
-                    <button type="button" onClick={closeAddMemberModal} className={`rounded-lg px-4 py-2 text-sm ${isDarkMode ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-700'}`}>Cancel</button>
-                    <button type="submit" disabled={addMemberModal.submitting} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white">{addMemberModal.submitting ? 'Adding...' : 'Add Member'}</button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          ) : null}
 
           {error && (
             <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -671,27 +687,33 @@ function StaffDashboardPage() {
                     <thead>
                       <tr className={`${isDarkMode ? 'bg-slate-900 border-b border-slate-700' : 'bg-slate-50 border-b border-slate-200'}`}>
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Family Name</th>
+                        <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Image</th>
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Head of Family</th>
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Address</th>
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Members</th>
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Status</th>
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Contact</th>
-                        <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Actions</th>
+                        <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}></th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredFamilies.map((family, idx) => {
                         const isAssisted = assistedFamilyIds.has(family.family_id)
                         return (
-                          <>
                           <tr key={family.family_id} className={`border-b ${idx % 2 === 0 ? (isDarkMode ? 'bg-slate-900/30' : 'bg-slate-50/50') : ''} ${isDarkMode ? 'border-slate-700/50 hover:bg-slate-900/50' : 'border-slate-100 hover:bg-slate-100/50'} transition`}>
-                            <td className={`px-6 py-3 font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}>
-                              <button onClick={() => {
-                                const id = family.family_id
-                                setExpandedFamilies((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])
-                              }} className="text-left w-full">
-                                {family.family_name}
-                              </button>
+                            <td className={`px-6 py-3 font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}>{family.family_name}</td>
+                            <td className="px-6 py-3">
+                              {family.image ? (
+                                <img
+                                  src={`data:image/jpeg;base64,${family.image}`}
+                                  alt={`${family.family_name || 'Family'} photo`}
+                                  className="h-10 w-10 rounded-md object-cover"
+                                />
+                              ) : (
+                                <span className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                  —
+                                </span>
+                              )}
                             </td>
                             <td className={`px-6 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{family.head_of_family || 'N/A'}</td>
                             <td className={`px-6 py-3 max-w-xs truncate ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`} title={family.address}>{family.address || 'N/A'}</td>
@@ -706,44 +728,12 @@ function StaffDashboardPage() {
                               </span>
                             </td>
                             <td className={`px-6 py-3 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{family.phone || '—'}</td>
-                            <td className={`px-6 py-3`}> 
-                              <div className="flex items-center gap-2">
-                                <button onClick={() => openAddMemberModal(family)} className={`text-xs rounded px-3 py-1 ${isDarkMode ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-700'}`}>
-                                  Add Member
-                                </button>
-                                <button onClick={() => navigate('/staff/distributions/add', { state: { familyId: family.family_id, barangayId: family.barangay_id } })} className={`text-xs rounded px-3 py-1 ${isDarkMode ? 'bg-emerald-700 text-white' : 'bg-emerald-100 text-emerald-700'}`}>
-                                  Record Distribution
-                                </button>
-                              </div>
+                            <td className="px-6 py-3">
+                              <Link to={`/staff/families/${family.family_id}`} className="text-xs font-medium text-blue-600 hover:text-blue-700 transition">
+                                View →
+                              </Link>
                             </td>
                           </tr>
-                          {expandedFamilies.includes(family.family_id) ? (
-                            <tr key={`members-${family.family_id}`} className={`${isDarkMode ? 'bg-slate-900/20' : 'bg-slate-50/40'}`}>
-                                <td colSpan={8} className={`px-6 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
-                                  <div className="space-y-2">
-                                    <div className="mb-2 text-sm font-semibold">Members</div>
-                                    {Array.isArray(family.members) && family.members.length > 0 ? (
-                                      <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                        {family.members.map((m, mi) => (
-                                          <li key={mi} className="rounded-md border px-3 py-2 text-sm">
-                                            <div className="flex items-center justify-between">
-                                              <div>
-                                                <div className="font-medium">{`${m.first_name} ${m.last_name}`.trim() || 'Unnamed'}</div>
-                                                <div className="text-xs text-slate-500">Age: {m.age ?? '—'} · {m.gender || '—'}</div>
-                                              </div>
-                                              <div className="text-xs text-slate-400">{m.added_at ? new Date(m.added_at).toLocaleDateString() : '—'}</div>
-                                            </div>
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    ) : (
-                                      <div className="text-sm text-slate-500">No member details available.</div>
-                                    )}
-                                  </div>
-                                </td>
-                              </tr>
-                            ) : null}
-                          </>
                         )
                       })}
                     </tbody>
@@ -775,6 +765,7 @@ function StaffDashboardPage() {
                     <thead>
                       <tr className={`${isDarkMode ? 'bg-slate-900 border-b border-slate-700' : 'bg-slate-50 border-b border-slate-200'}`}>
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Name</th>
+                        <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Image</th>
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Age</th>
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Gender</th>
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Barangay</th>
@@ -785,6 +776,19 @@ function StaffDashboardPage() {
                       {filteredIndividuals.map((individual, idx) => (
                         <tr key={individual.individual_id} className={`border-b ${idx % 2 === 0 ? (isDarkMode ? 'bg-slate-900/30' : 'bg-slate-50/50') : ''} ${isDarkMode ? 'border-slate-700/50 hover:bg-slate-900/50' : 'border-slate-100 hover:bg-slate-100/50'} transition`}>
                           <td className={`px-6 py-3 font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}>{individual.name || '—'}</td>
+                          <td className="px-6 py-3">
+                            {individual.image ? (
+                              <img
+                                src={`data:image/jpeg;base64,${individual.image}`}
+                                alt={`${individual.name || 'Individual'} photo`}
+                                className="h-10 w-10 rounded-md object-cover"
+                              />
+                            ) : (
+                              <span className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                —
+                              </span>
+                            )}
+                          </td>
                           <td className={`px-6 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{individual.age ?? '—'}</td>
                           <td className={`px-6 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{individual.gender || '—'}</td>
                           <td className={`px-6 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{individual.barangay_name || '—'}</td>
@@ -813,7 +817,13 @@ function StaffDashboardPage() {
                   <h3 className={`text-2xl font-black ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>Register New Family</h3>
                   <p className={`${isDarkMode ? 'text-slate-300' : 'text-slate-500'} mt-1`}>Fill in all required fields. Priority score is computed automatically.</p>
                 </div>
-                <Link to="/admin/families" className={`text-sm ${isDarkMode ? 'text-slate-300 hover:text-slate-100' : 'text-slate-600 hover:text-slate-900'}`}>← View All Families</Link>
+                <button
+                  type="button"
+                  onClick={() => document.getElementById('families-list-section')?.scrollIntoView({ behavior: 'smooth' })}
+                  className={`text-sm transition ${isDarkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'}`}
+                >
+                  View Families ↓
+                </button>
               </div>
 
               {formSuccess && (
@@ -837,29 +847,17 @@ function StaffDashboardPage() {
                   </div>
 
                   <div>
-                    <label className={labelClass}>Barangay *</label>
-                    <select name="barangay" value={familyForm.barangay} onChange={handleChange} className={`${inputClass} mt-2`}>
-                      <option>{staffUser?.barangay || 'Aguho'}</option>
-                      <option>Aguho</option>
-                      <option>Magtanggol</option>
-                      <option>Martires del 96</option>
-                      <option>Poblacion</option>
-                      <option>San Pedro</option>
-                      <option>San Roque</option>
-                      <option>Santa Ana</option>
-                      <option>Santo Rosario-Kanluran</option>
-                      <option>Santo Rosario-Silangan</option>
-                      <option>Tabacalera</option>
-                    </select>
+                    <label className={labelClass}>Barangay</label>
+                    <div className={`mt-2 flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm ${isDarkMode ? 'border-white/10 bg-[#0b1220]/50 text-slate-300' : 'border-slate-200 bg-slate-100 text-slate-700'}`}>
+                      <span>📍</span>
+                      <span className="font-medium">{staffBarangayName}</span>
+                      <span className={`ml-auto text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Assigned</span>
+                    </div>
                   </div>
 
                   <div className="lg:col-span-2">
-                    <label className={labelClass}>Complete Address</label>
-                    <input name="address" value={familyForm.address} onChange={handleChange} placeholder="House No., Street, Purok" className={`${inputClass} mt-2`} />
-                    <div className="mt-2 flex items-center gap-2 text-sm">
-                      <input id="npa" name="noPermanentAddress" type="checkbox" checked={familyForm.noPermanentAddress} onChange={handleChange} className="h-4 w-4" />
-                      <label htmlFor="npa" className={`text-sm ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>No Permanent Address (NPA)</label>
-                    </div>
+                    <label className={labelClass}>Complete Address *</label>
+                    <input name="address" value={familyForm.address} onChange={handleChange} placeholder="House No., Street, Purok" className={`${inputClass} mt-2`} required />
                   </div>
 
                   <div>
@@ -870,6 +868,16 @@ function StaffDashboardPage() {
                   <div>
                     <label className={labelClass}>Contact Number</label>
                     <input name="contactNumber" value={familyForm.contactNumber} onChange={handleChange} placeholder="09XX XXX XXXX" className={`${inputClass} mt-2`} />
+                  </div>
+
+                  <div>
+                    <label className={labelClass}>Family Photo (Optional)</label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(event) => setFamilyImageFile(event.target.files?.[0] || null)}
+                      className={`${inputClass} mt-2`}
+                    />
                   </div>
 
                   <div>
@@ -896,22 +904,121 @@ function StaffDashboardPage() {
                   </div>
                 </div>
 
+                {/* ── Family Members ── */}
+                <div className={`mt-6 rounded-xl border p-5 ${isDarkMode ? 'border-white/10 bg-[#0b1220]' : 'border-slate-200 bg-slate-50'}`}>
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h4 className={`font-semibold text-sm ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Family Members</h4>
+                      <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Nutritional status is auto-computed from height &amp; weight.</p>
+                    </div>
+                    <button type="button" onClick={addMember} className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 transition">
+                      <UserPlus size={13} /> Add Member
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    {members.map((member, index) => (
+                      <div key={index} className={`rounded-xl border p-4 ${isDarkMode ? 'border-white/10 bg-[#111c2e]' : 'border-slate-200 bg-white'}`}>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-xs font-semibold uppercase tracking-wide ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Member {index + 1}</span>
+                            {member.relationship === 'Head' && (
+                              <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">Head of Family</span>
+                            )}
+                          </div>
+                          {members.length > 1 && (
+                            <button type="button" onClick={() => removeMember(index)} className="text-red-400 hover:text-red-600 transition" aria-label="Remove member">
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                          <div>
+                            <label className={labelClass}>First Name *</label>
+                            <input name="first_name" value={member.first_name} onChange={(e) => handleMemberChange(index, e)} placeholder="First name" className={`${inputClass} mt-2`} />
+                          </div>
+                          <div>
+                            <label className={labelClass}>Last Name *</label>
+                            <input name="last_name" value={member.last_name} onChange={(e) => handleMemberChange(index, e)} placeholder="Last name" className={`${inputClass} mt-2`} />
+                          </div>
+                          <div>
+                            <label className={labelClass}>Date of Birth</label>
+                            <input name="date_of_birth" type="date" value={member.date_of_birth} onChange={(e) => handleMemberChange(index, e)} className={`${inputClass} mt-2`} />
+                          </div>
+                          <div>
+                            <label className={labelClass}>Height (cm)</label>
+                            <input name="height_cm" type="number" min="30" max="250" step="0.1" value={member.height_cm} onChange={(e) => handleMemberChange(index, e)} placeholder="e.g. 165" className={`${inputClass} mt-2`} />
+                          </div>
+                          <div>
+                            <label className={labelClass}>Weight (kg)</label>
+                            <input name="weight_kg" type="number" min="1" max="300" step="0.1" value={member.weight_kg} onChange={(e) => handleMemberChange(index, e)} placeholder="e.g. 55" className={`${inputClass} mt-2`} />
+                          </div>
+                          <div>
+                            <label className={labelClass}>Gender *</label>
+                            <select name="gender" value={member.gender} onChange={(e) => handleMemberChange(index, e)} className={`${inputClass} mt-2`}>
+                              <option value="Male">Male</option>
+                              <option value="Female">Female</option>
+                              <option value="Other">Other</option>
+                            </select>
+                          </div>
+
+                          {member._bmi && (
+                            <div className={`sm:col-span-2 lg:col-span-3 rounded-lg px-3 py-2 text-xs ${isDarkMode ? 'bg-blue-500/10 text-blue-300' : 'bg-blue-50 text-blue-700'}`}>
+                              <span className="font-semibold">BMI: {member._bmi}</span>
+                              {member.date_of_birth && (
+                                <span className="ml-2 opacity-75">
+                                  ({getAgeInYears(member.date_of_birth) < 5 ? 'Under-5' : getAgeInYears(member.date_of_birth) < 18 ? 'Adolescent' : 'Adult/Asian cutoff'} classification)
+                                </span>
+                              )}
+                              <span className="ml-2">— Nutritional status auto-set. You may override if needed.</span>
+                            </div>
+                          )}
+
+                          <div>
+                            <label className={labelClass}>Relationship</label>
+                            <select name="relationship" value={member.relationship} onChange={(e) => handleMemberChange(index, e)} className={`${inputClass} mt-2`}>
+                              {RELATIONSHIP_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                            </select>
+                            {member.relationship === 'Head' && member.date_of_birth && getAgeInYears(member.date_of_birth) < 18 && (
+                              <p className="mt-1.5 text-xs text-amber-600">
+                                ⚠ Note: Selected head of family is a minor ({getAgeInYears(member.date_of_birth)} yrs old). Please verify before submitting.
+                              </p>
+                            )}
+                          </div>
+                          <div>
+                            <label className={labelClass}>Nutritional Status</label>
+                            <select name="nutritional_status" value={member.nutritional_status} onChange={(e) => handleMemberChange(index, e)} className={`${inputClass} mt-2`}>
+                              {NUTRITIONAL_OPTIONS.map((n) => <option key={n} value={n}>{n}</option>)}
+                            </select>
+                          </div>
+                          <div className="flex items-center gap-2 pt-5">
+                            <input type="checkbox" name="is_pwd" id={`pwd-${index}`} checked={member.is_pwd} onChange={(e) => handleMemberChange(index, e)} className="h-4 w-4 rounded" />
+                            <label htmlFor={`pwd-${index}`} className={`text-sm cursor-pointer ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Person with Disability (PWD)</label>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="mt-6 flex items-center justify-between">
                   <div className={`text-sm ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Priority score is computed automatically.</div>
                   <div className="flex items-center gap-3">
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       onClick={() => {
                         setFamilyForm({
                           familyName: '',
-                          barangay: staffUser?.barangay || 'Aguho',
+                          barangay: staffBarangayName,
                           address: '',
                           headOfFamily: '',
                           contactNumber: '',
                           monthlyIncome: '',
                           programs: [],
-                          noPermanentAddress: false,
                         })
+                        setMembers([{ ...emptyMember(), relationship: 'Head' }])
+                        setFamilyImageFile(null)
                         setFormError('')
                         setFormSuccess('')
                       }}
@@ -938,7 +1045,115 @@ function StaffDashboardPage() {
           </section>
           
 
-          {/* Add Individual form removed from dashboard per staff UX change */}
+          <section className="mt-10 grid gap-6">
+            <article id="add-individual-section" className={`rounded-2xl px-7 py-7 shadow-[0_2px_8px_rgba(15,23,42,0.08)] ${isDarkMode ? 'border border-slate-700 bg-slate-900' : 'border border-slate-200 bg-white'}`}>
+              <div className="mb-6 flex items-center justify-between">
+                <div>
+                  <h3 className={`text-2xl font-black ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>Register New Individual</h3>
+                  <p className={`${isDarkMode ? 'text-slate-300' : 'text-slate-500'} mt-1`}>Add a new individual beneficiary record.</p>
+                </div>
+              </div>
+
+              {individualSuccess && (
+                <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                  {individualSuccess}
+                </div>
+              )}
+
+              {individualError && (
+                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {individualError}
+                </div>
+              )}
+
+              <form onSubmit={handleIndividualSubmit} className="rounded-2xl p-1" aria-label="Register individual form">
+                <div className={cardClass}>
+                  <div className={`grid gap-4 grid-cols-1 lg:grid-cols-2`}>
+                    <div className="lg:col-span-2">
+                      <label className={labelClass}>Full Name *</label>
+                      <input name="name" value={individualForm.name} onChange={handleIndividualChange} placeholder="e.g. Maria Santos" className={`${inputClass} mt-2`} required />
+                    </div>
+
+                    <div>
+                      <label className={labelClass}>Age *</label>
+                      <input type="number" min="0" name="age" value={individualForm.age} onChange={handleIndividualChange} placeholder="Enter age" className={`${inputClass} mt-2`} required />
+                    </div>
+
+                    <div>
+                      <label className={labelClass}>Gender *</label>
+                      <select name="gender" value={individualForm.gender} onChange={handleIndividualChange} className={`${inputClass} mt-2`}>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className={labelClass}>Barangay</label>
+                      <div className={`mt-2 flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm ${isDarkMode ? 'border-white/10 bg-[#0b1220]/50 text-slate-300' : 'border-slate-200 bg-slate-100 text-slate-700'}`}>
+                        <span>📍</span>
+                        <span className="font-medium">{staffBarangayName}</span>
+                        <span className={`ml-auto text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Assigned</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className={labelClass}>Status *</label>
+                      <select name="status" value={individualForm.status} onChange={handleIndividualChange} className={`${inputClass} mt-2`}>
+                        <option value="Registered">Registered</option>
+                        <option value="Received">Received</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className={labelClass}>Photo (Optional)</label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(event) => setIndividualImageFile(event.target.files?.[0] || null)}
+                        className={`${inputClass} mt-2`}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex items-center justify-between">
+                  <div className={`text-sm ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}></div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIndividualForm({
+                          name: '',
+                          age: '',
+                          gender: 'Male',
+                          barangay: staffUser?.barangay || 'Aguho',
+                          status: 'Registered',
+                        })
+                        setIndividualImageFile(null)
+                        setIndividualError('')
+                        setIndividualSuccess('')
+                      }}
+                      disabled={individualSubmitting}
+                      className={`rounded-full px-5 py-2 text-sm ${isDarkMode ? 'bg-slate-800 border border-slate-700 text-slate-300' : 'bg-slate-100 border border-slate-200 text-slate-900'}`}
+                    >
+                      Clear
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={individualSubmitting}
+                      className={`rounded-full px-5 py-2 text-sm font-semibold ${individualSubmitting
+                        ? (isDarkMode ? 'bg-emerald-600/50 text-white' : 'bg-emerald-600/50 text-white')
+                        : (isDarkMode ? 'bg-emerald-600 text-white hover:bg-emerald-500' : 'bg-emerald-600 text-white hover:bg-emerald-700')
+                      }`}
+                    >
+                      {individualSubmitting ? 'Adding...' : 'Register Individual'}
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </article>
+          </section>
 
             <section id="transparency-section" className={`mt-10 rounded-2xl px-7 py-7 shadow-[0_2px_8px_rgba(15,23,42,0.08)] ${isDarkMode ? 'border border-slate-700 bg-slate-800' : 'border border-slate-200 bg-white'}`}>
             <h3 className={`text-xl font-bold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>Transparency & System Overview</h3>
