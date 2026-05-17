@@ -84,10 +84,6 @@ function TransparencyPage() {
     },
   ]
 
-  const trendMonths = ['Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar']
-  const foodPackagesTrend = [3200, 4100, 5800, 6200, 5500, 7300]
-  const familiesReachedTrend = [2100, 2650, 3800, 4100, 3600, 4800]
-
   const barangayDistribution = [
     { name: 'Aguho', value: 23, color: '#2563eb' },
     { name: 'Magtanggol', value: 16, color: '#ea580c' },
@@ -164,6 +160,53 @@ function TransparencyPage() {
       .sort((a, b) => b.value - a.value)
       .slice(0, 4)
   }, [loading, error, foodSupplies, allocationData])
+
+  const resolvedTrendData = useMemo(() => {
+    const now = new Date()
+    const months = Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1)
+      return { label: d.toLocaleString('en-US', { month: 'short' }), year: d.getFullYear(), month: d.getMonth() }
+    })
+
+    const foodPackages = months.map(({ year, month }) =>
+      distributions
+        .filter((d) => {
+          if (!d.date_given) return false
+          const date = new Date(d.date_given)
+          return date.getFullYear() === year && date.getMonth() === month
+        })
+        .reduce((sum, d) => sum + (Number(d.quantity) || 0), 0)
+    )
+
+    const familiesReached = months.map(({ year, month }) =>
+      new Set(
+        distributions
+          .filter((d) => {
+            if (!d.date_given || !d.family_id) return false
+            const date = new Date(d.date_given)
+            return date.getFullYear() === year && date.getMonth() === month
+          })
+          .map((d) => d.family_id)
+      ).size
+    )
+
+    return { months: months.map((m) => m.label), foodPackages, familiesReached }
+  }, [distributions])
+
+  const trendYMax = useMemo(() => {
+    const max = Math.max(...resolvedTrendData.foodPackages, ...resolvedTrendData.familiesReached, 1)
+    if (max <= 100) return 100
+    if (max <= 1000) return Math.ceil(max / 100) * 100
+    return Math.ceil(max / 1000) * 1000
+  }, [resolvedTrendData])
+
+  const lastUpdated = useMemo(() => {
+    const dates = distributions
+      .map((d) => (d.date_given ? new Date(d.date_given) : null))
+      .filter(Boolean)
+    if (dates.length === 0) return null
+    return new Date(Math.max(...dates.map((d) => d.getTime())))
+  }, [distributions])
 
   const totalBarangayDistribution = resolvedBarangayDistribution.reduce((sum, item) => sum + item.value, 0)
   const barangayDistributionPercentages = resolvedBarangayDistribution.map((item) => ({
@@ -264,20 +307,20 @@ function TransparencyPage() {
                   />
                 ))}
 
-                {[8000, 6000, 4000, 2000, 0].map((value, index) => (
+                {[1, 0.75, 0.5, 0.25, 0].map((ratio, index) => (
                   <text
-                    key={`y-label-${value}`}
+                    key={`y-label-${ratio}`}
                     x="52"
                     y={30 + index * 67.5 + 5}
                     textAnchor="end"
                     fontSize="14"
                     fill={isDarkMode ? '#cbd5e1' : '#475569'}
                   >
-                    {value}
+                    {Math.round(trendYMax * ratio)}
                   </text>
                 ))}
 
-                {trendMonths.map((month, index) => (
+                {resolvedTrendData.months.map((month, index) => (
                   <text
                     key={month}
                     x={60 + index * 180}
@@ -294,24 +337,24 @@ function TransparencyPage() {
                   fill="none"
                   stroke="#16a34a"
                   strokeWidth="2.5"
-                  points={foodPackagesTrend
-                    .map((value, index) => `${60 + index * 180},${300 - (value / 8000) * 270}`)
+                  points={resolvedTrendData.foodPackages
+                    .map((value, index) => `${60 + index * 180},${300 - (value / trendYMax) * 270}`)
                     .join(' ')}
                 />
                 <polyline
                   fill="none"
                   stroke="#ea580c"
                   strokeWidth="2.5"
-                  points={familiesReachedTrend
-                    .map((value, index) => `${60 + index * 180},${300 - (value / 8000) * 270}`)
+                  points={resolvedTrendData.familiesReached
+                    .map((value, index) => `${60 + index * 180},${300 - (value / trendYMax) * 270}`)
                     .join(' ')}
                 />
 
-                {foodPackagesTrend.map((value, index) => (
+                {resolvedTrendData.foodPackages.map((value, index) => (
                   <circle
-                    key={`food-point-${trendMonths[index]}`}
+                    key={`food-point-${resolvedTrendData.months[index]}`}
                     cx={60 + index * 180}
-                    cy={300 - (value / 8000) * 270}
+                    cy={300 - (value / trendYMax) * 270}
                     r="3.2"
                     fill={isDarkMode ? '#0f172a' : '#ffffff'}
                     stroke="#16a34a"
@@ -319,11 +362,11 @@ function TransparencyPage() {
                   />
                 ))}
 
-                {familiesReachedTrend.map((value, index) => (
+                {resolvedTrendData.familiesReached.map((value, index) => (
                   <circle
-                    key={`families-point-${trendMonths[index]}`}
+                    key={`families-point-${resolvedTrendData.months[index]}`}
                     cx={60 + index * 180}
-                    cy={300 - (value / 8000) * 270}
+                    cy={300 - (value / trendYMax) * 270}
                     r="3.2"
                     fill={isDarkMode ? '#0f172a' : '#ffffff'}
                     stroke="#ea580c"
@@ -496,7 +539,11 @@ function TransparencyPage() {
                   <path d="M8 2v4" />
                   <path d="M3 10h18" />
                 </svg>
-                Last updated: March 29, 2026 at 10:30 AM
+                Last updated:{' '}
+                {lastUpdated
+                  ? lastUpdated.toLocaleString('en-PH', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                  : new Date().toLocaleString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })
+                }
               </p>
               <p className="mt-2 text-base md:text-lg">
                 All data is updated in real-time and reflects the current status of our operations.
