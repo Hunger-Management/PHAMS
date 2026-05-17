@@ -3,6 +3,8 @@ import { useDarkMode } from '../hooks/useDarkMode'
 import Footer from '../components/Footer'
 import SiteHeader from '../components/SiteHeader'
 import { apiFetch } from '../api/api'
+import bankTransferQr from '../assets/Bank.webp'
+import gcashQr from '../assets/Gcash.png'
 
 const donationChannels = [
   {
@@ -33,7 +35,9 @@ const donationChannels = [
 
 function DonationPage() {
   const { isDarkMode, toggleDarkMode } = useDarkMode()
+  const [processedBankQr, setProcessedBankQr] = useState(null)
   const [selectedChannel, setSelectedChannel] = useState('monetary')
+  const [paymentMethod, setPaymentMethod] = useState('Bank Transfer')
   const [selectedAmount, setSelectedAmount] = useState(500)
   const [customAmount, setCustomAmount] = useState('')
   const [recentDonors, setRecentDonors] = useState([])
@@ -79,6 +83,110 @@ function DonationPage() {
     if (Number.isNaN(parsed.getTime())) return 'Recently'
     return parsed.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
   }
+
+  // Crop the image to the QR area (detect dark pixels bounding box)
+  async function cropToQr(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas')
+          canvas.width = img.naturalWidth
+          canvas.height = img.naturalHeight
+          const ctx = canvas.getContext('2d')
+          ctx.drawImage(img, 0, 0)
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+          const d = imageData.data
+
+          let minX = canvas.width, minY = canvas.height, maxX = 0, maxY = 0
+          const threshold = 200 // luminance threshold to detect dark modules
+
+          for (let y = 0; y < canvas.height; y++) {
+            for (let x = 0; x < canvas.width; x++) {
+              const i = (y * canvas.width + x) * 4
+              const r = d[i], g = d[i + 1], b = d[i + 2]
+              const lum = 0.299 * r + 0.587 * g + 0.114 * b
+              if (lum < threshold) {
+                if (x < minX) minX = x
+                if (y < minY) minY = y
+                if (x > maxX) maxX = x
+                if (y > maxY) maxY = y
+              }
+            }
+          }
+
+          if (maxX <= minX || maxY <= minY) {
+            // no dark area detected — fallback
+            resolve(src)
+            return
+          }
+
+          // add small padding
+          const pad = Math.round(Math.min(canvas.width, canvas.height) * 0.03)
+          minX = Math.max(0, minX - pad)
+          minY = Math.max(0, minY - pad)
+          maxX = Math.min(canvas.width - 1, maxX + pad)
+          maxY = Math.min(canvas.height - 1, maxY + pad)
+
+          const w = maxX - minX + 1
+          const h = maxY - minY + 1
+          const out = document.createElement('canvas')
+          out.width = w
+          out.height = h
+          const outCtx = out.getContext('2d')
+          outCtx.drawImage(canvas, minX, minY, w, h, 0, 0, w, h)
+          resolve(out.toDataURL('image/png'))
+        } catch (err) {
+          resolve(src)
+        }
+      }
+      img.onerror = () => resolve(src)
+      img.src = src
+    })
+  }
+
+  useEffect(() => {
+    let mounted = true
+    cropToQr(bankTransferQr).then((dataUrl) => {
+      if (mounted) setProcessedBankQr(dataUrl)
+    }).catch(() => {})
+    return () => { mounted = false }
+  }, [])
+
+  const bankTransferCard = processedBankQr ? (
+    <div className="mt-6 flex justify-center">
+      <img
+        src={processedBankQr}
+        alt="BPI InstaPay QR code"
+        className="h-80 w-80 object-contain md:h-96 md:w-96"
+      />
+    </div>
+  ) : (
+    <div className={`mt-6 rounded-2xl border p-5 md:p-6 ${isDarkMode ? 'border-slate-700 bg-slate-950' : 'border-slate-200 bg-white'}`}>
+      <div className="flex items-center justify-center">
+        <div className="w-full max-w-[720px] rounded-[28px] bg-[#d84343] p-5 shadow-lg">
+          <div className="rounded-[24px] bg-white px-6 py-8 text-center">
+            <p className="text-4xl font-black tracking-tight text-[#ef4d4a] md:text-5xl">BPI</p>
+            <p className="mt-3 text-3xl font-bold tracking-tight text-slate-800 md:text-[2.35rem]">SS BPI</p>
+            <p className="mt-4 text-lg text-slate-700 md:text-xl">Account number: xxxxxx316</p>
+
+            <div className="mx-auto mt-10 flex justify-center">
+              <div className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-black/5">
+                <img
+                  src={bankTransferQr}
+                  alt="BPI InstaPay QR code"
+                  className="h-80 w-80 rounded-xl object-contain md:h-96 md:w-96"
+                />
+              </div>
+            </div>
+
+            <p className="mt-10 text-base text-slate-500 md:text-lg">Transfer fees may apply</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 
   const loadRecentDonors = () => {
     apiFetch('/api/donations')
@@ -447,7 +555,8 @@ function DonationPage() {
                   </label>
                   <select
                     id="payment-method"
-                    defaultValue="Bank Transfer"
+                    value={paymentMethod}
+                    onChange={(event) => setPaymentMethod(event.target.value)}
                     className={`w-full max-w-xs rounded-lg border px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-blue-500/40 ${
                       isDarkMode
                         ? 'border-slate-600 bg-slate-800 text-slate-100'
@@ -456,11 +565,15 @@ function DonationPage() {
                   >
                     <option>Bank Transfer</option>
                     <option>GCash</option>
-                    <option>Maya</option>
-                    <option>Cash</option>
                   </select>
                 </div>
               </div>
+
+              {paymentMethod === 'Bank Transfer' ? bankTransferCard : paymentMethod === 'GCash' ? (
+                <div className="mt-6 flex justify-center">
+                  <img src={gcashQr} alt="GCash QR" className="h-80 w-80 object-contain md:h-96 md:w-96" />
+                </div>
+              ) : null}
 
               <div>
                 <label htmlFor="donation-message" className={`mb-1 block text-base md:text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>

@@ -15,9 +15,6 @@ export default function AdminDashboardPage() {
     const [stats, setStats] = useState(null)
     const [statsLoading, setStatsLoading] = useState(true)
     const [statsError, setStatsError] = useState(null)
-    const [barangays, setBarangays] = useState([])
-    const [loading, setLoading] = useState(true)
-    const [error, setError] = useState(null)
 
     const location = useLocation()
 
@@ -51,18 +48,6 @@ export default function AdminDashboardPage() {
             body.style.overflowX = previousOverflowX
         }
     }, [location])
-    useEffect(() => {
-        apiFetch('/api/barangays')
-            .then((data) => {
-                setBarangays(data)
-                setLoading(false)
-            })
-            .catch((err) => {
-                setError(err.message)
-                setLoading(false)
-            })
-    }, [])
-
     useEffect(() => {
         apiFetch('/api/stats')
             .then((data) => {
@@ -162,56 +147,6 @@ export default function AdminDashboardPage() {
                                 ))}
                             </div>
                         )}
-                    </section>
-
-                    <section
-                        className={`mb-10 rounded-2xl border shadow-sm ${isDarkMode
-                                ? 'bg-[#111c2e] border-white/10'
-                                : 'bg-white border-slate-200'
-                            }`}
-                    >
-                        <div className="border-b px-6 py-4">
-                            <h3
-                                className={`text-xl font-semibold ${isDarkMode
-                                        ? 'text-white'
-                                        : 'text-slate-900'
-                                    }`}
-                            >
-                                Barangays
-                            </h3>
-                        </div>
-
-                        <div className="px-6 py-4">
-                            {loading && (
-                                <p className={`${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
-                                    Loading barangays...
-                                </p>
-                            )}
-                            {error && (
-                                <p className="text-red-500">Error: {error}</p>
-                            )}
-
-                            {!loading && !error && (
-                                <div className="overflow-x-auto">
-                                    <table className="w-full border-collapse">
-                                        <thead>
-                                            <tr className="bg-emerald-600 text-white">
-                                                <th className="p-3 text-left">ID</th>
-                                                <th className="p-3 text-left">Barangay Name</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {barangays.map((b) => (
-                                                <tr key={b.barangay_id} className="border-b hover:bg-emerald-50">
-                                                    <td className="p-3">{b.barangay_id}</td>
-                                                    <td className="p-3">{b.name}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            )}
-                        </div>
                     </section>
 
                     {/* BARANGAY MANAGEMENT */}
