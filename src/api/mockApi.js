@@ -21,6 +21,75 @@ function getBarangayName(barangayId) {
   return BARANGAYS.find((item) => item.barangay_id === Number(barangayId))?.name || 'Unknown'
 }
 
+function normalizeActor(rawActor = {}) {
+  const staffUserId = rawActor.staff_user_id ?? rawActor.staffId ?? rawActor.staff_id ?? null
+  const staffName = rawActor.staff_name || rawActor.staffName || rawActor.name || 'System'
+
+  return {
+    staff_user_id: staffUserId !== null && staffUserId !== undefined && staffUserId !== '' ? String(staffUserId) : null,
+    staff_name: String(staffName || 'System'),
+    staff_email: rawActor.staff_email || rawActor.email || null,
+    staff_role: rawActor.staff_role || rawActor.role || 'Staff',
+  }
+}
+
+function formatDistributionDetails(distribution) {
+  if (!distribution) return 'Distribution details unavailable.'
+
+  const recipient = distribution.family_name || distribution.individual_name || distribution.recipient_type || 'Unknown recipient'
+  const barangay = distribution.barangay_name || 'Unknown barangay'
+  const itemName = distribution.food_name || 'Food supply'
+  const quantity = distribution.quantity !== null && distribution.quantity !== undefined && distribution.quantity !== ''
+    ? `${distribution.quantity} ${distribution.unit || ''}`.trim()
+    : '—'
+  const status = distribution.status || 'Unknown status'
+  const recordLabel = distribution.distribution_id ? `Distribution #${distribution.distribution_id}` : 'Distribution record'
+
+  return `${recordLabel} • ${recipient} • ${barangay} • ${itemName}${quantity !== '—' ? ` (${quantity})` : ''} • Status: ${status}`
+}
+
+function determineDistributionAction(status, fallback = 'created') {
+  const normalizedStatus = String(status || '').trim().toLowerCase()
+
+  if (!normalizedStatus) return fallback
+  if (normalizedStatus === 'completed' || normalizedStatus === 'distributed') return 'distributed'
+  if (normalizedStatus === 'pending') return fallback
+  return 'updated'
+}
+
+function createActivityLogEntry(db, distribution, action, actor) {
+  const activity_id = nextId(db.activityLogs || [], 'activity_id')
+  return {
+    activity_id,
+    distribution_id: distribution?.distribution_id ?? null,
+    action,
+    staff_user_id: actor?.staff_user_id || null,
+    staff_name: actor?.staff_name || 'System',
+    staff_email: actor?.staff_email || null,
+    distribution_details: formatDistributionDetails(distribution),
+    performed_at: nowIso(),
+  }
+}
+
+function buildActivityLogsFromDistributions(db) {
+  return (db.distributions || [])
+    .slice()
+    .sort((a, b) => new Date(b.date_given || 0).getTime() - new Date(a.date_given || 0).getTime())
+    .map((item, index) => {
+      const activity = createActivityLogEntry(db, withJoins({ ...db, distributions: [item] }).distributions[0], determineDistributionAction(item.status, 'created'), {
+        staff_user_id: 'seed',
+        staff_name: 'Seed Data',
+        staff_email: null,
+      })
+
+      return {
+        ...activity,
+        activity_id: index + 1,
+        performed_at: item.date_given || nowIso(),
+      }
+    })
+}
+
 function buildSeedDb() {
   return {
     users: [
@@ -152,6 +221,28 @@ function buildSeedDb() {
         status: 'Pending',
       },
     ],
+    activityLogs: [
+      {
+        activity_id: 1,
+        distribution_id: 1,
+        action: 'distributed',
+        staff_user_id: '2',
+        staff_name: 'Aguho Staff',
+        staff_email: 'staff@pateros.gov.ph',
+        distribution_details: 'Distribution #1 • Dela Cruz Family • Aguho • Rice (30 kg) • Status: Completed',
+        performed_at: nowIso(),
+      },
+      {
+        activity_id: 2,
+        distribution_id: 2,
+        action: 'created',
+        staff_user_id: '2',
+        staff_name: 'Aguho Staff',
+        staff_email: 'staff@pateros.gov.ph',
+        distribution_details: 'Distribution #2 • Pedro Ramos • Aguho • Canned Goods (5 packs) • Status: Pending',
+        performed_at: nowIso(),
+      },
+    ],
   }
 }
 
@@ -169,10 +260,16 @@ function loadDb() {
 
   try {
     const parsed = JSON.parse(raw)
-    return {
+    const merged = {
       ...buildSeedDb(),
       ...parsed,
     }
+
+    if (!Array.isArray(parsed.activityLogs) || parsed.activityLogs.length === 0) {
+      merged.activityLogs = buildActivityLogsFromDistributions(merged)
+    }
+
+    return merged
   } catch {
     const seed = buildSeedDb()
     localStorage.setItem(MOCK_DB_STORAGE_KEY, JSON.stringify(seed))
@@ -287,7 +384,7 @@ function getStats(db) {
   }
 }
 
-function handleGet(path, db) {
+function handleGet(path, db, originalPath = path) {
   const joins = withJoins(db)
 
   if (path === '/api/barangays') return BARANGAYS
@@ -320,6 +417,15 @@ function handleGet(path, db) {
   if (path === '/api/food-supplies') return db.foodSupplies
   if (path === '/api/donations') return joins.donations
   if (path === '/api/distributions') return joins.distributions
+  if (path === '/api/activity-logs') {
+    const url = new URL(`http://local${originalPath}`)
+    const limit = Math.min(Math.max(Number(url.searchParams.get('limit')) || 20, 1), 100)
+
+    return (db.activityLogs || [])
+      .slice()
+      .sort((a, b) => new Date(b.performed_at || 0).getTime() - new Date(a.performed_at || 0).getTime())
+      .slice(0, limit)
+  }
   if (path === '/api/users') {
     return db.users.map(({ password, ...safe }) => safe)
   }
@@ -510,9 +616,15 @@ function handlePost(path, db, body) {
       quantity: Number(body.quantity || 0),
       date_given: body.date_given || nowIso(),
       status: body.status || 'Pending',
+      image: body.image_data || null,
     }
     db.distributions.unshift(item)
     updateFoodQuantity(db, item.food_id, -item.quantity)
+    const enriched = withJoins(db).distributions.find((distribution) => distribution.distribution_id === distribution_id) || item
+    const actor = normalizeActor(body)
+    const action = determineDistributionAction(item.status, 'created')
+    db.activityLogs = db.activityLogs || []
+    db.activityLogs.unshift(createActivityLogEntry(db, enriched, action, actor))
     saveDb(db)
     return item
   }
@@ -520,7 +632,7 @@ function handlePost(path, db, body) {
   throw makeError('Endpoint not found.', 404)
 }
 
-function handleDelete(path, db) {
+function handleDelete(path, db, body = {}) {
   let match = path.match(/^\/api\/families\/(\d+)$/)
   if (match) {
     const family_id = Number(match[1])
@@ -556,6 +668,10 @@ function handleDelete(path, db) {
     db.distributions = db.distributions.filter((item) => item.distribution_id !== distribution_id)
     if (existing) {
       updateFoodQuantity(db, existing.food_id, Number(existing.quantity || 0))
+      const enriched = withJoins({ ...db, distributions: [existing] }).distributions[0] || existing
+      const actor = normalizeActor(body)
+      db.activityLogs = db.activityLogs || []
+      db.activityLogs.unshift(createActivityLogEntry(db, enriched, 'deleted', actor))
     }
     saveDb(db)
     return { ok: true }
@@ -631,13 +747,22 @@ function handlePut(path, db, body) {
   match = path.match(/^\/api\/distributions\/(\d+)$/)
   if (match) {
     const distribution_id = Number(match[1])
+    const existing = db.distributions.find((item) => item.distribution_id === distribution_id)
     db.distributions = db.distributions.map((item) => {
       if (item.distribution_id !== distribution_id) return item
       return {
         ...item,
         status: body.status ?? item.status,
+        image: body.image_data || item.image || null,
       }
     })
+    if (existing) {
+      const updated = db.distributions.find((item) => item.distribution_id === distribution_id) || existing
+      const enriched = withJoins({ ...db, distributions: [updated] }).distributions[0] || updated
+      const actor = normalizeActor(body)
+      db.activityLogs = db.activityLogs || []
+      db.activityLogs.unshift(createActivityLogEntry(db, enriched, determineDistributionAction(body.status, 'updated'), actor))
+    }
     saveDb(db)
     return { ok: true }
   }
@@ -669,6 +794,7 @@ function handlePut(path, db, body) {
 
 export async function mockApiFetch(path, options = {}) {
   const method = String(options.method || 'GET').toUpperCase()
+  const rawPath = String(path || '')
   const cleanPath = normalizePath(path)
   const body = parseBody(options)
   const db = loadDb()
@@ -677,10 +803,10 @@ export async function mockApiFetch(path, options = {}) {
     window.setTimeout(resolve, 120)
   })
 
-  if (method === 'GET') return handleGet(cleanPath, db)
+  if (method === 'GET') return handleGet(cleanPath, db, rawPath)
   if (method === 'POST') return handlePost(cleanPath, db, body)
   if (method === 'PUT') return handlePut(cleanPath, db, body)
-  if (method === 'DELETE') return handleDelete(cleanPath, db)
+  if (method === 'DELETE') return handleDelete(cleanPath, db, body)
 
   throw makeError('Method not supported.', 405)
 }

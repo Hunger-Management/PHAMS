@@ -102,6 +102,21 @@ CREATE TABLE IF NOT EXISTS distribution (
     ON DELETE SET NULL
 );
 
+CREATE TABLE IF NOT EXISTS distribution_activity_logs (
+  activity_id INT AUTO_INCREMENT PRIMARY KEY,
+  distribution_id INT NULL,
+  action VARCHAR(20) NOT NULL,
+  staff_user_id VARCHAR(64) NULL,
+  staff_name VARCHAR(150) NOT NULL,
+  staff_email VARCHAR(255) NULL,
+  distribution_details TEXT,
+  performed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_activity_logs_distribution
+    FOREIGN KEY (distribution_id) REFERENCES distribution(distribution_id)
+    ON UPDATE CASCADE
+    ON DELETE SET NULL
+);
+
 CREATE TABLE IF NOT EXISTS users (
   user_id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(150) NOT NULL,

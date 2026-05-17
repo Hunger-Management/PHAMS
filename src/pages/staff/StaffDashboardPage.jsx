@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import { apiFetch } from '../../api/api'
 import { useDarkMode } from '../../hooks/useDarkMode'
@@ -36,9 +36,24 @@ const BARANGAY_MAP = {
   'Tabacalera': 10,
 }
 
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    if (!file) {
+      resolve('')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.onerror = () => reject(new Error('Failed to read image file.'))
+    reader.readAsDataURL(file)
+  })
+}
+
 function StaffDashboardPage() {
   const { isDarkMode, toggleDarkMode } = useDarkMode()
   const { staffUser } = useStaffAuth()
+  const location = useLocation()
   const [families, setFamilies] = useState([])
   const [individuals, setIndividuals] = useState([])
   const [distributions, setDistributions] = useState([])
@@ -47,6 +62,8 @@ function StaffDashboardPage() {
   const [formSubmitting, setFormSubmitting] = useState(false)
   const [formSuccess, setFormSuccess] = useState('')
   const [formError, setFormError] = useState('')
+  const [activityDrafts, setActivityDrafts] = useState({})
+  const [activitySubmittingId, setActivitySubmittingId] = useState(null)
 
   const [staffBarangayName, setStaffBarangayName] = useState(
     staffUser?.barangay || staffUser?.barangay_name || ''
@@ -66,43 +83,58 @@ function StaffDashboardPage() {
 
   const staffBarangay = staffBarangayName || 'Unknown Barangay'
 
-  useEffect(() => {
-    Promise.all([
+  const loadDashboardData = async () => {
+    const [familiesData, individualsData, distributionsData] = await Promise.all([
       apiFetch('/api/families'),
       apiFetch('/api/individuals'),
       apiFetch('/api/distributions'),
     ])
-      .then(([familiesData, individualsData, distributionsData]) => {
-        setFamilies(Array.isArray(familiesData) ? familiesData : [])
-        setIndividuals(Array.isArray(individualsData) ? individualsData : [])
-        setDistributions(Array.isArray(distributionsData) ? distributionsData : [])
-        setLoading(false)
-      })
+
+    setFamilies(Array.isArray(familiesData) ? familiesData : [])
+    setIndividuals(Array.isArray(individualsData) ? individualsData : [])
+    setDistributions(Array.isArray(distributionsData) ? distributionsData : [])
+  }
+
+  useEffect(() => {
+    loadDashboardData()
+      .then(() => setLoading(false))
       .catch((err) => {
         setError(err.message || 'Failed to load staff dashboard data.')
         setLoading(false)
       })
   }, [])
 
+  useEffect(() => {
+    const target = location.state?.scrollTo
+    if (!target) return
+
+    const scrollWithRetry = () => {
+      if (target === 'dashboard-top') {
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+        return
+      }
+
+      const el = document.getElementById(target)
+      if (!el) {
+        window.setTimeout(scrollWithRetry, 150)
+        return
+      }
+
+      const top = el.getBoundingClientRect().top + window.pageYOffset - 24
+      window.scrollTo({ top, behavior: 'smooth' })
+    }
+
+    window.setTimeout(scrollWithRetry, 0)
+  }, [location.state])
+
   // Recalculate barangay stats when families or distributions change
   useEffect(() => {
     if (formSuccess) {
       // Refresh data after successful submission with a small delay to ensure DB commit
       const timer = setTimeout(() => {
-        Promise.all([
-          apiFetch('/api/families'),
-          apiFetch('/api/individuals'),
-          apiFetch('/api/distributions'),
-        ])
-          .then(([familiesData, individualsData, distributionsData]) => {
-            console.log('Data refreshed after family submission:', familiesData)
-            setFamilies(Array.isArray(familiesData) ? familiesData : [])
-            setIndividuals(Array.isArray(individualsData) ? individualsData : [])
-            setDistributions(Array.isArray(distributionsData) ? distributionsData : [])
-          })
-          .catch((err) => {
-            console.error('Error refreshing data:', err)
-          })
+        loadDashboardData().catch((err) => {
+          console.error('Error refreshing data:', err)
+        })
       }, 500)
       
       return () => clearTimeout(timer)
@@ -221,6 +253,119 @@ function StaffDashboardPage() {
         return `Distribution ${status} for ${recipient}`
       })
   }, [filteredDistributions])
+
+  const recentActivityItems = useMemo(() => filteredDistributions.slice(0, 5), [filteredDistributions])
+
+  useEffect(() => {
+    setActivityDrafts((prev) => {
+      const next = { ...prev }
+
+      recentActivityItems.forEach((item) => {
+        if (!next[item.distribution_id]) {
+          next[item.distribution_id] = {
+            status: String(item.status || 'Pending'),
+            imageFile: null,
+            imageData: item.image ? `data:image/jpeg;base64,${item.image}` : '',
+            imageName: item.image ? 'Current distribution photo' : '',
+          }
+        }
+      })
+
+      return next
+    })
+  }, [recentActivityItems])
+
+  const handleActivityDraftChange = (distributionId, field, value) => {
+    setActivityDrafts((prev) => ({
+      ...prev,
+      [distributionId]: {
+        status: 'Pending',
+        imageFile: null,
+        imageData: '',
+        imageName: '',
+        ...(prev[distributionId] || {}),
+        [field]: value,
+      },
+    }))
+  }
+
+  const handleActivityPhotoChange = async (distributionId, file) => {
+    if (!file) {
+      setActivityDrafts((prev) => ({
+        ...prev,
+        [distributionId]: {
+          ...(prev[distributionId] || {}),
+          imageFile: null,
+          imageData: '',
+          imageName: '',
+        },
+      }))
+      return
+    }
+
+    const imageData = await readFileAsDataUrl(file)
+    setActivityDrafts((prev) => ({
+      ...prev,
+      [distributionId]: {
+        ...(prev[distributionId] || {}),
+        imageFile: file,
+        imageData,
+        imageName: file.name,
+      },
+    }))
+  }
+
+  const handleConfirmActivity = async (distribution) => {
+    const draft = activityDrafts[distribution.distribution_id] || {}
+    const nextStatus = draft.status || distribution.status || 'Pending'
+
+    setActivitySubmittingId(distribution.distribution_id)
+    try {
+      const payload = new FormData()
+      payload.append('status', nextStatus)
+
+      if (draft.imageFile) {
+        payload.append('image', draft.imageFile)
+      }
+
+      if (draft.imageData) {
+        payload.append('image_data', draft.imageData)
+      }
+
+      const actor = {
+        staff_user_id: staffUser?.user_id ? String(staffUser.user_id) : '',
+        staff_name: staffUser?.name || 'Staff',
+        staff_email: staffUser?.email || '',
+        staff_role: staffUser?.role || 'Staff',
+      }
+
+      payload.append('staff_user_id', actor.staff_user_id)
+      payload.append('staff_name', actor.staff_name)
+      payload.append('staff_email', actor.staff_email)
+      payload.append('staff_role', actor.staff_role)
+
+      await apiFetch(`/api/distributions/${distribution.distribution_id}`, {
+        method: 'PUT',
+        body: payload,
+      })
+
+      setActivityDrafts((prev) => ({
+        ...prev,
+        [distribution.distribution_id]: {
+          status: nextStatus,
+          imageFile: null,
+          imageData: draft.imageData || distribution.image || '',
+          imageName: draft.imageName || (distribution.image ? 'Current distribution photo' : ''),
+        },
+      }))
+
+      await loadDashboardData()
+    } catch (err) {
+      setError(err.message || 'Failed to confirm distribution activity.')
+    } finally {
+      setActivitySubmittingId(null)
+    }
+  }
 
   const nutritionalSlices = [
     { label: 'Normal 42%', width: '42%', color: '#27c18d' },
@@ -1193,13 +1338,100 @@ function StaffDashboardPage() {
 
             <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
               <h4 className={`font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}>Recent Activity</h4>
-              <ul className={`mt-3 space-y-2 text-sm ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
-                {filteredDistributions.slice(0, 5).map((dist, idx) => (
-                  <li key={idx} className="flex items-start gap-2">
-                    <span className="mt-1 text-lg">→</span>
-                    <span>{dist.family_name || dist.individual_name || 'Unknown'} - {dist.status || 'Updated'}</span>
-                  </li>
-                ))}
+              <ul className={`mt-3 space-y-3 text-sm ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                {recentActivityItems.map((dist) => {
+                  const draft = activityDrafts[dist.distribution_id] || {}
+                  const statusValue = draft.status || dist.status || 'Pending'
+                  const recipient = dist.family_name || dist.individual_name || 'Unknown'
+                  const recipientLabel = dist.family_name ? 'Family' : 'Individual'
+                  const hasConfirmationPhoto = Boolean(draft.imageData || draft.imageFile || dist.image)
+
+                  return (
+                    <li
+                      key={dist.distribution_id}
+                      className={`rounded-2xl border p-4 ${isDarkMode ? 'border-slate-700 bg-slate-900/60' : 'border-slate-200 bg-slate-50'}`}
+                    >
+                      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-lg">→</span>
+                            <span className="font-semibold">{recipient}</span>
+                            <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${String(dist.status || '').toLowerCase() === 'received' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                              {dist.status || 'Pending'}
+                            </span>
+                            <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-white text-slate-600'}`}>
+                              {recipientLabel}
+                            </span>
+                          </div>
+                          <p className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>
+                            {dist.food_name || 'Food supply'} {dist.quantity ? `• ${dist.quantity} ${dist.unit || ''}`.trim() : ''}
+                          </p>
+                          <p className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>
+                            {dist.barangay_name || staffBarangay}
+                          </p>
+                          <p className={isDarkMode ? 'text-slate-500' : 'text-slate-400'}>
+                            Confirm distribution status and attach a photo before saving.
+                          </p>
+                        </div>
+
+                        <div className={`grid gap-3 rounded-2xl border border-dashed p-4 lg:min-w-[320px] ${isDarkMode ? 'border-slate-600 bg-slate-950/50' : 'border-slate-300 bg-white'}`}>
+                          <div>
+                            <label className={`mb-1 block text-xs font-semibold uppercase tracking-wide ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                              Status
+                            </label>
+                            <select
+                              value={statusValue}
+                              onChange={(event) => handleActivityDraftChange(dist.distribution_id, 'status', event.target.value)}
+                              className={`w-full rounded-lg border px-3 py-2 text-sm ${isDarkMode ? 'border-slate-700 bg-slate-950 text-slate-100' : 'border-slate-200 bg-white text-slate-900'}`}
+                            >
+                              <option value="Pending">Pending</option>
+                              <option value="Received">Received</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className={`mb-1 block text-xs font-semibold uppercase tracking-wide ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                              Confirm with picture
+                            </label>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(event) => handleActivityPhotoChange(dist.distribution_id, event.target.files?.[0] || null)}
+                              className={`w-full rounded-lg border px-3 py-2 text-sm ${isDarkMode ? 'border-slate-700 bg-slate-950 text-slate-100' : 'border-slate-200 bg-white text-slate-900'}`}
+                            />
+                          </div>
+
+                          {(draft.imageData || dist.image) ? (
+                            <img
+                              src={draft.imageData || `data:image/jpeg;base64,${dist.image}`}
+                              alt="Distribution confirmation preview"
+                              className="h-36 w-full rounded-xl object-cover"
+                            />
+                          ) : (
+                            <p className={`text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                              No photo attached yet.
+                            </p>
+                          )}
+
+                          {!hasConfirmationPhoto ? (
+                            <p className="text-xs font-medium text-amber-600">
+                              A photo is required before you can confirm this activity.
+                            </p>
+                          ) : null}
+
+                          <button
+                            type="button"
+                            onClick={() => handleConfirmActivity(dist)}
+                            disabled={activitySubmittingId === dist.distribution_id || !hasConfirmationPhoto}
+                            className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60"
+                          >
+                            {activitySubmittingId === dist.distribution_id ? 'Confirming...' : 'Confirm Activity'}
+                          </button>
+                        </div>
+                      </div>
+                    </li>
+                  )
+                })}
                 {filteredDistributions.length === 0 && (
                   <li className={isDarkMode ? 'text-slate-500' : 'text-slate-400'}>No recent activity</li>
                 )}

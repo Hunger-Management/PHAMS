@@ -5,6 +5,8 @@ import { useDarkMode } from '../../hooks/useDarkMode'
 import AdminSidebar from '../components/AdminSidebar'
 import StaffSidebar from '../../pages/staff/StaffSidebar'
 import { apiFetch } from '../../api/api'
+import { getCurrentStaffActor } from '../../utils/staffActivity'
+import { useStaffAuth } from '../../context/StaffAuthContext'
 
 const DEFAULT_FORM = {
   recipient_type: 'Family',
@@ -21,6 +23,7 @@ function AddDistributionPage() {
   const { isDarkMode, toggleDarkMode } = useDarkMode()
   const navigate = useNavigate()
   const location = useLocation()
+  const { staffUser } = useStaffAuth()
 
   const isStaffView = location.pathname.startsWith('/staff/')
   const transparencyPath = isStaffView ? '/staff/dashboard' : '/admin/transparency'
@@ -43,6 +46,13 @@ function AddDistributionPage() {
   const [submitting, setSubmitting] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
+
+  const staffBarangayId = staffUser?.barangay_id ? String(staffUser.barangay_id) : ''
+  const isStaffLockedBarangay = isStaffView && Boolean(staffBarangayId)
+
+  const availableRecipients = formData.recipient_type === 'Individual'
+    ? individuals
+    : families
 
   useEffect(() => {
     const loadData = async () => {
@@ -70,6 +80,16 @@ function AddDistributionPage() {
     loadData()
   }, [])
 
+  useEffect(() => {
+    if (!isStaffLockedBarangay) return
+
+    setFormData((prev) => (
+      prev.barangay_id === staffBarangayId
+        ? prev
+        : { ...prev, barangay_id: staffBarangayId }
+    ))
+  }, [isStaffLockedBarangay, staffBarangayId])
+
   // Prefill form when navigated from staff view with a family or barangay
   useEffect(() => {
     if (!location.state) return
@@ -77,10 +97,24 @@ function AddDistributionPage() {
     setFormData((prev) => ({
       ...prev,
       family_id: familyId || prev.family_id,
-      barangay_id: barangayId || prev.barangay_id,
+      barangay_id: isStaffLockedBarangay ? staffBarangayId : (barangayId || prev.barangay_id),
       recipient_type: familyId ? 'Family' : prev.recipient_type,
     }))
-  }, [location.state])
+  }, [location.state, isStaffLockedBarangay, staffBarangayId])
+
+  useEffect(() => {
+    setFormData((prev) => {
+      if (prev.recipient_type === 'Family') {
+        return prev.individual_id ? { ...prev, individual_id: '' } : prev
+      }
+
+      if (prev.recipient_type === 'Individual') {
+        return prev.family_id ? { ...prev, family_id: '' } : prev
+      }
+
+      return prev
+    })
+  }, [formData.recipient_type])
 
   const handleChange = (event) => {
     const { name, value } = event.target
@@ -89,8 +123,8 @@ function AddDistributionPage() {
       setFormData((prev) => ({
         ...prev,
         recipient_type: value,
-        family_id: value === 'Family' ? prev.family_id : '',
-        individual_id: value === 'Individual' ? prev.individual_id : '',
+        family_id: '',
+        individual_id: '',
       }))
       return
     }
@@ -147,11 +181,16 @@ function AddDistributionPage() {
       payload.append('recipient_type', formData.recipient_type)
       payload.append('family_id', needsFamily ? String(Number(formData.family_id)) : '')
       payload.append('individual_id', needsIndividual ? String(Number(formData.individual_id)) : '')
-      payload.append('barangay_id', String(Number(formData.barangay_id)))
+      payload.append('barangay_id', String(Number(isStaffLockedBarangay ? staffBarangayId : formData.barangay_id)))
       payload.append('food_id', String(Number(formData.food_id)))
       payload.append('quantity', String(Number(formData.quantity)))
       payload.append('date_given', formData.date_given)
       payload.append('status', formData.status)
+      const actor = getCurrentStaffActor(isStaffView ? 'staff' : 'admin')
+      payload.append('staff_user_id', actor.staff_user_id || '')
+      payload.append('staff_name', actor.staff_name || '')
+      payload.append('staff_email', actor.staff_email || '')
+      payload.append('staff_role', actor.staff_role || '')
       if (imageFile) {
         payload.append('image', imageFile)
       }
@@ -269,33 +308,43 @@ function AddDistributionPage() {
                   <label className={labelClass}>Barangay *</label>
                   <select
                     name="barangay_id"
-                    value={formData.barangay_id}
+                    value={isStaffLockedBarangay ? staffBarangayId : formData.barangay_id}
                     onChange={handleChange}
-                    className={inputClass}
-                    disabled={loading}
+                    className={`${inputClass} appearance-none pr-10`}
+                    disabled={loading || isStaffLockedBarangay}
                   >
-                    <option value="">Select barangay</option>
+                    <option value="">{isStaffLockedBarangay ? 'Assigned barangay' : 'Select barangay'}</option>
                     {barangays.map((barangay) => (
                       <option key={barangay.barangay_id} value={barangay.barangay_id}>
                         {barangay.name}
                       </option>
                     ))}
                   </select>
+                  {isStaffLockedBarangay ? (
+                    <p className={`mt-1 text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                      Locked to your assigned barangay: {staffUser?.barangay || staffUser?.barangay_name || 'Assigned barangay'}
+                    </p>
+                  ) : null}
                 </div>
 
                 <div>
-                  <label className={labelClass}>Family *</label>
+                  <label className={labelClass}>{formData.recipient_type === 'Individual' ? 'Individual *' : 'Family *'}</label>
                   <select
-                    name="family_id"
-                    value={formData.family_id}
+                    name={formData.recipient_type === 'Individual' ? 'individual_id' : 'family_id'}
+                    value={formData.recipient_type === 'Individual' ? formData.individual_id : formData.family_id}
                     onChange={handleChange}
                     className={inputClass}
                     disabled={loading}
                   >
-                    <option value="">Select family</option>
-                    {families.map((family) => (
-                      <option key={family.family_id} value={family.family_id}>
-                        {family.family_name || `Family ${family.family_id}`}
+                    <option value="">{formData.recipient_type === 'Individual' ? 'Select individual' : 'Select family'}</option>
+                    {availableRecipients.map((recipient) => (
+                      <option
+                        key={formData.recipient_type === 'Individual' ? recipient.individual_id : recipient.family_id}
+                        value={formData.recipient_type === 'Individual' ? recipient.individual_id : recipient.family_id}
+                      >
+                        {formData.recipient_type === 'Individual'
+                          ? (recipient.name || `Individual ${recipient.individual_id}`)
+                          : (recipient.family_name || `Family ${recipient.family_id}`)}
                       </option>
                     ))}
                   </select>

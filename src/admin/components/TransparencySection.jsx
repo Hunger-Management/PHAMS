@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Download, Pencil, Trash2 } from 'lucide-react'
-import { useStaffAuth } from '../../context/StaffAuthContext'
 import { apiFetch } from '../../api/api'
+import { formatDistributionDetails, getCurrentStaffActor } from '../../utils/staffActivity'
 
 export default function TransparencySection({ isDarkMode }) {
-  const { staffAccounts } = useStaffAuth()
   const [distributions, setDistributions] = useState([])
   const [foodSupplies, setFoodSupplies] = useState([])
+  const [activityLogs, setActivityLogs] = useState([])
+  const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
@@ -21,13 +22,17 @@ export default function TransparencySection({ isDarkMode }) {
     setError('')
     setActionError('')
     try {
-      const [distData, supplyData] = await Promise.all([
+      const [distData, supplyData, logData, usersData] = await Promise.all([
         apiFetch('/api/distributions'),
         apiFetch('/api/food-supplies'),
+        apiFetch('/api/activity-logs?limit=12'),
+        apiFetch('/api/users'),
       ])
 
       setDistributions(Array.isArray(distData) ? distData : [])
       setFoodSupplies(Array.isArray(supplyData) ? supplyData : [])
+      setActivityLogs(Array.isArray(logData) ? logData : [])
+      setUsers(Array.isArray(usersData) ? usersData : [])
     } catch (err) {
       setError(err.message || 'Failed to load transparency data.')
     } finally {
@@ -39,41 +44,70 @@ export default function TransparencySection({ isDarkMode }) {
     loadTransparencyData()
   }, [])
 
+  useEffect(() => {
+    const refreshWhenVisible = () => {
+      if (!document.hidden) {
+        loadTransparencyData()
+      }
+    }
+
+    const intervalId = window.setInterval(refreshWhenVisible, 15000)
+    window.addEventListener('focus', refreshWhenVisible)
+    document.addEventListener('visibilitychange', refreshWhenVisible)
+
+    return () => {
+      window.clearInterval(intervalId)
+      window.removeEventListener('focus', refreshWhenVisible)
+      document.removeEventListener('visibilitychange', refreshWhenVisible)
+    }
+  }, [])
+
   const formatDate = (value) => {
     const parsed = new Date(value)
     if (Number.isNaN(parsed.getTime())) return '—'
     return parsed.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
   }
 
-  const formatTime = (value) => {
+  const formatTimestamp = (value) => {
     const parsed = new Date(value)
     if (Number.isNaN(parsed.getTime())) return '—'
-    return parsed.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+    return parsed.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    })
   }
 
   const recentActivities = useMemo(() => {
-    const sorted = [...distributions].sort((a, b) => {
-      const aTime = new Date(a.date_given || 0).getTime()
-      const bTime = new Date(b.date_given || 0).getTime()
+    const sorted = [...activityLogs].sort((a, b) => {
+      const aTime = new Date(a.performed_at || a.created_at || 0).getTime()
+      const bTime = new Date(b.performed_at || b.created_at || 0).getTime()
       return bTime - aTime
     })
 
     return sorted.slice(0, 5).map((activity, index) => {
-      const recipient = activity.family_name || activity.individual_name || 'recipient'
-      const itemName = activity.food_name || 'food supplies'
-      const quantity = activity.quantity ? `${activity.quantity} ${activity.unit || ''}`.trim() : 'Assistance'
+      const action = String(activity.action || 'updated').toLowerCase()
+      const actionLabelMap = {
+        created: 'Created',
+        distributed: 'Distributed',
+        updated: 'Updated',
+        deleted: 'Deleted',
+      }
+      const staffName = activity.staff_name || 'System'
+      const staffId = activity.staff_user_id ? `#${activity.staff_user_id}` : 'n/a'
 
       return {
         id: activity.distribution_id || index,
-        date: formatDate(activity.date_given),
-        time: formatTime(activity.date_given),
-        action: 'Food Distribution',
-        details: `${quantity} of ${itemName} delivered to ${recipient}`,
-        staff: 'Admin System',
-        status: activity.status || 'Completed',
+        action: actionLabelMap[action] || 'Updated',
+        timestamp: formatTimestamp(activity.performed_at || activity.created_at || activity.date_given),
+        staff: `${staffName} (${staffId})`,
+        details: activity.distribution_details || formatDistributionDetails(activity),
+        status: activity.status || 'Recorded',
       }
     })
-  }, [distributions])
+  }, [activityLogs])
 
   const assistanceBreakdown = useMemo(() => {
     const totals = foodSupplies.map((supply) => ({
@@ -119,14 +153,15 @@ export default function TransparencySection({ isDarkMode }) {
     const complianceRate = totalAssistance > 0
       ? Math.round((totalCompleted / totalAssistance) * 100)
       : 0
+    const activeStaff = users.filter((user) => String(user.role || '').toLowerCase() === 'staff').length
 
     return {
       totalAssistance,
       familiesServed: uniqueFamilies.size,
-      activeStaff: staffAccounts.length,
+      activeStaff,
       complianceRate,
     }
-  }, [distributions, staffAccounts.length])
+  }, [distributions, users])
 
   const handleDownload = () => {
     alert('Downloading transparency report...')
@@ -151,9 +186,13 @@ export default function TransparencySection({ isDarkMode }) {
     setActionError('')
     setSuccessMessage('')
     try {
+      const actor = getCurrentStaffActor()
       await apiFetch(`/api/distributions/${editingDistribution.distribution_id}`, {
         method: 'PUT',
-        body: JSON.stringify({ status: editingStatus }),
+        body: JSON.stringify({
+          status: editingStatus,
+          ...actor,
+        }),
       })
 
       setSuccessMessage('Distribution status updated.')
@@ -175,7 +214,11 @@ export default function TransparencySection({ isDarkMode }) {
     setActionError('')
     setSuccessMessage('')
     try {
-      await apiFetch(`/api/distributions/${distributionId}`, { method: 'DELETE' })
+      const actor = getCurrentStaffActor()
+      await apiFetch(`/api/distributions/${distributionId}`, {
+        method: 'DELETE',
+        body: JSON.stringify({ ...actor }),
+      })
       setSuccessMessage('Distribution deleted.')
       await loadTransparencyData()
     } catch (err) {
@@ -333,21 +376,22 @@ export default function TransparencySection({ isDarkMode }) {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1">
-                    <p className={`font-semibold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                      {activity.action}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className={`font-semibold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                        {activity.action}
+                      </p>
+                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${activity.action === 'Deleted' ? 'bg-red-100 text-red-700' : activity.action === 'Updated' ? 'bg-amber-100 text-amber-700' : activity.action === 'Distributed' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
+                        {activity.status}
+                      </span>
+                    </div>
                     <p className={`text-sm mt-1 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
                       {activity.details}
                     </p>
-                    <div className={`flex items-center gap-4 mt-2 text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                      <span>📅 {activity.date}</span>
-                      <span>🕐 {activity.time}</span>
-                      <span>👤 {activity.staff}</span>
+                    <div className={`mt-3 grid gap-1 text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                      <span>Timestamp: {activity.timestamp}</span>
+                      <span>Staff: {activity.staff}</span>
                     </div>
                   </div>
-                  <span className="inline-block bg-green-600 text-white text-xs py-1 px-2 rounded-full whitespace-nowrap">
-                    {activity.status}
-                  </span>
                 </div>
               </div>
             ))}

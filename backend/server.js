@@ -37,6 +37,73 @@ function encodeImageList(rows) {
   return Array.isArray(rows) ? rows.map(encodeImage) : []
 }
 
+function normalizeActor(rawActor = {}) {
+  const staffUserId = rawActor.staff_user_id ?? rawActor.staffId ?? rawActor.staff_id ?? null
+  const staffName = rawActor.staff_name || rawActor.staffName || rawActor.name || 'System'
+
+  return {
+    staff_user_id: staffUserId !== null && staffUserId !== undefined && staffUserId !== '' ? String(staffUserId) : null,
+    staff_name: String(staffName || 'System'),
+    staff_email: rawActor.staff_email || rawActor.email || null,
+    staff_role: rawActor.staff_role || rawActor.role || 'Staff',
+  }
+}
+
+function getRequestActor(req) {
+  return normalizeActor({
+    ...(req.body || {}),
+    staff_user_id: req.body?.staff_user_id ?? req.headers['x-staff-user-id'],
+    staff_name: req.body?.staff_name ?? req.headers['x-staff-name'],
+    staff_email: req.body?.staff_email ?? req.headers['x-staff-email'],
+    staff_role: req.body?.staff_role ?? req.headers['x-staff-role'],
+  })
+}
+
+function formatDistributionDetails(distribution) {
+  if (!distribution) return 'Distribution details unavailable.'
+
+  const recipient = distribution.family_name || distribution.individual_name || distribution.recipient_type || 'Unknown recipient'
+  const barangay = distribution.barangay_name || 'Unknown barangay'
+  const itemName = distribution.food_name || 'Food supply'
+  const quantity = distribution.quantity !== null && distribution.quantity !== undefined && distribution.quantity !== ''
+    ? `${distribution.quantity} ${distribution.unit || ''}`.trim()
+    : '—'
+  const status = distribution.status || 'Unknown status'
+  const recordLabel = distribution.distribution_id ? `Distribution #${distribution.distribution_id}` : 'Distribution record'
+
+  return `${recordLabel} • ${recipient} • ${barangay} • ${itemName}${quantity !== '—' ? ` (${quantity})` : ''} • Status: ${status}`
+}
+
+function determineDistributionAction(status, fallback = 'created') {
+  const normalizedStatus = String(status || '').trim().toLowerCase()
+
+  if (!normalizedStatus) return fallback
+  if (normalizedStatus === 'completed' || normalizedStatus === 'distributed') return 'distributed'
+  if (normalizedStatus === 'pending') return fallback
+  return 'updated'
+}
+
+function persistActivityLog(db, distribution, action, actor, callback) {
+  const sql = `
+    INSERT INTO distribution_activity_logs
+    (distribution_id, action, staff_user_id, staff_name, staff_email, distribution_details, performed_at)
+    VALUES (?, ?, ?, ?, ?, ?, NOW())
+  `
+
+  const params = [
+    distribution?.distribution_id || null,
+    action,
+    actor?.staff_user_id || null,
+    actor?.staff_name || 'System',
+    actor?.staff_email || null,
+    formatDistributionDetails(distribution),
+  ]
+
+  db.query(sql, params, (err) => {
+    if (callback) callback(err || null)
+  })
+}
+
 // ─── DB CONNECTION ───────────────────────────────────────────────────────────
 const db = mysql.createPool(dbConfig)
 
@@ -455,6 +522,48 @@ app.delete('/api/users/:id', (req, res) => {
 
 // ─── DISTRIBUTION ─────────────────────────────────────────────────────────────
 
+// GET activity logs for transparency
+app.get('/api/activity-logs', (req, res) => {
+  const limitValue = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100)
+  const sql = `
+    SELECT
+      log.activity_id,
+      log.distribution_id,
+      log.action,
+      log.staff_user_id,
+      log.staff_name,
+      log.staff_email,
+      log.distribution_details,
+      log.performed_at,
+      dist.recipient_type,
+      dist.family_id,
+      dist.individual_id,
+      dist.barangay_id,
+      dist.food_id,
+      dist.quantity,
+      dist.date_given,
+      dist.status,
+      b.name AS barangay_name,
+      f.food_name,
+      f.unit,
+      fam.family_name,
+      i.name AS individual_name
+    FROM distribution_activity_logs log
+    LEFT JOIN distribution dist ON log.distribution_id = dist.distribution_id
+    LEFT JOIN barangays b ON dist.barangay_id = b.barangay_id
+    LEFT JOIN food_supplies f ON dist.food_id = f.food_id
+    LEFT JOIN families fam ON dist.family_id = fam.family_id
+    LEFT JOIN individuals i ON dist.individual_id = i.individual_id
+    ORDER BY log.performed_at DESC, log.activity_id DESC
+    LIMIT ?
+  `
+
+  db.query(sql, [limitValue], (err, results) => {
+    if (err) return res.status(500).json({ error: err.message })
+    res.json(results)
+  })
+})
+
 // GET all distributions (with names)
 app.get('/api/distributions', (req, res) => {
   const sql = `
@@ -480,6 +589,7 @@ app.get('/api/distributions', (req, res) => {
 app.post('/api/distributions', upload.single('image'), (req, res) => {
   const { recipient_type, family_id, individual_id, barangay_id, food_id, quantity, date_given, status } = req.body
   const image = req.file ? req.file.buffer : null
+  const actor = getRequestActor(req)
   const familyValue = family_id === undefined || family_id === null || family_id === '' ? null : Number(family_id)
   const individualValue = individual_id === undefined || individual_id === null || individual_id === '' ? null : Number(individual_id)
   const barangayValue = barangay_id === undefined || barangay_id === null || barangay_id === '' ? null : Number(barangay_id)
@@ -492,7 +602,42 @@ app.post('/api/distributions', upload.single('image'), (req, res) => {
   `
   db.query(sql, [recipient_type, familyValue, individualValue, barangayValue, foodValue, quantityValue, date_given, status, image], (err, results) => {
     if (err) return res.status(500).json({ error: err.message })
-    res.json({ message: 'Distribution recorded!', distribution_id: results.insertId })
+
+    const selectSql = `
+      SELECT
+        dist.*,
+        b.name AS barangay_name,
+        f.food_name,
+        f.unit,
+        fam.family_name,
+        i.name AS individual_name
+      FROM distribution dist
+      LEFT JOIN barangays b ON dist.barangay_id = b.barangay_id
+      LEFT JOIN food_supplies f ON dist.food_id = f.food_id
+      LEFT JOIN families fam ON dist.family_id = fam.family_id
+      LEFT JOIN individuals i ON dist.individual_id = i.individual_id
+      WHERE dist.distribution_id = ?
+    `
+
+    db.query(selectSql, [results.insertId], (selectErr, rows) => {
+      const distribution = rows && rows[0] ? rows[0] : {
+        distribution_id: results.insertId,
+        recipient_type,
+        family_id: familyValue,
+        individual_id: individualValue,
+        barangay_id: barangayValue,
+        food_id: foodValue,
+        quantity: quantityValue,
+        date_given,
+        status,
+      }
+
+      persistActivityLog(db, distribution, determineDistributionAction(status, 'created'), actor, (logErr) => {
+        if (logErr) console.error('Failed to write distribution activity log:', logErr)
+        if (selectErr) console.error('Failed to reload distribution for activity log:', selectErr)
+        res.json({ message: 'Distribution recorded!', distribution_id: results.insertId })
+      })
+    })
   })
 })
 
@@ -500,6 +645,7 @@ app.post('/api/distributions', upload.single('image'), (req, res) => {
 app.put('/api/distributions/:id', upload.single('image'), (req, res) => {
   const { status } = req.body
   const image = req.file ? req.file.buffer : null
+  const actor = getRequestActor(req)
   let sql = 'UPDATE distribution SET status=?'
   const params = [status]
 
@@ -513,15 +659,65 @@ app.put('/api/distributions/:id', upload.single('image'), (req, res) => {
 
   db.query(sql, params, (err) => {
     if (err) return res.status(500).json({ error: err.message })
-    res.json({ message: 'Distribution status updated!' })
+
+    const selectSql = `
+      SELECT
+        dist.*,
+        b.name AS barangay_name,
+        f.food_name,
+        f.unit,
+        fam.family_name,
+        i.name AS individual_name
+      FROM distribution dist
+      LEFT JOIN barangays b ON dist.barangay_id = b.barangay_id
+      LEFT JOIN food_supplies f ON dist.food_id = f.food_id
+      LEFT JOIN families fam ON dist.family_id = fam.family_id
+      LEFT JOIN individuals i ON dist.individual_id = i.individual_id
+      WHERE dist.distribution_id = ?
+    `
+
+    db.query(selectSql, [req.params.id], (selectErr, rows) => {
+      const distribution = rows && rows[0] ? rows[0] : { distribution_id: Number(req.params.id), status }
+      persistActivityLog(db, distribution, determineDistributionAction(status, 'updated'), actor, (logErr) => {
+        if (logErr) console.error('Failed to write distribution activity log:', logErr)
+        if (selectErr) console.error('Failed to reload distribution for activity log:', selectErr)
+        res.json({ message: 'Distribution status updated!' })
+      })
+    })
   })
 })
 
 // DELETE distribution
 app.delete('/api/distributions/:id', (req, res) => {
-  db.query('DELETE FROM distribution WHERE distribution_id = ?', [req.params.id], (err) => {
-    if (err) return res.status(500).json({ error: err.message })
-    res.json({ message: 'Distribution deleted!' })
+  const actor = getRequestActor(req)
+  const selectSql = `
+    SELECT
+      dist.*,
+      b.name AS barangay_name,
+      f.food_name,
+      f.unit,
+      fam.family_name,
+      i.name AS individual_name
+    FROM distribution dist
+    LEFT JOIN barangays b ON dist.barangay_id = b.barangay_id
+    LEFT JOIN food_supplies f ON dist.food_id = f.food_id
+    LEFT JOIN families fam ON dist.family_id = fam.family_id
+    LEFT JOIN individuals i ON dist.individual_id = i.individual_id
+    WHERE dist.distribution_id = ?
+  `
+
+  db.query(selectSql, [req.params.id], (selectErr, rows) => {
+    const distribution = rows && rows[0] ? rows[0] : { distribution_id: Number(req.params.id) }
+
+    persistActivityLog(db, distribution, 'deleted', actor, (logErr) => {
+      if (logErr) console.error('Failed to write distribution activity log:', logErr)
+      if (selectErr) console.error('Failed to reload distribution for activity log:', selectErr)
+
+      db.query('DELETE FROM distribution WHERE distribution_id = ?', [req.params.id], (err) => {
+        if (err) return res.status(500).json({ error: err.message })
+        res.json({ message: 'Distribution deleted!' })
+      })
+    })
   })
 })
 

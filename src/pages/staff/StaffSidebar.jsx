@@ -48,6 +48,16 @@ function StaffSidebar({ isDarkMode }) {
 
         setSelectedNav(name)
 
+        if (location.pathname !== '/staff/dashboard') {
+            navigate('/staff/dashboard', {
+                state: {
+                    scrollTo: sectionId,
+                    selectedNav: name,
+                },
+            })
+            return
+        }
+
         if (sectionId === 'dashboard-top') {
             window.scrollTo({ top: 0, behavior: 'smooth' })
             return
