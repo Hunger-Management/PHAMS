@@ -8,6 +8,7 @@ function BarangayDetailLayout({ barangayName }) {
   const { isDarkMode, toggleDarkMode } = useDarkMode()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [liveStats, setLiveStats] = useState(null)
   const [profile, setProfile] = useState({
     description: `Community profile for ${barangayName}.`,
     residents: '0',
@@ -31,8 +32,9 @@ function BarangayDetailLayout({ barangayName }) {
       apiFetch('/api/individuals'),
       apiFetch('/api/distributions'),
       apiFetch('/api/users'),
+      apiFetch('/api/food-supplies'),
     ])
-      .then(([barangays, families, individuals, distributions, users]) => {
+      .then(([barangays, families, individuals, distributions, users, foodSupplies]) => {
         if (!mounted) return
 
         const barangay = (Array.isArray(barangays) ? barangays : []).find((b) => String(b.name).toLowerCase() === String(barangayName).toLowerCase())
@@ -65,6 +67,79 @@ function BarangayDetailLayout({ barangayName }) {
           phone: captain?.phone || captain?.contact || '+63 900 000 0000',
           email: captain?.email || 'barangay@pateros.gov.ph',
         })
+
+        // ── Monthly families assisted (last 6 months) ──────────────────
+        const now = new Date()
+        const sixMonths = Array.from({ length: 6 }, (_, i) => {
+          const start = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1)
+          const end = new Date(now.getFullYear(), now.getMonth() - (4 - i), 1)
+          const count = new Set(
+            distributionsFor
+              .filter((d) => {
+                if (!d.date_given || !d.family_id) return false
+                const date = new Date(d.date_given)
+                return date >= start && date < end
+              })
+              .map((d) => d.family_id)
+          ).size
+          return { month: start.toLocaleString('en-US', { month: 'short' }), count }
+        })
+        const maxCount = Math.max(...sixMonths.map((m) => m.count), 1)
+        const monthlyData = sixMonths.map((m) => ({
+          month: m.month,
+          value: m.count > 0 ? Math.max(Math.round((m.count / maxCount) * 90) + 5, 10) : 3,
+        }))
+
+        // ── Assistance type breakdown from real distribution data ───────
+        const foodCounts = {}
+        distributionsFor.forEach((d) => {
+          const key = d.food_name || 'Other'
+          foodCounts[key] = (foodCounts[key] || 0) + (Number(d.quantity) || 1)
+        })
+        const foodTotal = Object.values(foodCounts).reduce((sum, v) => sum + v, 0)
+        const colorPalette = ['#3b82f6', '#f59e0b', '#10b981', '#6366f1', '#ef4444']
+        const liveAssistanceTypes = Object.entries(foodCounts)
+          .map(([label, value], i) => ({
+            label,
+            value: foodTotal > 0 ? Math.round((value / foodTotal) * 100) : 0,
+            color: colorPalette[i % colorPalette.length],
+          }))
+          .sort((a, b) => b.value - a.value)
+          .slice(0, 4)
+
+        // ── Recent activities from real distributions (no names) ────────
+        const liveActivities = [...distributionsFor]
+          .filter((d) => d.date_given)
+          .sort((a, b) => new Date(b.date_given) - new Date(a.date_given))
+          .slice(0, 3)
+          .map((d) => {
+            const daysAgo = Math.floor((Date.now() - new Date(d.date_given)) / 86400000)
+            const timeLabel = daysAgo === 0 ? 'today' : daysAgo === 1 ? '1 day ago' : `${daysAgo} days ago`
+            const color = String(d.status || '').toLowerCase() === 'completed' ? 'bg-emerald-500'
+              : String(d.status || '').toLowerCase() === 'pending' ? 'bg-amber-500'
+              : 'bg-blue-500'
+            return {
+              title: `${d.food_name || 'Food'} Distribution`,
+              detail: `${d.status || 'Recorded'} · ${d.quantity ? `${d.quantity} ${d.unit || 'units'}` : 'qty unknown'} · ${timeLabel}`,
+              color,
+            }
+          })
+
+        // ── Municipal food supply inventory ─────────────────────────────
+        const liveInventory = (Array.isArray(foodSupplies) ? foodSupplies : [])
+          .slice(0, 4)
+          .map((item) => ({
+            label: item.food_name || 'Supply',
+            value: `${Number(item.total_quantity || 0).toLocaleString()} ${item.unit || 'units'}`,
+          }))
+
+        setLiveStats({
+          monthlyFamilies: monthlyData,
+          assistanceTypes: liveAssistanceTypes.length > 0 ? liveAssistanceTypes : null,
+          recentActivities: liveActivities.length > 0 ? liveActivities : null,
+          inventoryItems: liveInventory.length > 0 ? liveInventory : null,
+        })
+
         setLoading(false)
       })
       .catch((err) => {
@@ -99,8 +174,6 @@ function BarangayDetailLayout({ barangayName }) {
     { label: 'Medical', value: 10, color: '#6366f1' },
   ]
 
-  const totalAssistance = assistanceTypes.reduce((sum, item) => sum + item.value, 0)
-
   const recentActivities = [
     { title: 'Food Pack Distribution', detail: 'Distributed to 50 families - 2 days ago', color: 'bg-blue-500' },
     { title: 'Rice Allocation Received', detail: '100 sacks received from municipal - 5 days ago', color: 'bg-emerald-500' },
@@ -114,10 +187,12 @@ function BarangayDetailLayout({ barangayName }) {
     { label: 'Hygiene Kits', value: '80 sets' },
   ]
 
+  const activeAssistanceTypes = liveStats?.assistanceTypes ?? assistanceTypes
+  const totalAssistance = activeAssistanceTypes.reduce((sum, item) => sum + item.value, 0)
   const pieSegments = totalAssistance > 0
-    ? assistanceTypes
+    ? activeAssistanceTypes
       .map((item, index) => {
-        const startValue = assistanceTypes.slice(0, index).reduce((sum, current) => sum + current.value, 0)
+        const startValue = activeAssistanceTypes.slice(0, index).reduce((sum, current) => sum + current.value, 0)
         const start = (startValue / totalAssistance) * 100
         const end = ((startValue + item.value) / totalAssistance) * 100
         return `${item.color} ${start}% ${end}%`
@@ -197,7 +272,7 @@ function BarangayDetailLayout({ barangayName }) {
 
             <div className="mt-6 md:mt-8">
               <div className="grid grid-cols-6 items-end gap-3 sm:gap-4 md:gap-5">
-                {monthlyFamilies.map((entry) => (
+                {(liveStats?.monthlyFamilies ?? monthlyFamilies).map((entry) => (
                   <div key={entry.month} className="flex flex-col items-center gap-2">
                     <div className={`flex h-44 sm:h-52 md:h-56 w-full items-end rounded-xl ${isDarkMode ? 'bg-slate-800' : 'bg-slate-100'}`}>
                       <div
@@ -227,7 +302,7 @@ function BarangayDetailLayout({ barangayName }) {
                 }}
               />
               <div className="w-full space-y-2 md:space-y-3">
-                {assistanceTypes.map((item) => (
+                {(liveStats?.assistanceTypes ?? assistanceTypes).map((item) => (
                   <div key={item.label} className="flex items-center justify-between rounded-lg px-3 py-2" style={{ backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc' }}>
                     <div className="flex items-center gap-2">
                       <span className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
@@ -253,7 +328,7 @@ function BarangayDetailLayout({ barangayName }) {
             </div>
 
             <div className="mt-5 md:mt-6 space-y-2.5 md:space-y-3">
-              {recentActivities.map((activity) => (
+              {(liveStats?.recentActivities ?? recentActivities).map((activity) => (
                 <div
                   key={activity.title}
                   className={`rounded-xl border p-3.5 md:p-4 ${
@@ -281,11 +356,11 @@ function BarangayDetailLayout({ barangayName }) {
               }`}>
                 📦
               </div>
-              <h3 className="font-display text-2xl sm:text-3xl font-bold">Current Inventory</h3>
+              <h3 className="font-display text-2xl sm:text-3xl font-bold">Municipal Food Supply</h3>
             </div>
 
             <div className="mt-5 md:mt-6 space-y-2.5 md:space-y-3">
-              {inventoryItems.map((item) => (
+              {(liveStats?.inventoryItems ?? inventoryItems).map((item) => (
                 <div
                   key={item.label}
                   className={`flex items-center justify-between rounded-xl border px-3 py-2.5 md:px-4 md:py-3 ${
