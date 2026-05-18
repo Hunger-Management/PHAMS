@@ -7,10 +7,20 @@ import { apiFetch } from '../../api/api'
 
 const DEFAULT_FORM = {
   name: '',
-  age: '',
+  date_of_birth: '',
   gender: 'Male',
   barangay_id: '',
   status: 'Registered',
+}
+
+function getAgeFromDOB(dob) {
+  if (!dob) return null
+  const birth = new Date(dob)
+  const today = new Date()
+  let age = today.getFullYear() - birth.getFullYear()
+  const m = today.getMonth() - birth.getMonth()
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
+  return age
 }
 
 function AddIndividualPage() {
@@ -53,7 +63,7 @@ function AddIndividualPage() {
     setErrorMessage('')
     setSuccessMessage('')
 
-    if (!formData.name || !formData.age || !formData.gender || !formData.barangay_id || !formData.status) {
+    if (!formData.name || !formData.date_of_birth || !formData.gender || !formData.barangay_id || !formData.status) {
       setErrorMessage('Please complete all required fields before submitting.')
       return
     }
@@ -63,7 +73,8 @@ function AddIndividualPage() {
     try {
       const payload = new FormData()
       payload.append('name', formData.name)
-      payload.append('age', String(Number(formData.age)))
+      payload.append('date_of_birth', formData.date_of_birth)
+      payload.append('age', String(getAgeFromDOB(formData.date_of_birth) ?? ''))
       payload.append('gender', formData.gender)
       payload.append('barangay_id', String(Number(formData.barangay_id)))
       payload.append('status', formData.status)
@@ -175,15 +186,14 @@ function AddIndividualPage() {
                 </div>
 
                 <div>
-                  <label className={labelClass}>Age *</label>
+                  <label className={labelClass}>Date of Birth *</label>
                   <input
-                    name="age"
-                    type="number"
-                    min="0"
-                    value={formData.age}
+                    name="date_of_birth"
+                    type="date"
+                    max={new Date().toISOString().split('T')[0]}
+                    value={formData.date_of_birth}
                     onChange={handleChange}
                     className={inputClass}
-                    placeholder="Enter age"
                   />
                 </div>
 

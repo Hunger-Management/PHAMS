@@ -660,6 +660,7 @@ function AddFamilyPage() {
                                                     name="date_of_birth"
                                                     type="date"
                                                     value={member.date_of_birth}
+                                                    max={new Date().toISOString().split('T')[0]}
                                                     onChange={(e) => handleMemberChange(index, e)}
                                                     className={inputClass}
                                                 />
