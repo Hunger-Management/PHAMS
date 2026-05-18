@@ -8,7 +8,17 @@ function IndividualsNoAddressPage() {
   const [individuals, setIndividuals] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [form, setForm] = useState({ name: '', age: '', gender: 'Male' })
+  const [form, setForm] = useState({ name: '', date_of_birth: '', gender: 'Male' })
+
+  function getAgeFromDOB(dob) {
+    if (!dob) return null
+    const birth = new Date(dob)
+    const today = new Date()
+    let age = today.getFullYear() - birth.getFullYear()
+    const m = today.getMonth() - birth.getMonth()
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
+    return age
+  }
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState('')
   const [formError, setFormError] = useState('')
@@ -43,9 +53,9 @@ function IndividualsNoAddressPage() {
     try {
       const payload = {
         name: form.name.trim(),
-        age: form.age ? Number(form.age) : null,
+        date_of_birth: form.date_of_birth || null,
+        age: getAgeFromDOB(form.date_of_birth),
         gender: form.gender || 'Male',
-     
         // explicit null barangay indicates NPA
         barangay_id: null,
         status: 'Registered',
@@ -60,7 +70,7 @@ function IndividualsNoAddressPage() {
       setIndividuals(filtered)
 
       setSuccess('Individual registered')
-      setForm({ name: '', age: '', gender: 'Male' })
+      setForm({ name: '', date_of_birth: '', gender: 'Male' })
       setTimeout(() => setSuccess(''), 3000)
     } catch (err) {
       setFormError(err.message || 'Failed to register individual')
@@ -86,8 +96,8 @@ function IndividualsNoAddressPage() {
                   <input name="name" value={form.name} onChange={handleFormChange} placeholder="Juan Dela Cruz" className="w-full rounded-md border px-3 py-2 bg-transparent" />
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-500 mb-1">Age</label>
-                  <input name="age" value={form.age} onChange={handleFormChange} placeholder="Age" type="number" className="w-full rounded-md border px-3 py-2 bg-transparent" />
+                  <label className="block text-xs text-slate-500 mb-1">Date of Birth</label>
+                  <input name="date_of_birth" value={form.date_of_birth} onChange={handleFormChange} type="date" max={new Date().toISOString().split('T')[0]} className="w-full rounded-md border px-3 py-2 bg-transparent" />
                 </div>
 
                 <div>

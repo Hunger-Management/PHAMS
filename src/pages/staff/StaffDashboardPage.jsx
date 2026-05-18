@@ -477,7 +477,7 @@ function StaffDashboardPage() {
 
   const [individualForm, setIndividualForm] = useState({
     name: '',
-    age: '',
+    date_of_birth: '',
     gender: 'Male',
     barangay: staffUser?.barangay || 'Aguho',
     status: 'Registered',
@@ -604,13 +604,14 @@ function StaffDashboardPage() {
       if (!individualForm.name.trim()) {
         throw new Error('Full name is required')
       }
-      if (!individualForm.age || Number(individualForm.age) < 0) {
-        throw new Error('Valid age is required')
+      if (!individualForm.date_of_birth) {
+        throw new Error('Date of birth is required')
       }
 
       const payload = new FormData()
       payload.append('name', individualForm.name)
-      payload.append('age', String(Number(individualForm.age)))
+      payload.append('date_of_birth', individualForm.date_of_birth)
+      payload.append('age', String(getAgeInYears(individualForm.date_of_birth) ?? ''))
       payload.append('gender', individualForm.gender)
       payload.append('barangay_id', String(barangayId))
       payload.append('status', individualForm.status)
@@ -627,7 +628,7 @@ function StaffDashboardPage() {
 
       setIndividualForm({
         name: '',
-        age: '',
+        date_of_birth: '',
         gender: 'Male',
         barangay: staffBarangayName,
         status: 'Registered',
@@ -1089,7 +1090,7 @@ function StaffDashboardPage() {
                           </div>
                           <div>
                             <label className={labelClass}>Date of Birth</label>
-                            <input name="date_of_birth" type="date" value={member.date_of_birth} onChange={(e) => handleMemberChange(index, e)} className={`${inputClass} mt-2`} />
+                            <input name="date_of_birth" type="date" value={member.date_of_birth} max={new Date().toISOString().split('T')[0]} onChange={(e) => handleMemberChange(index, e)} className={`${inputClass} mt-2`} />
                           </div>
                           <div>
                             <label className={labelClass}>Height (cm)</label>
@@ -1220,8 +1221,8 @@ function StaffDashboardPage() {
                     </div>
 
                     <div>
-                      <label className={labelClass}>Age *</label>
-                      <input type="number" min="0" name="age" value={individualForm.age} onChange={handleIndividualChange} placeholder="Enter age" className={`${inputClass} mt-2`} required />
+                      <label className={labelClass}>Date of Birth *</label>
+                      <input type="date" name="date_of_birth" max={new Date().toISOString().split('T')[0]} value={individualForm.date_of_birth} onChange={handleIndividualChange} className={`${inputClass} mt-2`} required />
                     </div>
 
                     <div>
@@ -1270,7 +1271,7 @@ function StaffDashboardPage() {
                       onClick={() => {
                         setIndividualForm({
                           name: '',
-                          age: '',
+                          date_of_birth: '',
                           gender: 'Male',
                           barangay: staffUser?.barangay || 'Aguho',
                           status: 'Registered',
