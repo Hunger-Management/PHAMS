@@ -1,4 +1,4 @@
-import { Home, MapPin, Users, FileText, LogOut } from 'lucide-react'
+import { Home, MapPin, Users, UserPlus, FileText, LogOut } from 'lucide-react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { useAdminAuth } from '../../context/AdminAuthContext'
@@ -7,15 +7,28 @@ function AdminSidebar({ isDarkMode }) {
     const { logout, adminUser } = useAdminAuth()
     const navigate = useNavigate()
     const location = useLocation()
+
     const [selectedNav, setSelectedNav] = useState(() => location.state?.selectedNav || null)
+
+    // ✅ NEW MODAL STATE
+    const [showLogoutModal, setShowLogoutModal] = useState(false)
 
     useEffect(() => {
         setSelectedNav(location.state?.selectedNav || null)
     }, [location.pathname, location.state])
 
+    // ✅ UPDATED LOGOUT FLOW
     const handleLogout = () => {
+        setShowLogoutModal(true)
+    }
+
+    const confirmLogout = () => {
         logout()
         navigate('/staff/login')
+    }
+
+    const cancelLogout = () => {
+        setShowLogoutModal(false)
     }
 
     const getInitials = (name) => {
@@ -25,11 +38,15 @@ function AdminSidebar({ isDarkMode }) {
 
     const navItems = [
         { name: 'Dashboard', icon: Home, path: '/admin/dashboard' },
-        { name: 'Barangays', icon: MapPin, path: '/admin/barangays' },
+        {
+            name: 'Barangays',
+            icon: MapPin,
+            path: '/admin/barangays',
+            children: [
+                { name: 'Add Family', icon: UserPlus, path: '/admin/families/add' },
+            ],
+        },
         { name: 'Manage Families', icon: Users, path: '/admin/families' },
-        { name: 'Manage Individuals', icon: Users, path: '/admin/individuals' },
-        { name: 'Manage Donations', icon: Users, path: '/admin/donations' },
-        { name: 'Manage Users', icon: Users, path: '/admin/users' },
         { name: 'User Management', icon: Users, path: '/admin/create-account' },
         { name: 'Transparency', icon: FileText, path: '/admin/transparency' },
     ]
@@ -71,53 +88,6 @@ function AdminSidebar({ isDarkMode }) {
                             : location.pathname === item.path
 
                         const handleNavClick = () => {
-                            if (item.path === '/admin/dashboard') {
-                                setSelectedNav('Dashboard')
-                                if (location.pathname === '/admin/dashboard') {
-                                    window.scrollTo({ top: 0, behavior: 'smooth' })
-                                    return
-                                }
-
-                                navigate(item.path, { state: { scrollToTop: true, selectedNav: 'Dashboard' } })
-                                return
-                            }
-
-                            if (item.path === '/admin/barangays') {
-                                setSelectedNav('Barangays')
-                                const el = document.getElementById('barangay-management-section')
-                                if (el) {
-                                    const top = el.getBoundingClientRect().top + window.pageYOffset - 24
-                                    window.scrollTo({ top, behavior: 'smooth' })
-                                    return
-                                }
-
-                                navigate('/admin/dashboard', {
-                                    state: {
-                                        scrollTo: 'barangay-management-section',
-                                        selectedNav: 'Barangays',
-                                    },
-                                })
-                                return
-                            }
-
-                            if (item.path === '/admin/transparency') {
-                                setSelectedNav('Transparency')
-                                const el = document.getElementById('transparency-section')
-                                if (el) {
-                                    const top = el.getBoundingClientRect().top + window.pageYOffset - 24
-                                    window.scrollTo({ top, behavior: 'smooth' })
-                                    return
-                                }
-
-                                navigate('/admin/dashboard', {
-                                    state: {
-                                        scrollTo: 'transparency-section',
-                                        selectedNav: 'Transparency',
-                                    },
-                                })
-                                return
-                            }
-
                             setSelectedNav(item.name)
                             navigate(item.path, { state: { selectedNav: item.name } })
                         }
@@ -126,39 +96,15 @@ function AdminSidebar({ isDarkMode }) {
                             <div key={item.path}>
                                 <button
                                     onClick={handleNavClick}
-                                    className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition text-left ${isActive
-                                        ? 'bg-green-600 text-white font-medium'
-                                        : 'text-white/80 hover:bg-white/10'
+                                    className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition text-left ${
+                                        isActive
+                                            ? 'bg-green-600 text-white font-medium'
+                                            : 'text-white/80 hover:bg-white/10'
                                     }`}
                                 >
                                     <Icon size={18} />
                                     {item.name}
                                 </button>
-
-                                {item.children && item.children.map((child) => {
-                                    const childIsActive = selectedNav
-                                        ? selectedNav === child.name
-                                        : location.pathname === child.path
-
-                                    const handleChildClick = () => {
-                                        setSelectedNav(child.name)
-                                        navigate(child.path, { state: { selectedNav: child.name } })
-                                    }
-
-                                    return (
-                                        <button
-                                            key={child.path}
-                                            onClick={handleChildClick}
-                                            className={`w-full flex items-center gap-3 px-8 py-2 rounded-lg transition text-left text-sm ${childIsActive
-                                                ? 'bg-green-600 text-white font-medium'
-                                                : 'text-white/70 hover:bg-white/10'
-                                            }`}
-                                        >
-                                            <child.icon size={14} />
-                                            {child.name}
-                                        </button>
-                                    )
-                                })}
                             </div>
                         )
                     })}
@@ -174,10 +120,44 @@ function AdminSidebar({ isDarkMode }) {
                     <LogOut size={14} />
                     Sign Out
                 </button>
+
                 <p className="text-xs text-white/50 text-center mt-3">
                     Barangay Information System
                 </p>
             </div>
+
+            {/* ✅ MODAL */}
+            {showLogoutModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl p-6 w-[300px] text-center shadow-lg">
+
+                        <h2 className="text-lg font-semibold text-gray-800 mb-2">
+                            Confirm Logout
+                        </h2>
+
+                        <p className="text-sm text-gray-500 mb-5">
+                            Are you sure you want to log off?
+                        </p>
+
+                        <div className="flex justify-center gap-3">
+                            <button
+                                onClick={cancelLogout}
+                                className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-sm"
+                            >
+                                Cancel
+                            </button>
+
+                            <button
+                                onClick={confirmLogout}
+                                className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm"
+                            >
+                                Logout
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
+            )}
         </aside>
     )
 }
