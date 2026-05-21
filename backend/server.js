@@ -719,6 +719,14 @@ app.post('/api/distributions', upload.single('image'), (req, res) => {
       WHERE dist.distribution_id = ?
     `
 
+    if (foodValue && quantityValue) {
+      db.query(
+        'UPDATE food_supplies SET total_quantity = GREATEST(0, total_quantity - ?) WHERE food_id = ?',
+        [quantityValue, foodValue],
+        (foodErr) => { if (foodErr) console.error('Failed to update food supply on distribution:', foodErr) },
+      )
+    }
+
     db.query(selectSql, [results.insertId], (selectErr, rows) => {
       const distribution = rows && rows[0] ? rows[0] : {
         distribution_id: results.insertId,
