@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, AlertTriangle, Trash2, Gift } from 'lucide-react'
+import { Search, AlertTriangle, Trash2, Gift, RefreshCw } from 'lucide-react'
 import { useDarkMode } from '../../hooks/useDarkMode'
 import { useAdminAuth } from '../../context/AdminAuthContext'
 import AdminSidebar from '../components/AdminSidebar'
 import { apiFetch } from '../../api/api'
+
+const POLL_INTERVAL = 5000
 
 function DonationsListPage() {
     const { isDarkMode, toggleDarkMode } = useDarkMode()
@@ -17,23 +19,54 @@ function DonationsListPage() {
     const [successMessage, setSuccessMessage] = useState('')
     const [searchQuery, setSearchQuery] = useState('')
     const [deletingId, setDeletingId] = useState(null)
+    const [refreshing, setRefreshing] = useState(false)
+    const pollIntervalRef = useRef(null)
+    const lastCountRef = useRef(0)
 
     useEffect(() => {
         if (!isAuthenticated) return
         fetchDonations()
+
+        pollIntervalRef.current = setInterval(() => {
+            fetchDonations(true)
+        }, POLL_INTERVAL)
+
+        return () => {
+            if (pollIntervalRef.current) {
+                clearInterval(pollIntervalRef.current)
+            }
+        }
     }, [isAuthenticated])
 
-    const fetchDonations = async () => {
-        setLoading(true)
-        setError('')
-        setSuccessMessage('')
+    const fetchDonations = async (silent = false) => {
+        if (!silent) {
+            setLoading(true)
+            setError('')
+            setSuccessMessage('')
+        } else {
+            setRefreshing(true)
+        }
+
         try {
             const data = await apiFetch('/api/donations')
-            setDonations(Array.isArray(data) ? data : [])
+            const newDonations = Array.isArray(data) ? data : []
+            setDonations(newDonations)
+
+            if (silent && newDonations.length > lastCountRef.current) {
+                setSuccessMessage(`New donation(s) added: ${newDonations.length - lastCountRef.current}`)
+                setTimeout(() => setSuccessMessage(''), 3000)
+            }
+            lastCountRef.current = newDonations.length
         } catch (err) {
-            setError(err.message || 'Failed to load donations.')
+            if (!silent) {
+                setError(err.message || 'Failed to load donations.')
+            }
         } finally {
-            setLoading(false)
+            if (!silent) {
+                setLoading(false)
+            } else {
+                setRefreshing(false)
+            }
         }
     }
 
@@ -86,13 +119,26 @@ function DonationsListPage() {
                                 {donations.length} recorded {donations.length === 1 ? 'donation' : 'donations'}
                             </p>
                         </div>
-                        <button
-                            onClick={() => navigate('/admin/donations/add')}
-                            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition"
-                        >
-                            <Gift size={16} />
-                            Log Donation
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => fetchDonations(false)}
+                                disabled={refreshing}
+                                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition ${isDarkMode
+                                    ? 'border border-white/10 text-slate-300 hover:bg-white/5 disabled:opacity-50'
+                                    : 'border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-50'
+                                }`}
+                            >
+                                <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+                                {refreshing ? 'Refreshing...' : 'Refresh'}
+                            </button>
+                            <button
+                                onClick={() => navigate('/admin/donations/add')}
+                                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition"
+                            >
+                                <Gift size={16} />
+                                Log Donation
+                            </button>
+                        </div>
                     </div>
 
                     {successMessage ? (

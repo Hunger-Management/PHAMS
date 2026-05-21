@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from '../../api/api'
+import { useStaffAuth } from '../../context/StaffAuthContext'
+import { Eye, EyeOff } from 'lucide-react'
 
 function CreateStaffAccountSection({ isDarkMode }) {
+  const { refreshStaffAccounts } = useStaffAuth()
+  const [showPassword, setShowPassword] = useState(false)
   const [barangays, setBarangays] = useState([])
   const [loadingBarangays, setLoadingBarangays] = useState(true)
   const [loadingError, setLoadingError] = useState('')
@@ -50,6 +54,20 @@ function CreateStaffAccountSection({ isDarkMode }) {
     }
 
     try {
+      // Enforce one-staff-per-barangay policy on the client side for mock API.
+      if (staffFormData.barangay_id) {
+        try {
+          const users = await apiFetch('/api/users')
+          const existing = Array.isArray(users) ? users.find((u) => String(u.role).toLowerCase() === 'staff' && Number(u.barangay_id) === Number(staffFormData.barangay_id)) : null
+          if (existing) {
+            setStaffFormError('This barangay already has an assigned staff account.')
+            return
+          }
+        } catch (e) {
+          // ignore; allow creation to proceed if users cannot be fetched
+        }
+      }
+
       const payload = {
         name: staffFormData.name,
         email: staffFormData.email,
@@ -70,6 +88,14 @@ function CreateStaffAccountSection({ isDarkMode }) {
         password: '',
         barangay_id: '',
       })
+
+      // Refresh shared staff accounts so other components (barangay management)
+      // reflect the new assignment immediately.
+      try {
+        if (refreshStaffAccounts) await refreshStaffAccounts()
+      } catch (e) {
+        // ignore
+      }
     } catch (err) {
       setStaffFormError(err.message || 'Failed to create staff account.')
     }
@@ -133,7 +159,7 @@ function CreateStaffAccountSection({ isDarkMode }) {
               />
             </div>
 
-            <div>
+            <div className="relative">
               <label className={`mb-1 block text-xs font-semibold uppercase tracking-[0.08em] ${
                 isDarkMode ? 'text-slate-300' : 'text-slate-600'
               }`} htmlFor="staffPassword">
@@ -141,18 +167,26 @@ function CreateStaffAccountSection({ isDarkMode }) {
               </label>
               <input
                 id="staffPassword"
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 name="password"
                 value={staffFormData.password}
                 onChange={handleStaffInputChange}
                 required
-                className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/40 ${
+                className={`w-full rounded-md border px-3 py-2 pr-10 text-sm outline-none focus:ring-2 focus:ring-blue-500/40 ${
                   isDarkMode
                     ? 'border-slate-600 bg-slate-900 text-slate-100'
                     : 'border-slate-300 bg-white text-slate-900'
                 }`}
                 placeholder="Create password"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword((s) => !s)}
+                className="absolute right-2 top-8 p-1 text-slate-400"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
             </div>
           </div>
 

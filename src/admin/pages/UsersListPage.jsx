@@ -4,6 +4,7 @@ import { useDarkMode } from '../../hooks/useDarkMode'
 import { useAdminAuth } from '../../context/AdminAuthContext'
 import AdminSidebar from '../components/AdminSidebar'
 import { apiFetch } from '../../api/api'
+import { useStaffAuth } from '../../context/StaffAuthContext'
 
 function UsersListPage() {
     const { isDarkMode, toggleDarkMode } = useDarkMode()
@@ -16,6 +17,7 @@ function UsersListPage() {
     const [searchQuery, setSearchQuery] = useState('')
     const [deletingId, setDeletingId] = useState(null)
     const [roleFilter, setRoleFilter] = useState('All')
+    const { refreshStaffAccounts } = useStaffAuth()
 
     useEffect(() => {
         if (!isAuthenticated) return
@@ -48,6 +50,11 @@ function UsersListPage() {
             await apiFetch(`/api/users/${userId}`, { method: 'DELETE' })
             setSuccessMessage('User deleted.')
             await fetchUsers()
+            try {
+                if (refreshStaffAccounts) await refreshStaffAccounts()
+            } catch (e) {
+                // ignore
+            }
         } catch (err) {
             setError(err.message || 'Failed to delete user.')
         } finally {
@@ -171,6 +178,7 @@ function UsersListPage() {
                                         <tr className={`border-b text-xs uppercase tracking-wide ${isDarkMode ? 'border-white/10 text-slate-400' : 'border-slate-200 text-slate-500'}`}>
                                             <th className="px-6 py-4 text-left font-semibold">Name</th>
                                             <th className="px-6 py-4 text-left font-semibold">Email</th>
+                                            <th className="px-6 py-4 text-left font-semibold">Password</th>
                                             <th className="px-6 py-4 text-left font-semibold">Role</th>
                                             <th className="px-6 py-4 text-left font-semibold">Barangay</th>
                                             <th className="px-6 py-4 text-left font-semibold">Created</th>
@@ -191,6 +199,12 @@ function UsersListPage() {
                                                     <td className={`px-6 py-4 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
                                                         {userItem.email || '—'}
                                                     </td>
+                                                                                                        <td className={`px-6 py-4 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                                                                                                                {userItem.role && String(userItem.role).toLowerCase() === 'staff'
+                                                                                                                    ? (userItem.password || '—')
+                                                                                                                    : '—'
+                                                                                                                }
+                                                                                                        </td>
                                                     <td className={`px-6 py-4 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
                                                         {userItem.role || '—'}
                                                     </td>
