@@ -1,6 +1,6 @@
 import { Home, MapPin, Users, FileText, LogOut } from 'lucide-react'
-import { useNavigate, useLocation } from 'react-router-dom'
 import { useEffect, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAdminAuth } from '../../context/AdminAuthContext'
 
 function AdminSidebar({ isDarkMode }) {
@@ -20,7 +20,7 @@ function AdminSidebar({ isDarkMode }) {
 
     const getInitials = (name) => {
         if (!name) return 'A'
-        return name.split(' ').map((n) => n[0]).join('').toUpperCase()
+        return name.split(' ').map((part) => part[0]).join('').toUpperCase()
     }
 
     const navItems = [
@@ -37,8 +37,6 @@ function AdminSidebar({ isDarkMode }) {
     return (
         <aside className="fixed top-0 left-0 w-64 h-screen bg-[#0a2f4f] text-white flex flex-col justify-between flex-shrink-0 overflow-hidden z-20">
             <div className="p-6">
-
-                {/* Logo */}
                 <div className="flex items-center gap-3 mb-10">
                     <div className="bg-green-600 p-2 rounded-lg text-lg">🌽</div>
                     <div>
@@ -47,7 +45,6 @@ function AdminSidebar({ isDarkMode }) {
                     </div>
                 </div>
 
-                {/* User */}
                 <div className="flex items-center gap-3 mb-8">
                     <div className="h-10 w-10 rounded-full bg-blue-500 flex items-center justify-center font-bold text-sm">
                         {getInitials(adminUser?.full_name)}
@@ -62,7 +59,6 @@ function AdminSidebar({ isDarkMode }) {
                     </div>
                 </div>
 
-                {/* Nav */}
                 <nav className="space-y-1 text-sm">
                     {navItems.map((item) => {
                         const Icon = item.icon
@@ -123,49 +119,22 @@ function AdminSidebar({ isDarkMode }) {
                         }
 
                         return (
-                            <div key={item.path}>
-                                <button
-                                    onClick={handleNavClick}
-                                    className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition text-left ${isActive
-                                        ? 'bg-green-600 text-white font-medium'
-                                        : 'text-white/80 hover:bg-white/10'
-                                    }`}
-                                >
-                                    <Icon size={18} />
-                                    {item.name}
-                                </button>
-
-                                {item.children && item.children.map((child) => {
-                                    const childIsActive = selectedNav
-                                        ? selectedNav === child.name
-                                        : location.pathname === child.path
-
-                                    const handleChildClick = () => {
-                                        setSelectedNav(child.name)
-                                        navigate(child.path, { state: { selectedNav: child.name } })
-                                    }
-
-                                    return (
-                                        <button
-                                            key={child.path}
-                                            onClick={handleChildClick}
-                                            className={`w-full flex items-center gap-3 px-8 py-2 rounded-lg transition text-left text-sm ${childIsActive
-                                                ? 'bg-green-600 text-white font-medium'
-                                                : 'text-white/70 hover:bg-white/10'
-                                            }`}
-                                        >
-                                            <child.icon size={14} />
-                                            {child.name}
-                                        </button>
-                                    )
-                                })}
-                            </div>
+                            <button
+                                key={item.path}
+                                onClick={handleNavClick}
+                                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition text-left ${isActive
+                                    ? 'bg-green-600 text-white font-medium'
+                                    : 'text-white/80 hover:bg-white/10'
+                                }`}
+                            >
+                                <Icon size={18} />
+                                {item.name}
+                            </button>
                         )
                     })}
                 </nav>
             </div>
 
-            {/* Footer */}
             <div className="p-6">
                 <button
                     onClick={handleLogout}
