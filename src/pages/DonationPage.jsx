@@ -50,7 +50,9 @@ function DonationPage() {
   const [foodImageFile, setFoodImageFile] = useState(null)
   const [foodForm, setFoodForm] = useState({
     foodId: '',
+    foodDescription: '',
     quantity: '',
+    quantityUnit: 'Kilo',
     donorName: '',
     contactInfo: '',
     dateGiven: '',
@@ -260,7 +262,9 @@ function DonationPage() {
       const donationPayload = new FormData()
       donationPayload.append('donor_id', String(donor.donor_id))
       donationPayload.append('food_id', String(Number(foodForm.foodId)))
+      donationPayload.append('food_description', foodForm.foodDescription)
       donationPayload.append('quantity', String(Number(foodForm.quantity)))
+      donationPayload.append('quantity_unit', foodForm.quantityUnit)
       donationPayload.append('date_given', foodForm.dateGiven)
       if (foodImageFile) {
         donationPayload.append('image', foodImageFile)
@@ -274,7 +278,9 @@ function DonationPage() {
       setFoodSuccess('Thank you! Your food donation has been recorded.')
       setFoodForm({
         foodId: '',
+        foodDescription: '',
         quantity: '',
+        quantityUnit: 'Kilo',
         donorName: '',
         contactInfo: '',
         dateGiven: '',
@@ -657,23 +663,62 @@ function DonationPage() {
                   </select>
                 </div>
                 <div>
+                  <label htmlFor="food-description" className={`mb-1 block text-base md:text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
+                    Food Description
+                  </label>
+                  <input
+                    id="food-description"
+                    name="foodDescription"
+                    type="text"
+                    value={foodForm.foodDescription}
+                    onChange={handleFoodChange}
+                    readOnly={Boolean(foodForm.foodId)}
+                    disabled={Boolean(foodForm.foodId)}
+                    placeholder="Type the specific food item"
+                    className={`w-full rounded-lg border px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-blue-500/40 ${
+                      isDarkMode
+                        ? 'border-slate-600 bg-slate-800 text-slate-100 placeholder-slate-400 disabled:cursor-not-allowed disabled:opacity-60'
+                        : 'border-slate-300 bg-[#f5f7f9] text-slate-900 placeholder-slate-500 disabled:cursor-not-allowed disabled:opacity-60'
+                    }`}
+                  />
+                  <p className={`mt-1 text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    {foodForm.foodId ? 'Dropdown selected. Manual typing is disabled.' : 'You can type a specific food item here if needed.'}
+                  </p>
+                </div>
+                <div>
                   <label htmlFor="estimated-quantity" className={`mb-1 block text-base md:text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
                     Estimated Quantity
                   </label>
-                  <input
-                    id="estimated-quantity"
-                    name="quantity"
-                    type="number"
-                    min="1"
-                    value={foodForm.quantity}
-                    onChange={handleFoodChange}
-                    placeholder="e.g., 50kg, 100 cans"
-                    className={`w-full rounded-lg border px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-blue-500/40 ${
-                      isDarkMode
-                        ? 'border-slate-600 bg-slate-800 text-slate-100 placeholder-slate-400'
-                        : 'border-slate-300 bg-[#f5f7f9] text-slate-900 placeholder-slate-500'
-                    }`}
-                  />
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_140px]">
+                    <input
+                      id="estimated-quantity"
+                      name="quantity"
+                      type="number"
+                      min="1"
+                      value={foodForm.quantity}
+                      onChange={handleFoodChange}
+                      placeholder="Enter amount"
+                      className={`w-full rounded-lg border px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-blue-500/40 ${
+                        isDarkMode
+                          ? 'border-slate-600 bg-slate-800 text-slate-100 placeholder-slate-400'
+                          : 'border-slate-300 bg-[#f5f7f9] text-slate-900 placeholder-slate-500'
+                      }`}
+                    />
+                    <select
+                      id="estimated-quantity-unit"
+                      name="quantityUnit"
+                      value={foodForm.quantityUnit}
+                      onChange={handleFoodChange}
+                      className={`w-full rounded-lg border px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-blue-500/40 ${
+                        isDarkMode
+                          ? 'border-slate-600 bg-slate-800 text-slate-100'
+                          : 'border-slate-300 bg-[#f5f7f9] text-slate-900'
+                      }`}
+                    >
+                      <option value="Kilo">Kilo</option>
+                      <option value="Piece">Piece</option>
+                    </select>
+                  </div>
                 </div>
                 <div>
                   <label htmlFor="food-fullname" className={`mb-1 block text-base md:text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>

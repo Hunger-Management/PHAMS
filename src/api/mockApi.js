@@ -595,7 +595,9 @@ function handlePost(path, db, body) {
       donation_id,
       donor_id: Number(body.donor_id),
       food_id: Number(body.food_id),
+      food_description: body.food_description || '',
       quantity: Number(body.quantity || 0),
+      quantity_unit: body.quantity_unit || 'Kilo',
       date_given: body.date_given || nowIso(),
     }
     db.donations.unshift(item)
