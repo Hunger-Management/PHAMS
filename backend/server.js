@@ -476,15 +476,37 @@ app.post('/api/donations', upload.single('image'), (req, res) => {
   `
   db.query(sql, [donorValue, foodValue, quantityValue, date_given, image], (err, results) => {
     if (err) return res.status(500).json({ error: err.message })
+
+    if (foodValue && quantityValue) {
+      db.query(
+        'UPDATE food_supplies SET total_quantity = total_quantity + ? WHERE food_id = ?',
+        [quantityValue, foodValue],
+        (foodErr) => { if (foodErr) console.error('Failed to update food supply on donation:', foodErr) },
+      )
+    }
+
     res.json({ message: 'Donation recorded!', donation_id: results.insertId })
   })
 })
 
 // DELETE donation
 app.delete('/api/donations/:id', (req, res) => {
-  db.query('DELETE FROM donations WHERE donation_id = ?', [req.params.id], (err) => {
-    if (err) return res.status(500).json({ error: err.message })
-    res.json({ message: 'Donation deleted!' })
+  db.query('SELECT food_id, quantity FROM donations WHERE donation_id = ?', [req.params.id], (fetchErr, rows) => {
+    const existing = rows && rows[0] ? rows[0] : null
+
+    db.query('DELETE FROM donations WHERE donation_id = ?', [req.params.id], (err) => {
+      if (err) return res.status(500).json({ error: err.message })
+
+      if (existing && existing.food_id && existing.quantity) {
+        db.query(
+          'UPDATE food_supplies SET total_quantity = GREATEST(0, total_quantity - ?) WHERE food_id = ?',
+          [existing.quantity, existing.food_id],
+          (foodErr) => { if (foodErr) console.error('Failed to update food supply on donation delete:', foodErr) },
+        )
+      }
+
+      res.json({ message: 'Donation deleted!' })
+    })
   })
 })
 
@@ -619,6 +641,14 @@ app.post('/api/distributions', upload.single('image'), (req, res) => {
       WHERE dist.distribution_id = ?
     `
 
+    if (foodValue && quantityValue) {
+      db.query(
+        'UPDATE food_supplies SET total_quantity = GREATEST(0, total_quantity - ?) WHERE food_id = ?',
+        [quantityValue, foodValue],
+        (foodErr) => { if (foodErr) console.error('Failed to update food supply on distribution:', foodErr) },
+      )
+    }
+
     db.query(selectSql, [results.insertId], (selectErr, rows) => {
       const distribution = rows && rows[0] ? rows[0] : {
         distribution_id: results.insertId,
@@ -708,6 +738,14 @@ app.delete('/api/distributions/:id', (req, res) => {
 
   db.query(selectSql, [req.params.id], (selectErr, rows) => {
     const distribution = rows && rows[0] ? rows[0] : { distribution_id: Number(req.params.id) }
+
+    if (distribution.food_id && distribution.quantity) {
+      db.query(
+        'UPDATE food_supplies SET total_quantity = total_quantity + ? WHERE food_id = ?',
+        [distribution.quantity, distribution.food_id],
+        (foodErr) => { if (foodErr) console.error('Failed to restore food supply on distribution delete:', foodErr) },
+      )
+    }
 
     persistActivityLog(db, distribution, 'deleted', actor, (logErr) => {
       if (logErr) console.error('Failed to write distribution activity log:', logErr)
