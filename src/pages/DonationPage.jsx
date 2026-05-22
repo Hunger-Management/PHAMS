@@ -65,6 +65,7 @@ function DonationPage() {
   const [suppliesImageFile, setSuppliesImageFile] = useState(null)
   const [suppliesForm, setSuppliesForm] = useState({
     foodId: '',
+    foodDescription: '',
     quantity: '',
     donorName: '',
     contactInfo: '',
@@ -230,11 +231,34 @@ function DonationPage() {
 
   const handleFoodChange = (event) => {
     const { name, value } = event.target
+
+    // Special handling for the food name input (datalist) — allow typing or selecting
+    if (name === 'foodName') {
+      const match = foodSupplies.find((f) => String(f.food_name) === String(value))
+      if (match) {
+        setFoodForm((prev) => ({ ...prev, foodId: match.food_id, foodDescription: '' }))
+      } else {
+        setFoodForm((prev) => ({ ...prev, foodId: '', foodDescription: value }))
+      }
+      return
+    }
+
     setFoodForm((prev) => ({ ...prev, [name]: value }))
   }
 
   const handleSuppliesChange = (event) => {
     const { name, value } = event.target
+
+    if (name === 'foodName') {
+      const match = foodSupplies.find((f) => String(f.food_name) === String(value))
+      if (match) {
+        setSuppliesForm((prev) => ({ ...prev, foodId: match.food_id, foodDescription: '' }))
+      } else {
+        setSuppliesForm((prev) => ({ ...prev, foodId: '', foodDescription: value }))
+      }
+      return
+    }
+
     setSuppliesForm((prev) => ({ ...prev, [name]: value }))
   }
 
@@ -243,7 +267,7 @@ function DonationPage() {
     setFoodSuccess('')
     setFoodError('')
 
-    if (!foodForm.donorName || !foodForm.contactInfo || !foodForm.foodId || !foodForm.quantity || !foodForm.dateGiven) {
+    if (!foodForm.donorName || !foodForm.contactInfo || (!foodForm.foodId && !foodForm.foodDescription) || !foodForm.quantity || !foodForm.dateGiven) {
       setFoodError('Please complete all required fields before submitting.')
       return
     }
@@ -301,7 +325,7 @@ function DonationPage() {
     setSuppliesSuccess('')
     setSuppliesError('')
 
-    if (!suppliesForm.donorName || !suppliesForm.contactInfo || !suppliesForm.foodId || !suppliesForm.quantity || !suppliesForm.dateGiven) {
+    if (!suppliesForm.donorName || !suppliesForm.contactInfo || (!suppliesForm.foodId && !suppliesForm.foodDescription) || !suppliesForm.quantity || !suppliesForm.dateGiven) {
       setSuppliesError('Please complete all required fields before submitting.')
       return
     }
@@ -319,8 +343,15 @@ function DonationPage() {
 
       const donationPayload = new FormData()
       donationPayload.append('donor_id', String(donor.donor_id))
-      donationPayload.append('food_id', String(Number(suppliesForm.foodId)))
-      donationPayload.append('quantity', String(Number(suppliesForm.quantity)))
+      // If a known foodId is selected, send it; otherwise send description
+      if (suppliesForm.foodId) {
+        donationPayload.append('food_id', String(Number(suppliesForm.foodId)))
+        donationPayload.append('food_description', '')
+      } else {
+        donationPayload.append('food_id', '')
+        donationPayload.append('food_description', suppliesForm.foodDescription || '')
+      }
+      donationPayload.append('quantity', String(suppliesForm.quantity))
       donationPayload.append('date_given', suppliesForm.dateGiven)
       if (suppliesImageFile) {
         donationPayload.append('image', suppliesImageFile)
@@ -357,6 +388,11 @@ function DonationPage() {
       <SiteHeader isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />
 
       <section className="mx-auto w-[98%] max-w-[1600px] py-4 md:py-5 font-body">
+        <datalist id="food-options">
+          {foodSupplies.map((item) => (
+            <option key={item.food_id} value={item.food_name} />
+          ))}
+        </datalist>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {donationChannels.map((channel) => (
             <button
@@ -643,24 +679,24 @@ function DonationPage() {
                   <label htmlFor="food-type" className={`mb-1 block text-base md:text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
                     Type of Food
                   </label>
-                  <select
+                  <input
                     id="food-type"
-                    name="foodId"
-                    value={foodForm.foodId}
+                    name="foodName"
+                    list="food-options"
+                    value={foodForm.foodId ? (foodSupplies.find((f) => Number(f.food_id) === Number(foodForm.foodId))?.food_name || '') : foodForm.foodDescription}
                     onChange={handleFoodChange}
+                    placeholder="Select or type food type"
                     className={`w-full max-w-xs rounded-lg border px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-blue-500/40 ${
                       isDarkMode
                         ? 'border-slate-600 bg-slate-800 text-slate-100'
                         : 'border-slate-300 bg-[#f5f7f9] text-slate-900'
                     }`}
-                  >
-                    <option value="" disabled>Select food type</option>
+                  />
+                  <datalist id="food-options">
                     {foodSupplies.map((item) => (
-                      <option key={item.food_id} value={item.food_id}>
-                        {item.food_name}
-                      </option>
+                      <option key={item.food_id} value={item.food_name} />
                     ))}
-                  </select>
+                  </datalist>
                 </div>
                 <div>
                   <label htmlFor="food-description" className={`mb-1 block text-base md:text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
@@ -877,24 +913,19 @@ function DonationPage() {
                   <label htmlFor="supplies-type" className={`mb-1 block text-base md:text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
                     Type of Supplies
                   </label>
-                  <select
+                  <input
                     id="supplies-type"
-                    name="foodId"
-                    value={suppliesForm.foodId}
+                    name="foodName"
+                    list="food-options"
+                    value={suppliesForm.foodId ? (foodSupplies.find((f) => Number(f.food_id) === Number(suppliesForm.foodId))?.food_name || '') : suppliesForm.foodDescription}
                     onChange={handleSuppliesChange}
+                    placeholder="Select or type supplies type"
                     className={`w-full max-w-xs rounded-lg border px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-blue-500/40 ${
                       isDarkMode
                         ? 'border-slate-600 bg-slate-800 text-slate-100'
                         : 'border-slate-300 bg-[#f5f7f9] text-slate-900'
                     }`}
-                  >
-                    <option value="" disabled>Select supplies type</option>
-                    {foodSupplies.map((item) => (
-                      <option key={item.food_id} value={item.food_id}>
-                        {item.food_name}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
 
                 <div>
@@ -904,8 +935,7 @@ function DonationPage() {
                   <input
                     id="supplies-quantity"
                     name="quantity"
-                    type="number"
-                    min="1"
+                    type="text"
                     value={suppliesForm.quantity}
                     onChange={handleSuppliesChange}
                     placeholder="e.g., 10 large pots, 50 containers"

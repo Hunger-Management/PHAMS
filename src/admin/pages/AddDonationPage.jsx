@@ -8,7 +8,9 @@ import { apiFetch } from '../../api/api'
 const DEFAULT_FORM = {
   donor_id: '',
   food_id: '',
+  food_description: '',
   quantity: '',
+  quantity_unit: 'kg',
   date_given: '',
 }
 
@@ -50,6 +52,18 @@ function AddDonationPage() {
 
   const handleChange = (event) => {
     const { name, value } = event.target
+
+    // allow typing or selecting food name via datalist
+    if (name === 'foodName') {
+      const match = foodSupplies.find((f) => String(f.food_name) === String(value))
+      if (match) {
+        setFormData((prev) => ({ ...prev, food_id: match.food_id, food_description: '' }))
+      } else {
+        setFormData((prev) => ({ ...prev, food_id: '', food_description: value }))
+      }
+      return
+    }
+
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
@@ -58,7 +72,7 @@ function AddDonationPage() {
     setErrorMessage('')
     setSuccessMessage('')
 
-    if (!formData.donor_id || !formData.food_id || !formData.quantity || !formData.date_given) {
+    if (!formData.donor_id || (!formData.food_id && !formData.food_description) || !formData.quantity || !formData.date_given) {
       setErrorMessage('Please complete all required fields before submitting.')
       return
     }
@@ -68,8 +82,16 @@ function AddDonationPage() {
     try {
       const payload = new FormData()
       payload.append('donor_id', String(Number(formData.donor_id)))
-      payload.append('food_id', String(Number(formData.food_id)))
-      payload.append('quantity', String(Number(formData.quantity)))
+      // Send either a known food_id or the custom description
+      if (formData.food_id) {
+        payload.append('food_id', String(Number(formData.food_id)))
+        payload.append('food_description', '')
+      } else {
+        payload.append('food_id', '')
+        payload.append('food_description', formData.food_description || '')
+      }
+      payload.append('quantity', String(formData.quantity))
+      payload.append('quantity_unit', formData.quantity_unit || 'kg')
       payload.append('date_given', formData.date_given)
       if (imageFile) {
         payload.append('image', imageFile)
@@ -161,6 +183,11 @@ function AddDonationPage() {
           ) : null}
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            <datalist id="admin-food-options">
+              {foodSupplies.map((food) => (
+                <option key={food.food_id} value={food.food_name} />
+              ))}
+            </datalist>
             <div className={cardClass}>
               <h3 className={`font-semibold mb-5 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                 Donation Details
@@ -187,33 +214,48 @@ function AddDonationPage() {
 
                 <div>
                   <label className={labelClass}>Food Supply *</label>
-                  <select
-                    name="food_id"
-                    value={formData.food_id}
+                  <input
+                    name="foodName"
+                    list="admin-food-options"
+                    value={formData.food_id ? (foodSupplies.find((f) => Number(f.food_id) === Number(formData.food_id))?.food_name || '') : formData.food_description}
                     onChange={handleChange}
                     className={inputClass}
+                    placeholder="Select or type food"
                     disabled={loading}
-                  >
-                    <option value="">Select food</option>
-                    {foodSupplies.map((food) => (
-                      <option key={food.food_id} value={food.food_id}>
-                        {food.food_name} ({food.unit || 'unit'})
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
 
                 <div>
                   <label className={labelClass}>Quantity *</label>
                   <input
                     name="quantity"
-                    type="number"
-                    min="1"
+                    type="text"
                     value={formData.quantity}
                     onChange={handleChange}
                     className={inputClass}
-                    placeholder="Enter quantity"
+                    placeholder="Enter quantity (e.g., 10, 10 large pots)"
                   />
+                </div>
+
+                <div>
+                  <label className={labelClass}>Unit *</label>
+                  <select
+                    name="quantity_unit"
+                    value={formData.quantity_unit}
+                    onChange={handleChange}
+                    className={inputClass}
+                  >
+                    <option value="kg">Kilograms (kg)</option>
+                    <option value="g">Grams (g)</option>
+                    <option value="lb">Pounds (lb)</option>
+                    <option value="packs">Packs</option>
+                    <option value="boxes">Boxes</option>
+                    <option value="bags">Bags</option>
+                    <option value="units">Units</option>
+                    <option value="cans">Cans</option>
+                    <option value="bottles">Bottles</option>
+                    <option value="liters">Liters (L)</option>
+                  </select>
                 </div>
 
                 <div>
