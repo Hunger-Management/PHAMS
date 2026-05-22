@@ -1,6 +1,6 @@
 import { mockApiFetch } from './mockApi'
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'https://phams-production.up.railway.app'
+const BASE_URL = import.meta.env.VITE_API_URL || 'https://web-production-59ac1.up.railway.app'
 const REQUEST_TIMEOUT_MS = 8000
 const USE_MOCK_API = (import.meta.env.VITE_USE_MOCK_API ?? (import.meta.env.DEV ? 'true' : 'false')) === 'true'
 

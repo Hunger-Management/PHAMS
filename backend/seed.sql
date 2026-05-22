@@ -16,8 +16,8 @@ INSERT IGNORE INTO barangays (name) VALUES
 -- ─── Sample users (password: Test1234) ───────────────────────────────────────
 INSERT INTO users (name, email, password, role, barangay_id)
 VALUES
-  ('Test Admin',  'example_admin@barangay.gov.ph',  '$2a$10$CwTycUXWue0Thq9StjUM0uJ8xgkqYb4uK1Vq0pZcB1Dqv1yJZf9e', 'Admin', NULL),
-  ('Test Staff',  'example_staff@barangay.gov.ph',  '$2a$10$CwTycUXWue0Thq9StjUM0uJ8xgkqYb4uK1Vq0pZcB1Dqv1yJZf9e', 'Staff', 4)
+  ('Test Admin',  'example_admin@barangay.gov.ph',  '$2b$10$9qaieYxQBZXGEaX5ZDy5COlSP0AK/iZq/j9ka6etCbShuumO77YGe', 'Admin', NULL),
+  ('Test Staff',  'example_staff@barangay.gov.ph',  '$2b$10$9qaieYxQBZXGEaX5ZDy5COlSP0AK/iZq/j9ka6etCbShuumO77YGe', 'Staff', 4)
 ON DUPLICATE KEY UPDATE email = email;
 
 -- ─── Sample families ─────────────────────────────────────────────────────────
