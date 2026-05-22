@@ -62,8 +62,6 @@ function AddFamilyPage() {
         food_assistance_status: [],
     })
 
-    const [imageFile, setImageFile] = useState(null)
-
     const [members, setMembers] = useState([{ ...emptyMember(), relationship: 'Head' }])
 
     // Local storage helpers for offline/no-database mode
@@ -202,10 +200,6 @@ function AddFamilyPage() {
                 : 'None')
             formData.append('is_npa', familyData.is_npa ? '1' : '0')
             formData.append('members', JSON.stringify(membersPayload))
-            if (imageFile) {
-                formData.append('image', imageFile)
-            }
-
             const data = await apiFetch('/api/families', {
                 method: 'POST',
                 body: formData,
@@ -227,7 +221,6 @@ function AddFamilyPage() {
                 food_assistance_status: [],
             })
             setMembers([{ ...emptyMember(), relationship: 'Head' }])
-            setImageFile(null)
 
             // Scroll to top to show success message
             window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -272,7 +265,6 @@ function AddFamilyPage() {
                     food_assistance_status: [],
                 })
                 setMembers([{ ...emptyMember(), relationship: 'Head' }])
-                setImageFile(null)
 
                 window.scrollTo({ top: 0, behavior: 'smooth' })
 
@@ -497,16 +489,6 @@ function AddFamilyPage() {
                                         value={familyData.contact_number}
                                         onChange={handleFamilyChange}
                                         placeholder="09XX XXX XXXX"
-                                        className={inputClass}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className={labelClass}>Family Photo (Optional)</label>
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={(event) => setImageFile(event.target.files?.[0] || null)}
                                         className={inputClass}
                                     />
                                 </div>

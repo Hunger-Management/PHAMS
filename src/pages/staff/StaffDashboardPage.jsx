@@ -384,7 +384,6 @@ function StaffDashboardPage() {
     monthlyIncome: '',
     programs: [],
   })
-  const [familyImageFile, setFamilyImageFile] = useState(null)
 
   const [members, setMembers] = useState([{ ...emptyMember(), relationship: 'Head' }])
 
@@ -553,9 +552,6 @@ function StaffDashboardPage() {
       payload.append('food_assistance_status', familyForm.programs.length ? familyForm.programs.join(',') : 'None')
       payload.append('is_npa', '0')
       payload.append('members', JSON.stringify(membersPayload))
-      if (familyImageFile) {
-        payload.append('image', familyImageFile)
-      }
 
       const data = await apiFetch('/api/families', {
         method: 'POST',
@@ -574,7 +570,6 @@ function StaffDashboardPage() {
         programs: [],
       })
       setMembers([{ ...emptyMember(), relationship: 'Head' }])
-      setFamilyImageFile(null)
 
       // Clear success message after 3 seconds
       setTimeout(() => {
@@ -1017,16 +1012,6 @@ function StaffDashboardPage() {
                   </div>
 
                   <div>
-                    <label className={labelClass}>Family Photo (Optional)</label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(event) => setFamilyImageFile(event.target.files?.[0] || null)}
-                      className={`${inputClass} mt-2`}
-                    />
-                  </div>
-
-                  <div>
                     <label className={labelClass}>Monthly Income (PHP)</label>
                     <input name="monthlyIncome" value={familyForm.monthlyIncome} onChange={handleChange} placeholder="Leave blank if unknown" className={`${inputClass} mt-2`} />
                     <p className={`mt-2 text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>NCR poverty threshold: ₱12,082/month. Affects priority score.</p>
@@ -1164,7 +1149,6 @@ function StaffDashboardPage() {
                           programs: [],
                         })
                         setMembers([{ ...emptyMember(), relationship: 'Head' }])
-                        setFamilyImageFile(null)
                         setFormError('')
                         setFormSuccess('')
                       }}

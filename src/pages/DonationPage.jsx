@@ -40,6 +40,17 @@ function DonationPage() {
   const [paymentMethod, setPaymentMethod] = useState('Bank Transfer')
   const [selectedAmount, setSelectedAmount] = useState(500)
   const [customAmount, setCustomAmount] = useState('')
+  const [monetaryForm, setMonetaryForm] = useState({
+    fullName: '',
+    email: '',
+    contactNumber: '',
+    message: '',
+  })
+  const [monetarySubmitting, setMonetarySubmitting] = useState(false)
+  const [monetarySuccess, setMonetarySuccess] = useState('')
+  const [monetaryError, setMonetaryError] = useState('')
+  const [monetaryImageFile, setMonetaryImageFile] = useState(null)
+  const [monetaryImagePreview, setMonetaryImagePreview] = useState('')
   const [recentDonors, setRecentDonors] = useState([])
   const [donorError, setDonorError] = useState('')
   const [foodSupplies, setFoodSupplies] = useState([])
@@ -157,6 +168,20 @@ function DonationPage() {
     return () => { mounted = false }
   }, [])
 
+  useEffect(() => {
+    if (!monetaryImageFile) {
+      setMonetaryImagePreview('')
+      return undefined
+    }
+
+    const previewUrl = URL.createObjectURL(monetaryImageFile)
+    setMonetaryImagePreview(previewUrl)
+
+    return () => {
+      URL.revokeObjectURL(previewUrl)
+    }
+  }, [monetaryImageFile])
+
   const bankTransferCard = processedBankQr ? (
     <div className="mt-6 flex justify-center">
       <img
@@ -260,6 +285,73 @@ function DonationPage() {
     }
 
     setSuppliesForm((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleMonetaryChange = (event) => {
+    const { name, value } = event.target
+    setMonetaryForm((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleMonetarySubmit = async (event) => {
+    event.preventDefault()
+    setMonetarySuccess('')
+    setMonetaryError('')
+
+    if (!monetaryForm.fullName.trim()) {
+      setMonetaryError('Please provide your full name before submitting.')
+      return
+    }
+
+    if (!resolvedAmount || Number.isNaN(resolvedAmount) || resolvedAmount <= 0) {
+      setMonetaryError('Please enter a valid donation amount.')
+      return
+    }
+
+    setMonetarySubmitting(true)
+
+    try {
+      const contactInfo = [monetaryForm.contactNumber.trim(), monetaryForm.email.trim()]
+        .filter(Boolean)
+        .join(' / ')
+
+      const donor = await apiFetch('/api/donors', {
+        method: 'POST',
+        body: JSON.stringify({
+          donor_name: monetaryForm.fullName.trim(),
+          contact_info: contactInfo || 'N/A',
+        }),
+      })
+
+      const donationPayload = new FormData()
+      donationPayload.append('donor_id', String(donor.donor_id))
+      donationPayload.append('food_id', '')
+      donationPayload.append('quantity', String(resolvedAmount))
+      donationPayload.append('date_given', new Date().toISOString().split('T')[0])
+      if (monetaryImageFile) {
+        donationPayload.append('image', monetaryImageFile)
+      }
+
+      await apiFetch('/api/donations', {
+        method: 'POST',
+        body: donationPayload,
+      })
+
+      setMonetarySuccess('Thank you! Your donation has been recorded.')
+      setMonetaryForm({
+        fullName: '',
+        email: '',
+        contactNumber: '',
+        message: '',
+      })
+      setCustomAmount('')
+      setSelectedAmount(500)
+      setMonetaryImageFile(null)
+      loadRecentDonors()
+    } catch (err) {
+      setMonetaryError(err.message || 'Unable to record donation right now.')
+    } finally {
+      setMonetarySubmitting(false)
+    }
   }
 
   const handleFoodSubmit = async (event) => {
@@ -496,6 +588,17 @@ function DonationPage() {
               Choose an amount or enter a custom amount to donate
             </p>
 
+            {monetarySuccess && (
+              <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                {monetarySuccess}
+              </div>
+            )}
+            {monetaryError && (
+              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {monetaryError}
+              </div>
+            )}
+
             <div className="mt-7">
               <h3 className={`text-lg md:text-xl font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>Select Amount (PHP)</h3>
               <div className="mt-3 grid grid-cols-2 md:grid-cols-5 gap-2">
@@ -544,7 +647,7 @@ function DonationPage() {
               />
             </div>
 
-            <form className="mt-7 space-y-4">
+            <form className="mt-7 space-y-4" onSubmit={handleMonetarySubmit}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="full-name" className={`mb-1 block text-base md:text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
@@ -553,6 +656,9 @@ function DonationPage() {
                   <input
                     id="full-name"
                     type="text"
+                    name="fullName"
+                    value={monetaryForm.fullName}
+                    onChange={handleMonetaryChange}
                     placeholder="Juan Dela Cruz"
                     className={`w-full rounded-lg border px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-blue-500/40 ${
                       isDarkMode
@@ -568,6 +674,9 @@ function DonationPage() {
                   <input
                     id="email-address"
                     type="email"
+                    name="email"
+                    value={monetaryForm.email}
+                    onChange={handleMonetaryChange}
                     placeholder="juan@example.com"
                     className={`w-full rounded-lg border px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-blue-500/40 ${
                       isDarkMode
@@ -583,6 +692,9 @@ function DonationPage() {
                   <input
                     id="contact-number"
                     type="text"
+                    name="contactNumber"
+                    value={monetaryForm.contactNumber}
+                    onChange={handleMonetaryChange}
                     placeholder="09XX XXX XXXX"
                     className={`w-full rounded-lg border px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-blue-500/40 ${
                       isDarkMode
@@ -624,6 +736,9 @@ function DonationPage() {
                 <textarea
                   id="donation-message"
                   rows="3"
+                  name="message"
+                  value={monetaryForm.message}
+                  onChange={handleMonetaryChange}
                   placeholder="Any message or dedication for your donation..."
                   className={`w-full rounded-lg border px-4 py-3 text-base outline-none focus:ring-2 focus:ring-blue-500/40 ${
                     isDarkMode
@@ -633,11 +748,41 @@ function DonationPage() {
                 />
               </div>
 
+              <div>
+                <label htmlFor="proof-image" className={`mb-1 block text-base md:text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
+                  Upload Proof of Transaction (optional)
+                </label>
+                <input
+                  id="proof-image"
+                  type="file"
+                  accept="image/*"
+                  onChange={(event) => setMonetaryImageFile(event.target.files?.[0] || null)}
+                  className={`w-full rounded-lg border px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-blue-500/40 ${
+                    isDarkMode
+                      ? 'border-slate-600 bg-slate-800 text-slate-100'
+                      : 'border-slate-300 bg-[#f5f7f9] text-slate-900'
+                  }`}
+                />
+                {monetaryImagePreview ? (
+                  <div className="mt-3 flex items-center gap-3">
+                    <img
+                      src={monetaryImagePreview}
+                      alt="Proof preview"
+                      className="h-20 w-20 rounded-lg object-cover"
+                    />
+                    <span className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                      Preview of the selected image.
+                    </span>
+                  </div>
+                ) : null}
+              </div>
+
               <button
-                type="button"
-                className="mt-2 w-full rounded-lg bg-blue-700 px-5 py-3 text-base md:text-lg font-semibold text-white transition-colors hover:bg-blue-800"
+                type="submit"
+                disabled={monetarySubmitting}
+                className="mt-2 w-full rounded-lg bg-blue-700 px-5 py-3 text-base md:text-lg font-semibold text-white transition-colors hover:bg-blue-800 disabled:opacity-60"
               >
-                ♡ Donate PHP {formatPhpAmount(resolvedAmount)}
+                {monetarySubmitting ? 'Submitting...' : `♡ Donate PHP ${formatPhpAmount(resolvedAmount)}`}
               </button>
             </form>
           </article>
