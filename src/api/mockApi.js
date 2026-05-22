@@ -575,15 +575,19 @@ function handlePost(path, db, body) {
 
   if (path === '/api/individuals') {
     const individual_id = nextId(db.individuals, 'individual_id')
-    const barangay_id = Number(body.barangay_id) || 1
+    const rawBarangayId = body.barangay_id
+    const barangay_id = rawBarangayId === null || rawBarangayId === undefined || rawBarangayId === ''
+      ? null
+      : Number(rawBarangayId)
     const item = {
       individual_id,
       name: body.name || `Individual ${individual_id}`,
-      age: body.age === null ? null : Number(body.age || 0),
+      age: body.age === null || body.age === undefined || body.age === '' ? null : Number(body.age || 0),
       gender: body.gender || 'Male',
       barangay_id,
-      barangay_name: getBarangayName(barangay_id),
+      barangay_name: barangay_id ? getBarangayName(barangay_id) : 'Unknown',
       status: body.status || 'Registered',
+      image: body.image_data || null,
     }
     db.individuals.unshift(item)
     saveDb(db)
@@ -630,6 +634,7 @@ function handlePost(path, db, body) {
       quantity: Number(body.quantity || 0),
       quantity_unit: foodUnit,
       date_given: body.date_given || nowIso(),
+      image: body.image_data || null,
     }
     db.donations.unshift(item)
     updateFoodQuantity(db, item.food_id, item.quantity)
