@@ -189,7 +189,7 @@ app.post('/api/families', upload.single('image'), (req, res) => {
   } = req.body
   const image = req.file ? req.file.buffer : null
   const monthlyIncomeValue = monthly_income === undefined || monthly_income === null || monthly_income === '' ? null : Number(monthly_income)
-  const isNpaValue = is_npa ? 1 : 0
+  const isNpaValue = is_npa === 1 || is_npa === '1' || is_npa === true ? 1 : 0
   const priorityScoreValue = priority_score !== undefined && priority_score !== null && priority_score !== '' ? Number(priority_score) : 0
   const assistanceStatus = food_assistance_status || 'None'
 
@@ -312,7 +312,7 @@ app.put('/api/families/:id', upload.single('image'), (req, res) => {
   } = req.body
   const image = req.file ? req.file.buffer : null
   const monthlyIncomeValue = monthly_income === undefined || monthly_income === null || monthly_income === '' ? null : Number(monthly_income)
-  const isNpaValue = is_npa !== undefined ? (is_npa ? 1 : 0) : undefined
+  const isNpaValue = is_npa !== undefined ? (is_npa === 1 || is_npa === '1' || is_npa === true ? 1 : 0) : undefined
   const priorityScoreValue = priority_score !== undefined && priority_score !== null && priority_score !== '' ? Number(priority_score) : undefined
   const assistanceStatus = food_assistance_status
 
