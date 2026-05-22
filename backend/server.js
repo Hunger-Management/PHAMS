@@ -104,6 +104,19 @@ function persistActivityLog(db, distribution, action, actor, callback) {
   })
 }
 
+// ─── HOUSEHOLD ID ────────────────────────────────────────────────────────────
+const BARANGAY_CODES = {
+  1: 'AGU', 2: 'MAG', 3: 'MAR', 4: 'POB', 5: 'SNP',
+  6: 'SNR', 7: 'SNA', 8: 'SRK', 9: 'SRS', 10: 'TAB',
+}
+
+function generateHouseholdId(barangayId, familyId) {
+  const code = BARANGAY_CODES[Number(barangayId)] || 'UNK'
+  const year = new Date().getFullYear()
+  const seq = String(familyId).padStart(4, '0')
+  return `${code}-${year}-${seq}`
+}
+
 // ─── DB CONNECTION ───────────────────────────────────────────────────────────
 const db = mysql.createPool(dbConfig)
 
@@ -170,10 +183,17 @@ app.get('/api/families/:id', (req, res) => {
 
 // POST add new family
 app.post('/api/families', upload.single('image'), (req, res) => {
-  const { barangay_id, family_name, address, head_of_family, phone } = req.body
+  const {
+    barangay_id, family_name, address, head_of_family, phone,
+    monthly_income, food_assistance_status, is_npa, priority_score,
+  } = req.body
   const image = req.file ? req.file.buffer : null
-  let members = []
+  const monthlyIncomeValue = monthly_income === undefined || monthly_income === null || monthly_income === '' ? null : Number(monthly_income)
+  const isNpaValue = is_npa ? 1 : 0
+  const priorityScoreValue = priority_score !== undefined && priority_score !== null && priority_score !== '' ? Number(priority_score) : 0
+  const assistanceStatus = food_assistance_status || 'None'
 
+  let members = []
   if (req.body.members) {
     try {
       const parsed = JSON.parse(req.body.members)
@@ -182,9 +202,12 @@ app.post('/api/families', upload.single('image'), (req, res) => {
       members = []
     }
   }
+
   const familySql = `
-    INSERT INTO families (barangay_id, family_name, address, head_of_family, phone, image)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO families
+      (barangay_id, family_name, address, head_of_family, phone,
+       monthly_income, food_assistance_status, is_npa, priority_score, image)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `
 
   db.getConnection((connErr, connection) => {
@@ -198,7 +221,8 @@ app.post('/api/families', upload.single('image'), (req, res) => {
 
       connection.query(
         familySql,
-        [barangay_id, family_name, address, head_of_family, phone, image],
+        [barangay_id, family_name, address, head_of_family, phone,
+         monthlyIncomeValue, assistanceStatus, isNpaValue, priorityScoreValue, image],
         (familyErr, familyResult) => {
           if (familyErr) {
             return connection.rollback(() => {
@@ -208,6 +232,16 @@ app.post('/api/families', upload.single('image'), (req, res) => {
           }
 
           const familyId = familyResult.insertId
+          const householdId = generateHouseholdId(barangay_id, familyId)
+
+          connection.query(
+            'UPDATE families SET household_id = ? WHERE family_id = ?',
+            [householdId, familyId],
+            (hhErr) => {
+              if (hhErr) console.error('Failed to set household_id:', hhErr)
+            },
+          )
+
           const memberRows = Array.isArray(members)
             ? members
                 .filter((m) => m && (m.first_name || m.last_name))
@@ -215,8 +249,13 @@ app.post('/api/families', upload.single('image'), (req, res) => {
                   familyId,
                   m.first_name || null,
                   m.last_name || null,
-                  m.age ?? null,
+                  m.date_of_birth || null,
                   m.gender || 'Other',
+                  m.relationship || 'Other',
+                  m.is_pwd ? 1 : 0,
+                  m.height_cm !== undefined && m.height_cm !== null && m.height_cm !== '' ? Number(m.height_cm) : null,
+                  m.weight_kg !== undefined && m.weight_kg !== null && m.weight_kg !== '' ? Number(m.weight_kg) : null,
+                  m.nutritional_status || 'Unknown',
                 ])
             : []
 
@@ -229,12 +268,14 @@ app.post('/api/families', upload.single('image'), (req, res) => {
                 })
               }
               connection.release()
-              res.json({ message: 'Family added!', family_id: familyId })
+              res.json({ message: 'Family added!', family_id: familyId, household_id: householdId })
             })
           }
 
           const memberSql = `
-            INSERT INTO family_members (family_id, first_name, last_name, age, gender)
+            INSERT INTO family_members
+              (family_id, first_name, last_name, date_of_birth, gender,
+               relationship, is_pwd, height_cm, weight_kg, nutritional_status)
             VALUES ?
           `
 
@@ -254,7 +295,7 @@ app.post('/api/families', upload.single('image'), (req, res) => {
                 })
               }
               connection.release()
-              res.json({ message: 'Family added!', family_id: familyId })
+              res.json({ message: 'Family added!', family_id: familyId, household_id: householdId })
             })
           })
         },
@@ -265,12 +306,27 @@ app.post('/api/families', upload.single('image'), (req, res) => {
 
 // PUT update family
 app.put('/api/families/:id', upload.single('image'), (req, res) => {
-  const { barangay_id, family_name, address, head_of_family, phone } = req.body
+  const {
+    barangay_id, family_name, address, head_of_family, phone,
+    monthly_income, food_assistance_status, is_npa, priority_score,
+  } = req.body
   const image = req.file ? req.file.buffer : null
+  const monthlyIncomeValue = monthly_income === undefined || monthly_income === null || monthly_income === '' ? null : Number(monthly_income)
+  const isNpaValue = is_npa !== undefined ? (is_npa ? 1 : 0) : undefined
+  const priorityScoreValue = priority_score !== undefined && priority_score !== null && priority_score !== '' ? Number(priority_score) : undefined
+  const assistanceStatus = food_assistance_status
+
   let sql = `
-    UPDATE families SET barangay_id=?, family_name=?, address=?, head_of_family=?, phone=?
+    UPDATE families SET barangay_id=?, family_name=?, address=?, head_of_family=?, phone=?,
+      monthly_income=?, food_assistance_status=?, is_npa=?, priority_score=?
   `
-  const params = [barangay_id, family_name, address, head_of_family, phone]
+  const params = [
+    barangay_id, family_name, address, head_of_family, phone,
+    monthlyIncomeValue,
+    assistanceStatus ?? 'None',
+    isNpaValue ?? 0,
+    priorityScoreValue ?? 0,
+  ]
 
   if (image) {
     sql += ', image=?'
@@ -306,15 +362,29 @@ app.get('/api/families/:id/members', (req, res) => {
 
 // POST add member to a family
 app.post('/api/families/:id/members', (req, res) => {
-  const { first_name, last_name, age, gender } = req.body
+  const {
+    first_name, last_name, date_of_birth, gender,
+    relationship, is_pwd, height_cm, weight_kg, nutritional_status,
+  } = req.body
   const sql = `
-    INSERT INTO family_members (family_id, first_name, last_name, age, gender)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO family_members
+      (family_id, first_name, last_name, date_of_birth, gender,
+       relationship, is_pwd, height_cm, weight_kg, nutritional_status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `
-  db.query(sql, [req.params.id, first_name, last_name, age, gender], (err, results) => {
-    if (err) return res.status(500).json({ error: err.message })
-    res.json({ message: 'Member added!', member_id: results.insertId })
-  })
+  const heightValue = height_cm !== undefined && height_cm !== null && height_cm !== '' ? Number(height_cm) : null
+  const weightValue = weight_kg !== undefined && weight_kg !== null && weight_kg !== '' ? Number(weight_kg) : null
+  db.query(
+    sql,
+    [
+      req.params.id, first_name, last_name, date_of_birth || null, gender || 'Other',
+      relationship || 'Other', is_pwd ? 1 : 0, heightValue, weightValue, nutritional_status || 'Unknown',
+    ],
+    (err, results) => {
+      if (err) return res.status(500).json({ error: err.message })
+      res.json({ message: 'Member added!', member_id: results.insertId })
+    },
+  )
 })
 
 // DELETE family member
@@ -342,15 +412,15 @@ app.get('/api/individuals', (req, res) => {
 
 // POST add individual
 app.post('/api/individuals', upload.single('image'), (req, res) => {
-  const { name, age, gender, barangay_id, status } = req.body
+  const { name, date_of_birth, gender, barangay_id, status } = req.body
   const image = req.file ? req.file.buffer : null
-  const ageValue = age === undefined || age === null || age === '' ? null : Number(age)
+  const dobValue = date_of_birth || null
   const barangayValue = barangay_id === undefined || barangay_id === null || barangay_id === '' ? null : Number(barangay_id)
   const sql = `
-    INSERT INTO individuals (name, age, gender, barangay_id, status, image)
+    INSERT INTO individuals (name, date_of_birth, gender, barangay_id, status, image)
     VALUES (?, ?, ?, ?, ?, ?)
   `
-  db.query(sql, [name, ageValue, gender, barangayValue, status, image], (err, results) => {
+  db.query(sql, [name, dobValue, gender, barangayValue, status, image], (err, results) => {
     if (err) return res.status(500).json({ error: err.message })
     res.json({ message: 'Individual registered!', individual_id: results.insertId })
   })
@@ -358,14 +428,14 @@ app.post('/api/individuals', upload.single('image'), (req, res) => {
 
 // PUT update individual
 app.put('/api/individuals/:id', upload.single('image'), (req, res) => {
-  const { name, age, gender, barangay_id, status } = req.body
+  const { name, date_of_birth, gender, barangay_id, status } = req.body
   const image = req.file ? req.file.buffer : null
-  const ageValue = age === undefined || age === null || age === '' ? null : Number(age)
+  const dobValue = date_of_birth || null
   const barangayValue = barangay_id === undefined || barangay_id === null || barangay_id === '' ? null : Number(barangay_id)
   let sql = `
-    UPDATE individuals SET name=?, age=?, gender=?, barangay_id=?, status=?
+    UPDATE individuals SET name=?, date_of_birth=?, gender=?, barangay_id=?, status=?
   `
-  const params = [name, ageValue, gender, barangayValue, status]
+  const params = [name, dobValue, gender, barangayValue, status]
 
   if (image) {
     sql += ', image=?'
@@ -624,6 +694,14 @@ app.post('/api/distributions', upload.single('image'), (req, res) => {
   `
   db.query(sql, [recipient_type, familyValue, individualValue, barangayValue, foodValue, quantityValue, date_given, status, image], (err, results) => {
     if (err) return res.status(500).json({ error: err.message })
+
+    if (foodValue && quantityValue) {
+      db.query(
+        'UPDATE food_supplies SET total_quantity = GREATEST(0, total_quantity - ?) WHERE food_id = ?',
+        [quantityValue, foodValue],
+        (foodErr) => { if (foodErr) console.error('Failed to update food supply on distribution:', foodErr) },
+      )
+    }
 
     const selectSql = `
       SELECT
