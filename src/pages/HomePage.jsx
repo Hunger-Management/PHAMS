@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useDarkMode } from '../hooks/useDarkMode'
 import Footer from '../components/Footer'
 import SiteHeader from '../components/SiteHeader'
@@ -59,6 +58,7 @@ function HomePage() {
   const [distributions, setDistributions] = useState([])
   const [activityLogs, setActivityLogs] = useState([])
   const [activityLoading, setActivityLoading] = useState(true)
+  const [showAllActivity, setShowAllActivity] = useState(false)
 
   const [chartRange, setChartRange] = useState(6)
   const [showRangeMenu, setShowRangeMenu] = useState(false)
@@ -159,7 +159,7 @@ function HomePage() {
 
   // Map activity logs to table rows
   const liveActivities = useMemo(() => {
-    return activityLogs.slice(0, 5).map((log, i) => {
+    return activityLogs.map((log, i) => {
       const action = String(log.action || '').toLowerCase()
       const type = action === 'created' ? 'Registration' : action === 'deleted' ? 'Update' : 'Distribution'
       const desc = log.distribution_details || (log.staff_name ? `Activity logged by ${log.staff_name}` : 'System activity recorded')
@@ -464,12 +464,15 @@ function HomePage() {
               style={{ fontFamily: 'Arial Black, Trebuchet MS, sans-serif' }}>
               Recent System Activity
             </h4>
-            <Link
-              to="/transparency"
-              className={`text-sm font-semibold transition-colors ${isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'}`}
-            >
-              View All
-            </Link>
+            {!showAllActivity && liveActivities.length > 5 && (
+              <button
+                type="button"
+                onClick={() => setShowAllActivity(true)}
+                className={`text-sm font-semibold transition-colors ${isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'}`}
+              >
+                View All
+              </button>
+            )}
           </div>
 
           <div className="overflow-x-auto">
@@ -494,7 +497,7 @@ function HomePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {liveActivities.map((activity) => (
+                  {(showAllActivity ? liveActivities : liveActivities.slice(0, 5)).map((activity) => (
                     <tr key={activity.key} className={`border-b last:border-b-0 transition-colors ${
                       isDarkMode ? 'border-slate-700 hover:bg-slate-700/50' : 'border-slate-200 hover:bg-slate-50'
                     }`}>
