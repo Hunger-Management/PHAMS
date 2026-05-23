@@ -185,7 +185,7 @@ export default function TransparencySection({ isDarkMode }) {
     setTimeout(() => {
       const modal = document.querySelector('[role="dialog"]')
       if (modal) {
-        modal.scrollIntoView({ behavior: 'instant', block: 'center' })
+        modal.scrollIntoView({ behavior: 'auto', block: 'center' })
       }
     }, 50)
   }
