@@ -104,6 +104,100 @@ function persistActivityLog(db, distribution, action, actor, callback) {
   })
 }
 
+// ─── PRIORITY SCORE ──────────────────────────────────────────────────────────
+// Five-component formula (0–100) plus NPA bonus:
+//   (1) Income vs NCR poverty line   — 35 pts
+//   (2) Malnourished member ratio    — 30 pts
+//   (3) Vulnerable member ratio      — 20 pts  (age <5, age ≥60, or PWD)
+//   (4) Non-working-age ratio        — 10 pts  (age <15 or age ≥65)
+//   (5) Days since last distribution —  5 pts
+//   (+) NPA bonus                    — +10 pts (capped at 100)
+//
+// SDG 2 design decisions that differ from the documented formula:
+//   • Null income → treated as 0 → max income score. Informal workers and NPA
+//     families rarely have documented income; penalising them for it would
+//     exclude the most vulnerable from assistance.
+//   • Missing date_of_birth → member counted as vulnerable. Unknown age is
+//     treated conservatively — better to over-include than to leave someone out.
+//   • is_npa = 1 adds +10 pts. The documentation omits NPA from scoring, but
+//     individuals without a permanent address are among the hardest to reach
+//     and most systematically excluded from aid programs.
+//   • daysSinceLastDist is passed in so recalculation after a completed
+//     distribution automatically reduces a family's score (equity rotation).
+function calculatePriorityScore({ monthly_income, is_npa, members = [], daysSinceLastDist = 90 }) {
+  const POVERTY_LINE = 12082
+
+  // (1) Income — 35 pts
+  const income = (monthly_income !== undefined && monthly_income !== null && monthly_income !== '')
+    ? Number(monthly_income) : 0
+  const incomeScore = Math.min(35, Math.max(0, 35 * (1 - income / POVERTY_LINE)))
+
+  // (2–4) Member-based components
+  const total = members.length
+  let malnourished = 0, vulnerable = 0, nonWorkingAge = 0
+
+  for (const m of members) {
+    if (['underweight', 'severely underweight'].includes(String(m.nutritional_status || '').toLowerCase())) {
+      malnourished++
+    }
+
+    let age = null
+    if (m.date_of_birth) {
+      const dob = new Date(m.date_of_birth)
+      const now = new Date()
+      age = now.getFullYear() - dob.getFullYear()
+      const mo = now.getMonth() - dob.getMonth()
+      if (mo < 0 || (mo === 0 && now.getDate() < dob.getDate())) age--
+    }
+
+    const isPwd = m.is_pwd === 1 || m.is_pwd === '1' || m.is_pwd === true
+    // Missing DOB → count as vulnerable (conservative/inclusive)
+    if (isPwd || age === null || age < 5 || age >= 60) vulnerable++
+    if (age !== null && (age < 15 || age >= 65)) nonWorkingAge++
+  }
+
+  const malnutScore = total > 0 ? 30 * malnourished / total : 0
+  const vulnScore   = total > 0 ? Math.min(20, 20 * vulnerable / total) : 0
+  const depScore    = total > 0 ? Math.min(10, 10 * nonWorkingAge / total) : 0
+
+  // (5) Days since last distribution — 5 pts; new families default to 90 → full 5 pts
+  const distScore = Math.min(5, 5 * Math.min(daysSinceLastDist, 90) / 90)
+
+  // NPA bonus — capped at 100 overall
+  const npaBonus = (is_npa === 1 || is_npa === '1' || is_npa === true) ? 10 : 0
+
+  return parseFloat(Math.min(100, incomeScore + malnutScore + vulnScore + depScore + distScore + npaBonus).toFixed(2))
+}
+
+// Recalculates and saves a family's priority score using live DB data.
+// Called after any distribution status change so the score stays current.
+function recalculateFamilyPriorityScore(familyId, db) {
+  if (!familyId) return
+  db.query('SELECT monthly_income, is_npa FROM families WHERE family_id = ?', [familyId], (err, familyRows) => {
+    if (err || !familyRows.length) return
+    const { monthly_income, is_npa } = familyRows[0]
+
+    db.query(
+      'SELECT date_of_birth, nutritional_status, is_pwd FROM family_members WHERE family_id = ?',
+      [familyId],
+      (err2, members) => {
+        if (err2) return
+        db.query(
+          "SELECT DATEDIFF(CURDATE(), MAX(date_given)) AS days_since FROM distribution WHERE family_id = ? AND status = 'Completed'",
+          [familyId],
+          (err3, distRows) => {
+            if (err3) return
+            const daysSince = distRows[0]?.days_since !== null && distRows[0]?.days_since !== undefined
+              ? Number(distRows[0].days_since) : 90
+            const score = calculatePriorityScore({ monthly_income, is_npa, members: members || [], daysSinceLastDist: daysSince })
+            db.query('UPDATE families SET priority_score = ? WHERE family_id = ?', [score, familyId], () => {})
+          }
+        )
+      }
+    )
+  })
+}
+
 // ─── HOUSEHOLD ID ────────────────────────────────────────────────────────────
 const BARANGAY_CODES = {
   1: 'AGU', 2: 'MAG', 3: 'MAR', 4: 'POB', 5: 'SNP',
@@ -190,7 +284,6 @@ app.post('/api/families', upload.single('image'), (req, res) => {
   const image = req.file ? req.file.buffer : null
   const monthlyIncomeValue = monthly_income === undefined || monthly_income === null || monthly_income === '' ? null : Number(monthly_income)
   const isNpaValue = is_npa === 1 || is_npa === '1' || is_npa === true ? 1 : 0
-  const priorityScoreValue = priority_score !== undefined && priority_score !== null && priority_score !== '' ? Number(priority_score) : 0
   const assistanceStatus = food_assistance_status || 'None'
 
   let members = []
@@ -202,6 +295,11 @@ app.post('/api/families', upload.single('image'), (req, res) => {
       members = []
     }
   }
+
+  // Auto-calculate priority score if not explicitly provided
+  const priorityScoreValue = (priority_score !== undefined && priority_score !== null && priority_score !== '')
+    ? Number(priority_score)
+    : calculatePriorityScore({ monthly_income, is_npa, members })
 
   const familySql = `
     INSERT INTO families
@@ -786,6 +884,13 @@ app.put('/api/distributions/:id', upload.single('image'), (req, res) => {
 
     db.query(selectSql, [req.params.id], (selectErr, rows) => {
       const distribution = rows && rows[0] ? rows[0] : { distribution_id: Number(req.params.id), status }
+
+      // Recalculate priority score for the affected family so score reflects
+      // whether they've just been served (equity rotation) or un-served.
+      if (distribution.family_id) {
+        recalculateFamilyPriorityScore(distribution.family_id, db)
+      }
+
       persistActivityLog(db, distribution, determineDistributionAction(status, 'updated'), actor, (logErr) => {
         if (logErr) console.error('Failed to write distribution activity log:', logErr)
         if (selectErr) console.error('Failed to reload distribution for activity log:', selectErr)
