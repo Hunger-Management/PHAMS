@@ -4,6 +4,19 @@ import { useDarkMode } from '../../hooks/useDarkMode'
 import SiteHeader from '../../components/SiteHeader'
 import { apiFetch } from '../../api/api'
 
+const CAPTAIN_MAP = {
+  'Aguho': 'Joven Gatpayat',
+  'Magtanggol': 'Jose A. Egonia',
+  "Martires del '96": 'Angel O. Mallorca Jr.',
+  'Poblacion': 'Alma R. Otero',
+  'San Pedro': 'Violeta S. Lorenzo',
+  'San Roque': 'Maria Dolores R. Custodio',
+  'Santa Ana': 'Beatriz J. Santos',
+  'Santo Rosario-Kanluran': 'Arthur C. Cortez',
+  'Santo Rosario-Silangan': 'Eduardo G. Masinloc',
+  'Tabacalera': 'Richard R. Palican',
+}
+
 function BarangayDetailLayout({ barangayName }) {
   const { isDarkMode, toggleDarkMode } = useDarkMode()
   const [loading, setLoading] = useState(true)
@@ -52,9 +65,9 @@ function BarangayDetailLayout({ barangayName }) {
 
         const activeDistributions = distributionsFor.filter((d) => String(d.status || '').toLowerCase() !== 'completed').length
 
-        // Pick a captain/staff: find user with barangay_id matching
+        // Use hardcoded captain map; pick assigned staff only for contact details
         const staffFor = (Array.isArray(users) ? users : []).filter((u) => Number(u.barangay_id) === barangayId)
-        const captain = staffFor[0]
+        const assignedStaff = staffFor[0]
 
         setProfile({
           description: barangay?.description || `Community profile for ${barangayName}.`,
@@ -63,9 +76,9 @@ function BarangayDetailLayout({ barangayName }) {
           registeredFamilies: String(registeredFamilies),
           iwpaCount: String(iwpaCount),
           activeDistributions: String(activeDistributions),
-          captain: captain ? (captain.full_name || captain.name) : 'To Be Assigned',
-          phone: captain?.phone || captain?.contact || '+63 900 000 0000',
-          email: captain?.email || 'barangay@pateros.gov.ph',
+          captain: CAPTAIN_MAP[barangayName] || 'To Be Assigned',
+          phone: assignedStaff?.phone || assignedStaff?.contact || '+63 900 000 0000',
+          email: assignedStaff?.email || 'barangay@pateros.gov.ph',
         })
 
         // ── Monthly families assisted (last 6 months) ──────────────────

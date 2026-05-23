@@ -11,6 +11,9 @@ export default function BarangayManagementSection({ isDarkMode }) {
   const navigate = useNavigate()
   const location = useLocation()
   const [apiBarangays, setApiBarangays] = useState([])
+  const [apiFamilies, setApiFamilies] = useState([])
+  const [apiIndividuals, setApiIndividuals] = useState([])
+  const [apiDistributions, setApiDistributions] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -24,9 +27,17 @@ export default function BarangayManagementSection({ isDarkMode }) {
   const allBarangays = getAllBarangays()
 
   useEffect(() => {
-    apiFetch('/api/barangays')
-      .then((data) => {
-        setApiBarangays(Array.isArray(data) ? data : [])
+    Promise.all([
+      apiFetch('/api/barangays'),
+      apiFetch('/api/families'),
+      apiFetch('/api/individuals'),
+      apiFetch('/api/distributions'),
+    ])
+      .then(([barangaysData, familiesData, individualsData, distributionsData]) => {
+        setApiBarangays(Array.isArray(barangaysData) ? barangaysData : [])
+        setApiFamilies(Array.isArray(familiesData) ? familiesData : [])
+        setApiIndividuals(Array.isArray(individualsData) ? individualsData : [])
+        setApiDistributions(Array.isArray(distributionsData) ? distributionsData : [])
         setLoading(false)
       })
       .catch((err) => {
@@ -50,18 +61,32 @@ export default function BarangayManagementSection({ isDarkMode }) {
 
     return apiBarangays.map((barangay) => {
       const match = contextMap[normalizeName(barangay.name)] || {}
+      const bId = Number(barangay.barangay_id)
+
+      const registeredFamilies = apiFamilies.filter(
+        (f) => Number(f.barangay_id) === bId && f.is_active !== 0
+      ).length
+
+      const iwpaCount = apiIndividuals.filter(
+        (i) => Number(i.barangay_id) === bId && String(i.status || '').toLowerCase() === 'pending'
+      ).length
+
+      const activeDistributions = apiDistributions.filter(
+        (d) => Number(d.barangay_id) === bId && String(d.status || '').toLowerCase() !== 'completed'
+      ).length
+
       return {
         name: barangay.name,
         barangay_id: barangay.barangay_id,
         residents: match.residents || '0',
         households: match.households || '0',
-        registeredFamilies: match.registeredFamilies || '0',
-        iwpaCount: match.iwpaCount || '0',
-        activeDistributions: match.activeDistributions || '0',
+        registeredFamilies: String(registeredFamilies),
+        iwpaCount: String(iwpaCount),
+        activeDistributions: String(activeDistributions),
         captain: match.captain || '—',
       }
     })
-  }, [apiBarangays, allBarangays])
+  }, [apiBarangays, allBarangays, apiFamilies, apiIndividuals, apiDistributions])
 
   const getStaffForBarangay = (barangayName) => {
     return staffAccounts.filter((staff) => staff.barangay === barangayName)
