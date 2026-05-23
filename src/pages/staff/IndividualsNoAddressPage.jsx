@@ -8,10 +8,9 @@ function IndividualsNoAddressPage() {
   const [individuals, setIndividuals] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [form, setForm] = useState({ name: '', date_of_birth: '', gender: 'Male' })
+  const [form, setForm] = useState({ name: '', gender: 'Male', age: '' })
   const [imageFile, setImageFile] = useState(null)
   const [imageInputKey, setImageInputKey] = useState(0)
-
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState('')
   const [formError, setFormError] = useState('')
@@ -46,8 +45,8 @@ function IndividualsNoAddressPage() {
     try {
       const payload = new FormData()
       payload.append('name', form.name.trim())
-      payload.append('date_of_birth', form.date_of_birth || '')
       payload.append('gender', form.gender || 'Male')
+      payload.append('age', form.age || '')
       payload.append('barangay_id', '')
       payload.append('status', 'Registered')
       if (imageFile) {
@@ -63,7 +62,7 @@ function IndividualsNoAddressPage() {
       setIndividuals(filtered)
 
       setSuccess('Individual registered')
-      setForm({ name: '', date_of_birth: '', gender: 'Male' })
+      setForm({ name: '', gender: 'Male', age: '' })
       setImageFile(null)
       setImageInputKey((prev) => prev + 1)
       setTimeout(() => setSuccess(''), 3000)
@@ -85,23 +84,27 @@ function IndividualsNoAddressPage() {
           <div className="mt-6">
             <div className={`mb-6 rounded-lg p-5 ${isDarkMode ? 'bg-slate-900 border border-slate-700' : 'bg-white border border-slate-200'}`}>
               <h3 className={`text-lg font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Register NPA Individual</h3>
-              <form onSubmit={handleRegister} className="grid gap-3 sm:grid-cols-3 items-end">
-                <div className="sm:col-span-2">
-                  <label className="block text-xs text-slate-500 mb-1">Full name</label>
-                  <input name="name" value={form.name} onChange={handleFormChange} placeholder="Juan Dela Cruz" className="w-full rounded-md border px-3 py-2 bg-transparent" />
-                </div>
-                <div>
-                  <label className="block text-xs text-slate-500 mb-1">Date of Birth</label>
-                  <input name="date_of_birth" value={form.date_of_birth} onChange={handleFormChange} type="date" max={new Date().toISOString().split('T')[0]} className="w-full rounded-md border px-3 py-2 bg-transparent" />
-                </div>
+              <form onSubmit={handleRegister} className="space-y-3">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs text-slate-500 mb-1">Full name *</label>
+                    <input name="name" value={form.name} onChange={handleFormChange} placeholder="Juan Dela Cruz" className="w-full rounded-md border px-3 py-2 bg-transparent" required />
+                  </div>
 
-                <div>
-                  <label className="block text-xs text-slate-500 mb-1">Gender</label>
-                  <select name="gender" value={form.gender} onChange={handleFormChange} className="w-full rounded-md border px-3 py-2 bg-transparent">
-                    <option>Male</option>
-                    <option>Female</option>
-                    <option>Other</option>
-                  </select>
+                  <div>
+                    <label className="block text-xs text-slate-500 mb-1">Gender *</label>
+                    <select name="gender" value={form.gender} onChange={handleFormChange} className="w-full rounded-md border px-3 py-2 bg-transparent" required>
+                      <option>Male</option>
+                      <option>Female</option>
+                      <option>Other</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs text-slate-500 mb-1">Age (years)</label>
+                    <input name="age" type="number" min="0" max="150" value={form.age} onChange={handleFormChange} placeholder="e.g. 45" className="w-full rounded-md border px-3 py-2 bg-transparent" />
+                    <p className="text-xs text-slate-400 mt-1">Optional</p>
+                  </div>
                 </div>
 
                 <div className="sm:col-span-2">
@@ -143,6 +146,11 @@ function IndividualsNoAddressPage() {
                         <div className="font-semibold text-sm">{ind.name || '—'}</div>
                         <div className="text-xs text-slate-500 mt-1">ID: {ind.individual_id || '—'}</div>
                         <div className="text-xs text-slate-500">{ind.gender || '—'} • {ind.age ?? '—'} yrs</div>
+                        {(ind.height_cm || ind.weight_kg) && (
+                          <div className="text-xs text-slate-500 mt-1">
+                            {ind.height_cm ? `${ind.height_cm} cm` : '—'} • {ind.weight_kg ? `${ind.weight_kg} kg` : '—'}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="mt-4 flex items-center justify-between">
