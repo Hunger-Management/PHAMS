@@ -427,7 +427,10 @@ function handleGet(path, db, originalPath = path) {
       .slice(0, limit)
   }
   if (path === '/api/users') {
-    return db.users.map(({ password, ...safe }) => safe)
+    // For mock API we return full user records (including `password`) so
+    // admin tooling can display assigned staff and — in development only —
+    // inspect stored passwords. Real backends MUST NOT return passwords.
+    return db.users
   }
 
   throw makeError('Endpoint not found.', 404)
@@ -466,8 +469,18 @@ function handlePost(path, db, body) {
       throw makeError('Email already exists.', 409)
     }
 
-    const user_id = nextId(db.users, 'user_id')
+    // Enforce one-staff-per-barangay for Staff role at the mock API level.
     const barangay_id = body.barangay_id ? Number(body.barangay_id) : null
+    if (String(role).toLowerCase() === 'staff' && barangay_id) {
+      const exists = db.users.some(
+        (item) => String(item.role).toLowerCase() === 'staff' && Number(item.barangay_id) === Number(barangay_id)
+      )
+      if (exists) {
+        throw makeError('This barangay already has an assigned staff account.', 409)
+      }
+    }
+
+    const user_id = nextId(db.users, 'user_id')
     const created = {
       user_id,
       name: body.name,
@@ -562,15 +575,19 @@ function handlePost(path, db, body) {
 
   if (path === '/api/individuals') {
     const individual_id = nextId(db.individuals, 'individual_id')
-    const barangay_id = Number(body.barangay_id) || 1
+    const rawBarangayId = body.barangay_id
+    const barangay_id = rawBarangayId === null || rawBarangayId === undefined || rawBarangayId === ''
+      ? null
+      : Number(rawBarangayId)
     const item = {
       individual_id,
       name: body.name || `Individual ${individual_id}`,
-      age: body.age === null ? null : Number(body.age || 0),
+      age: body.age === null || body.age === undefined || body.age === '' ? null : Number(body.age || 0),
       gender: body.gender || 'Male',
       barangay_id,
-      barangay_name: getBarangayName(barangay_id),
+      barangay_name: barangay_id ? getBarangayName(barangay_id) : 'Unknown',
       status: body.status || 'Registered',
+      image: body.image_data || null,
     }
     db.individuals.unshift(item)
     saveDb(db)
@@ -590,15 +607,34 @@ function handlePost(path, db, body) {
   }
 
   if (path === '/api/donations') {
-    const donation_id = nextId(db.donations, 'donation_id')
+    let foodId = Number(body.food_id)
+    let foodUnit = 'unit'
+
+    if (!foodId && body.food_description) {
+      const foodSupplyId = nextId(db.foodSupplies, 'food_id')
+      const newFood = {
+        food_id: foodSupplyId,
+        food_name: body.food_description,
+        unit: body.quantity_unit || 'unit',
+        total_quantity: 0,
+      }
+      db.foodSupplies.unshift(newFood)
+      foodId = foodSupplyId
+      foodUnit = newFood.unit
+    } else if (foodId) {
+      const food = db.foodSupplies.find((f) => f.food_id === foodId)
+      foodUnit = food?.unit || 'unit'
+    }
+
     const item = {
-      donation_id,
+      donation_id: nextId(db.donations, 'donation_id'),
       donor_id: Number(body.donor_id),
-      food_id: Number(body.food_id),
+      food_id: foodId,
       food_description: body.food_description || '',
       quantity: Number(body.quantity || 0),
-      quantity_unit: body.quantity_unit || 'Kilo',
+      quantity_unit: foodUnit,
       date_given: body.date_given || nowIso(),
+      image: body.image_data || null,
     }
     db.donations.unshift(item)
     updateFoodQuantity(db, item.food_id, item.quantity)

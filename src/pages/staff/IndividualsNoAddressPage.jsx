@@ -9,16 +9,9 @@ function IndividualsNoAddressPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [form, setForm] = useState({ name: '', date_of_birth: '', gender: 'Male', height_cm: '', weight_kg: '', age: '' })
+  const [imageFile, setImageFile] = useState(null)
+  const [imageInputKey, setImageInputKey] = useState(0)
 
-  function getAgeFromDOB(dob) {
-    if (!dob) return null
-    const birth = new Date(dob)
-    const today = new Date()
-    let age = today.getFullYear() - birth.getFullYear()
-    const m = today.getMonth() - birth.getMonth()
-    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
-    return age
-  }
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState('')
   const [formError, setFormError] = useState('')
@@ -51,19 +44,20 @@ function IndividualsNoAddressPage() {
     }
     setSubmitting(true)
     try {
-      const payload = {
-        name: form.name.trim(),
-        date_of_birth: form.date_of_birth || null,
-        age: form.age ? parseInt(form.age) : (form.date_of_birth ? getAgeFromDOB(form.date_of_birth) : null),
-        gender: form.gender || 'Male',
-        height_cm: form.height_cm ? parseFloat(form.height_cm) : null,
-        weight_kg: form.weight_kg ? parseFloat(form.weight_kg) : null,
-        // explicit null barangay indicates NPA
-        barangay_id: null,
-        status: 'Registered',
+      const payload = new FormData()
+      payload.append('name', form.name.trim())
+      payload.append('date_of_birth', form.date_of_birth || '')
+      payload.append('gender', form.gender || 'Male')
+      payload.append('age', form.age || '')
+      payload.append('height_cm', form.height_cm || '')
+      payload.append('weight_kg', form.weight_kg || '')
+      payload.append('barangay_id', '')
+      payload.append('status', 'Registered')
+      if (imageFile) {
+        payload.append('image', imageFile)
       }
 
-      await apiFetch('/api/individuals', { method: 'POST', body: JSON.stringify(payload) })
+      await apiFetch('/api/individuals', { method: 'POST', body: payload })
 
       // refresh list to include newly registered NPA individual
       const data = await apiFetch('/api/individuals')
@@ -73,6 +67,8 @@ function IndividualsNoAddressPage() {
 
       setSuccess('Individual registered')
       setForm({ name: '', date_of_birth: '', gender: 'Male', height_cm: '', weight_kg: '', age: '' })
+      setImageFile(null)
+      setImageInputKey((prev) => prev + 1)
       setTimeout(() => setSuccess(''), 3000)
     } catch (err) {
       setFormError(err.message || 'Failed to register individual')
@@ -136,6 +132,17 @@ function IndividualsNoAddressPage() {
                 <div className="sm:col-span-2">
                   {formError && <div className="text-sm text-red-600">{formError}</div>}
                   {success && <div className="text-sm text-emerald-600">{success}</div>}
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs text-slate-500 mb-1">Photo (Optional)</label>
+                  <input
+                    key={imageInputKey}
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) => setImageFile(event.target.files?.[0] || null)}
+                    className="w-full rounded-md border px-3 py-2 bg-transparent"
+                  />
                 </div>
 
                 <div className="text-right">
