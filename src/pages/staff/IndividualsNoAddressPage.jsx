@@ -8,10 +8,9 @@ function IndividualsNoAddressPage() {
   const [individuals, setIndividuals] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [form, setForm] = useState({ name: '', date_of_birth: '', gender: 'Male', height_cm: '', weight_kg: '', age: '' })
+  const [form, setForm] = useState({ name: '', gender: 'Male', age: '' })
   const [imageFile, setImageFile] = useState(null)
   const [imageInputKey, setImageInputKey] = useState(0)
-
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState('')
   const [formError, setFormError] = useState('')
@@ -46,11 +45,8 @@ function IndividualsNoAddressPage() {
     try {
       const payload = new FormData()
       payload.append('name', form.name.trim())
-      payload.append('date_of_birth', form.date_of_birth || '')
       payload.append('gender', form.gender || 'Male')
       payload.append('age', form.age || '')
-      payload.append('height_cm', form.height_cm || '')
-      payload.append('weight_kg', form.weight_kg || '')
       payload.append('barangay_id', '')
       payload.append('status', 'Registered')
       if (imageFile) {
@@ -66,7 +62,7 @@ function IndividualsNoAddressPage() {
       setIndividuals(filtered)
 
       setSuccess('Individual registered')
-      setForm({ name: '', date_of_birth: '', gender: 'Male', height_cm: '', weight_kg: '', age: '' })
+      setForm({ name: '', gender: 'Male', age: '' })
       setImageFile(null)
       setImageInputKey((prev) => prev + 1)
       setTimeout(() => setSuccess(''), 3000)
@@ -107,24 +103,6 @@ function IndividualsNoAddressPage() {
                   <div>
                     <label className="block text-xs text-slate-500 mb-1">Age (years)</label>
                     <input name="age" type="number" min="0" max="150" value={form.age} onChange={handleFormChange} placeholder="e.g. 45" className="w-full rounded-md border px-3 py-2 bg-transparent" />
-                    <p className="text-xs text-slate-400 mt-1">Optional - if date of birth unknown</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs text-slate-500 mb-1">Date of Birth</label>
-                    <input name="date_of_birth" value={form.date_of_birth} onChange={handleFormChange} type="date" max={new Date().toISOString().split('T')[0]} className="w-full rounded-md border px-3 py-2 bg-transparent" />
-                    <p className="text-xs text-slate-400 mt-1">Optional</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs text-slate-500 mb-1">Height (cm)</label>
-                    <input name="height_cm" type="number" min="50" max="250" step="0.1" value={form.height_cm} onChange={handleFormChange} placeholder="e.g. 165" className="w-full rounded-md border px-3 py-2 bg-transparent" />
-                    <p className="text-xs text-slate-400 mt-1">Optional</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs text-slate-500 mb-1">Weight (kg)</label>
-                    <input name="weight_kg" type="number" min="10" max="300" step="0.1" value={form.weight_kg} onChange={handleFormChange} placeholder="e.g. 55" className="w-full rounded-md border px-3 py-2 bg-transparent" />
                     <p className="text-xs text-slate-400 mt-1">Optional</p>
                   </div>
                 </div>
