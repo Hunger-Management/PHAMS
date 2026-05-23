@@ -401,7 +401,7 @@ function AddDistributionPage() {
                     className={inputClass}
                   >
                     <option value="Pending">Pending</option>
-                    <option value="Received">Received</option>
+                    <option value="Completed">Completed</option>
                   </select>
                 </div>
 

@@ -1357,7 +1357,7 @@ function StaffDashboardPage() {
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="text-lg">→</span>
                             <span className="font-semibold">{recipient}</span>
-                            <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${String(dist.status || '').toLowerCase() === 'received' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                            <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${String(dist.status || '').toLowerCase() === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
                               {dist.status || 'Pending'}
                             </span>
                             <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-white text-slate-600'}`}>
@@ -1386,7 +1386,7 @@ function StaffDashboardPage() {
                               className={`w-full rounded-lg border px-3 py-2 text-sm ${isDarkMode ? 'border-slate-700 bg-slate-950 text-slate-100' : 'border-slate-200 bg-white text-slate-900'}`}
                             >
                               <option value="Pending">Pending</option>
-                              <option value="Received">Received</option>
+                              <option value="Completed">Completed</option>
                             </select>
                           </div>
 

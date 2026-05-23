@@ -62,6 +62,13 @@ export default function TransparencySection({ isDarkMode }) {
     }
   }, [])
 
+  // Cleanup body overflow when component unmounts
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [])
+
   const formatDate = (value) => {
     const parsed = new Date(value)
     if (Number.isNaN(parsed.getTime())) return '—'
@@ -172,10 +179,20 @@ export default function TransparencySection({ isDarkMode }) {
     setEditingStatus(distribution.status || 'Pending')
     setActionError('')
     setSuccessMessage('')
+    document.body.style.overflow = 'hidden'
+    
+    // Scroll modal into current viewport
+    setTimeout(() => {
+      const modal = document.querySelector('[role="dialog"]')
+      if (modal) {
+        modal.scrollIntoView({ behavior: 'instant', block: 'center' })
+      }
+    }, 50)
   }
 
   const closeEditModal = () => {
     setEditingDistribution(null)
+    document.body.style.overflow = 'unset'
   }
 
   const handleUpdateStatus = async (event) => {
@@ -485,6 +502,7 @@ export default function TransparencySection({ isDarkMode }) {
 
       {/* DISTRIBUTION LIST */}
       <div
+        id="distribution-list-section"
         className={`rounded-2xl border p-6 mb-8 transition ${
           isDarkMode
             ? 'bg-[#111c2e] border-white/10'
@@ -643,8 +661,8 @@ export default function TransparencySection({ isDarkMode }) {
       </div>
 
       {editingDistribution ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className={`w-full max-w-lg rounded-2xl border p-6 shadow-xl ${
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4">
+          <div role="dialog" className={`w-full max-w-lg rounded-2xl border p-6 shadow-xl ${
             isDarkMode
               ? 'bg-[#111c2e] border-white/10 text-slate-100'
               : 'bg-white border-slate-200 text-slate-900'
