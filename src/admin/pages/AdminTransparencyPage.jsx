@@ -13,7 +13,7 @@ export default function AdminTransparencyPage() {
     >
       <AdminSidebar isDarkMode={isDarkMode} />
 
-      <main className="ml-64 p-10">
+      <main className="md:ml-64 pt-16 px-4 pb-4 md:p-10">
         <div className="max-w-7xl mx-auto">
           <TransparencySection isDarkMode={isDarkMode} />
         </div>

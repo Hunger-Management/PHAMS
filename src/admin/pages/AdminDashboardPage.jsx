@@ -80,7 +80,7 @@ export default function AdminDashboardPage() {
             <AdminSidebar isDarkMode={isDarkMode} />
 
             {/* MAIN */}
-            <main className="ml-64 p-10">
+            <main className="md:ml-64 pt-16 px-4 pb-4 md:p-10">
                 <div className="max-w-7xl mx-auto lg:origin-top lg:scale-[1.03]">
 
                     {/* HEADER */}

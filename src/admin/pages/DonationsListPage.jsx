@@ -108,7 +108,7 @@ function DonationsListPage() {
         <div className={`flex min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-[#0b1220] text-slate-100' : 'bg-[#e5e7eb] text-slate-900'}`}>
             <AdminSidebar isDarkMode={isDarkMode} />
 
-            <main className="flex-1 p-8 overflow-auto ml-64">
+            <main className="flex-1 pt-16 px-4 pb-4 md:p-8 overflow-auto md:ml-64">
                 <div className="max-w-7xl mx-auto">
                     <div className="flex items-center justify-between mb-8">
                         <div>

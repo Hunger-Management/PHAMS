@@ -138,7 +138,7 @@ export default function AdminBarangaysPage() {
       </aside>
 
       {/* ================= MAIN ================= */}
-      <main className="flex-1 p-10 ml-64">
+      <main className="flex-1 pt-16 px-4 pb-4 md:p-10 md:ml-64">
         <div className="max-w-7xl mx-auto">
           <BarangayManagementSection isDarkMode={isDarkMode} />
         </div>

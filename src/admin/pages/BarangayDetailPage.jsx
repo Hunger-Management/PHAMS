@@ -64,7 +64,7 @@ function BarangayDetailPage() {
                 ) : (
                     <AdminSidebar isDarkMode={isDarkMode} />
                 )}
-                <main className={isStaffView ? 'ml-72 flex-1 p-10' : 'ml-64 flex-1 p-10'}>
+                <main className={isStaffView ? 'md:ml-72 flex-1 pt-16 px-4 pb-4 md:p-10' : 'md:ml-64 flex-1 pt-16 px-4 pb-4 md:p-10'}>
                     <p className={isDarkMode ? 'text-slate-300' : 'text-slate-600'}>Loading...</p>
                 </main>
             </div>
@@ -79,7 +79,7 @@ function BarangayDetailPage() {
                 ) : (
                     <AdminSidebar isDarkMode={isDarkMode} />
                 )}
-                <main className={isStaffView ? 'ml-72 flex-1 p-10' : 'ml-64 flex-1 p-10'}>
+                <main className={isStaffView ? 'md:ml-72 flex-1 pt-16 px-4 pb-4 md:p-10' : 'md:ml-64 flex-1 pt-16 px-4 pb-4 md:p-10'}>
                     <button
                         onClick={() => navigate(backPath, { state: backState })}
                         className="flex items-center gap-2 mb-6 text-blue-600 hover:text-blue-800 font-medium"
@@ -101,7 +101,7 @@ function BarangayDetailPage() {
                 <AdminSidebar isDarkMode={isDarkMode} />
             )}
 
-            <main className={isStaffView ? 'ml-72 flex-1 p-10' : 'ml-64 flex-1 p-10'}>
+            <main className={isStaffView ? 'md:ml-72 flex-1 pt-16 px-4 pb-4 md:p-10' : 'md:ml-64 flex-1 pt-16 px-4 pb-4 md:p-10'}>
                 <div className="max-w-7xl mx-auto">
                     {/* Header with back button */}
                     <button

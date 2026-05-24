@@ -238,7 +238,7 @@ function AddDistributionPage() {
         <AdminSidebar isDarkMode={isDarkMode} />
       )}
 
-      <main className="flex-1 p-8 overflow-auto ml-64">
+      <main className="flex-1 pt-16 px-4 pb-4 md:p-8 overflow-auto md:ml-64">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-between mb-8">
             <div>

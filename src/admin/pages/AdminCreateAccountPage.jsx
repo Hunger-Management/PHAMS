@@ -94,7 +94,7 @@ export default function AdminCreateAccountPage() {
     >
       <AdminSidebar isDarkMode={isDarkMode} />
 
-      <main className="ml-64 p-10">
+      <main className="md:ml-64 pt-16 px-4 pb-4 md:p-10">
         <div className="max-w-6xl mx-auto">
           <div className="mb-8">
             <h2 className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
