@@ -25,8 +25,10 @@ function IndividualsNoAddressPage() {
   const [error, setError] = useState('')
 
   // register form
-  const [form, setForm] = useState({ name: '', gender: 'Male', date_of_birth: '' })
+  const [form, setForm] = useState({ name: '', gender: 'Male', date_of_birth: '', height_cm: '', weight_kg: '' })
   const [imageFile, setImageFile] = useState(null)
+  // 2. Preview URL derived from the selected image file
+  const [imagePreview, setImagePreview] = useState(null)
   const [imageInputKey, setImageInputKey] = useState(0)
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState('')
@@ -64,6 +66,18 @@ function IndividualsNoAddressPage() {
     setFormError('')
   }
 
+  // 3. Update image handler to also generate a local preview URL
+  function handleImageChange(e) {
+    const file = e.target.files?.[0] || null
+    setImageFile(file)
+    if (file) {
+      const url = URL.createObjectURL(file)
+      setImagePreview(url)
+    } else {
+      setImagePreview(null)
+    }
+  }
+
   async function handleRegister(e) {
     e.preventDefault()
     setFormError('')
@@ -75,14 +89,17 @@ function IndividualsNoAddressPage() {
       payload.append('name', form.name.trim())
       payload.append('gender', form.gender || 'Male')
       payload.append('date_of_birth', form.date_of_birth || '')
+      payload.append('height_cm', form.height_cm || '')
+      payload.append('weight_kg', form.weight_kg || '')
       payload.append('barangay_id', '')
       payload.append('status', 'Registered')
       if (imageFile) payload.append('image', imageFile)
       await apiFetch('/api/individuals', { method: 'POST', body: payload })
       await fetchList()
       setSuccess('Individual registered')
-      setForm({ name: '', gender: 'Male', date_of_birth: '' })
+      setForm({ name: '', gender: 'Male', date_of_birth: '', height_cm: '', weight_kg: '' })
       setImageFile(null)
+      setImagePreview(null)
       setImageInputKey((prev) => prev + 1)
       setTimeout(() => setSuccess(''), 3000)
     } catch (err) {
@@ -147,7 +164,31 @@ function IndividualsNoAddressPage() {
             <div className={`mb-6 rounded-lg p-5 ${isDarkMode ? 'bg-slate-900 border border-slate-700' : 'bg-white border border-slate-200'}`}>
               <h3 className={`text-lg font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Register NPA Individual</h3>
               <form onSubmit={handleRegister} className="space-y-3">
+
+                {/* Photo preview + upload — shown at the top so it feels like a profile setup */}
+                <div className="flex items-center gap-4">
+                  <div className="h-20 w-20 rounded-full overflow-hidden bg-slate-200 flex-shrink-0 grid place-items-center">
+                    {imagePreview ? (
+                      <img src={imagePreview} alt="Preview" className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="text-2xl text-slate-400">👤</span>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-xs text-slate-500 mb-1">Photo (Optional)</label>
+                    <input
+                      key={imageInputKey}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      className="w-full rounded-md border px-3 py-2 bg-transparent text-sm"
+                    />
+                    <p className="text-xs text-slate-400 mt-1">Selected photo will appear as the profile picture above.</p>
+                  </div>
+                </div>
+
                 <div className="grid gap-3 sm:grid-cols-2">
+                  {/* Name — full width */}
                   <div className="sm:col-span-2">
                     <label className="block text-xs text-slate-500 mb-1">Full name *</label>
                     <input name="name" value={form.name} onChange={handleFormChange} placeholder="Juan Dela Cruz" className="w-full rounded-md border px-3 py-2 bg-transparent" required />
@@ -165,14 +206,43 @@ function IndividualsNoAddressPage() {
                     <input name="date_of_birth" type="date" max={new Date().toISOString().split('T')[0]} value={form.date_of_birth} onChange={handleFormChange} className="w-full rounded-md border px-3 py-2 bg-transparent" />
                     <p className="text-xs text-slate-400 mt-1">Optional</p>
                   </div>
+
+                  {/* Height */}
+                  <div>
+                    <label className="block text-xs text-slate-500 mb-1">Height (cm)</label>
+                    <input
+                      name="height_cm"
+                      type="number"
+                      min="0"
+                      max="300"
+                      value={form.height_cm}
+                      onChange={handleFormChange}
+                      placeholder="e.g. 165"
+                      className="w-full rounded-md border px-3 py-2 bg-transparent"
+                    />
+                    <p className="text-xs text-slate-400 mt-1">Optional</p>
+                  </div>
+
+                  {/* Weight */}
+                  <div>
+                    <label className="block text-xs text-slate-500 mb-1">Weight (kg)</label>
+                    <input
+                      name="weight_kg"
+                      type="number"
+                      min="0"
+                      max="500"
+                      step="0.1"
+                      value={form.weight_kg}
+                      onChange={handleFormChange}
+                      placeholder="e.g. 60.5"
+                      className="w-full rounded-md border px-3 py-2 bg-transparent"
+                    />
+                    <p className="text-xs text-slate-400 mt-1">Optional</p>
+                  </div>
                 </div>
                 <div className="sm:col-span-2">
                   {formError && <div className="text-sm text-red-600">{formError}</div>}
                   {success && <div className="text-sm text-emerald-600">{success}</div>}
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-xs text-slate-500 mb-1">Photo (Optional)</label>
-                  <input key={imageInputKey} type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files?.[0] || null)} className="w-full rounded-md border px-3 py-2 bg-transparent" />
                 </div>
                 <div className="text-right">
                   <button type="submit" disabled={submitting} className="rounded-md bg-emerald-600 text-white px-4 py-2">{submitting ? 'Registering...' : 'Register'}</button>
@@ -194,9 +264,9 @@ function IndividualsNoAddressPage() {
                   <div key={ind.individual_id} className={`rounded-lg p-4 flex flex-col justify-between ${isDarkMode ? 'bg-slate-900 border border-slate-700' : 'bg-white border border-slate-200'}`}>
                     <div className="flex items-start gap-4">
                       {ind.image ? (
-                        <img src={`data:image/jpeg;base64,${ind.image}`} alt={ind.name} className="h-16 w-16 rounded-full object-cover" />
+                        <img src={`data:image/jpeg;base64,${ind.image}`} alt={ind.name} className="h-16 w-16 rounded-full object-cover flex-shrink-0" />
                       ) : (
-                        <div className="h-16 w-16 rounded-full bg-slate-300 grid place-items-center text-lg font-semibold text-slate-700">{(ind.name || 'U').split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}</div>
+                        <div className="h-16 w-16 rounded-full bg-slate-300 grid place-items-center text-lg font-semibold text-slate-700 flex-shrink-0">{(ind.name || 'U').split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}</div>
                       )}
                       <div className="flex-1">
                         <div className="font-semibold text-sm">{ind.name || '—'}</div>
