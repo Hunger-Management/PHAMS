@@ -1,4 +1,4 @@
-import { Home, MapPin, UserPlus, Eye, FileText, LogOut } from 'lucide-react'
+import { Home, MapPin, UserPlus, Users, User, Eye, FileText, LogOut } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useStaffAuth } from '../../context/StaffAuthContext'
@@ -30,9 +30,9 @@ function StaffSidebar({ isDarkMode }) {
     const navItems = [
         { name: 'Dashboard', icon: Home, path: '/staff/dashboard', sectionId: 'dashboard-top' },
         { name: 'Barangays', icon: MapPin, path: '/staff/dashboard', sectionId: 'barangays-section' },
-        { name: 'Families List', icon: UserPlus, path: '/staff/dashboard', sectionId: 'families-list-section' },
+        { name: 'Families List', icon: Users, path: '/staff/dashboard', sectionId: 'families-list-section' },
         { name: 'Add Family', icon: UserPlus, path: '/staff/dashboard', sectionId: 'add-family-section' },
-        { name: 'Individuals (NPA)', icon: UserPlus, path: '/staff/individuals/no-address' },
+        { name: 'Individuals (NPA)', icon: User, path: '/staff/individuals/no-address' },
         { name: 'Add Distribution', icon: FileText, path: '/staff/distributions/add' },
         { name: 'Transparency', icon: Eye, path: '/staff/dashboard', sectionId: 'transparency-section' },
     ]

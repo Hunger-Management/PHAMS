@@ -36,6 +36,16 @@ const BARANGAY_MAP = {
   'Tabacalera': 10,
 }
 
+function getAgeInYears(dob) {
+  if (!dob) return null
+  const today = new Date()
+  const birth = new Date(dob)
+  let age = today.getFullYear() - birth.getFullYear()
+  const m = today.getMonth() - birth.getMonth()
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
+  return age
+}
+
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     if (!file) {
@@ -64,6 +74,7 @@ function StaffDashboardPage() {
   const [formError, setFormError] = useState('')
   const [activityDrafts, setActivityDrafts] = useState({})
   const [activitySubmittingId, setActivitySubmittingId] = useState(null)
+  const [viewingNpaIndividual, setViewingNpaIndividual] = useState(null)
 
   const [staffBarangayName, setStaffBarangayName] = useState(
     staffUser?.barangay || staffUser?.barangay_name || ''
@@ -147,8 +158,8 @@ function StaffDashboardPage() {
   )
 
   const filteredIndividuals = useMemo(
-    () => individuals.filter((individual) => (individual.barangay_name || '').toLowerCase() === staffBarangay.toLowerCase()),
-    [individuals, staffBarangay],
+    () => individuals.filter((individual) => !individual.barangay_id && !individual.barangay_name),
+    [individuals],
   )
 
   const filteredDistributions = useMemo(
@@ -882,8 +893,8 @@ function StaffDashboardPage() {
             <article id="individuals-list-section" className={`rounded-2xl px-7 py-7 shadow-[0_2px_8px_rgba(15,23,42,0.08)] ${isDarkMode ? 'border border-slate-700 bg-slate-800' : 'border border-slate-200 bg-white'}`}>
               <div className="mb-6 flex items-center justify-between">
                 <div>
-                  <h3 className={`text-2xl font-black ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>Individuals in {staffBarangay}</h3>
-                  <p className={`${isDarkMode ? 'text-slate-300' : 'text-slate-500'} mt-1`}>Recently added and registered individuals in your barangay</p>
+                  <h3 className={`text-2xl font-black ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>Individuals without Permanent Address</h3>
+                  <p className={`${isDarkMode ? 'text-slate-300' : 'text-slate-500'} mt-1`}>Registered individuals with no barangay assignment (NPA)</p>
                 </div>
                 <span className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold ${isDarkMode ? 'bg-slate-900 text-slate-300' : 'bg-slate-100 text-slate-700'}`}>
                   Total: {filteredIndividuals.length}
@@ -899,8 +910,8 @@ function StaffDashboardPage() {
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Image</th>
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Age</th>
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Gender</th>
-                        <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Barangay</th>
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Status</th>
+                        <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -920,13 +931,15 @@ function StaffDashboardPage() {
                               </span>
                             )}
                           </td>
-                          <td className={`px-6 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{individual.age ?? '—'}</td>
+                          <td className={`px-6 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{getAgeInYears(individual.date_of_birth) ?? '—'}</td>
                           <td className={`px-6 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{individual.gender || '—'}</td>
-                          <td className={`px-6 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{individual.barangay_name || '—'}</td>
                           <td className={`px-6 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
                             <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold ${String(individual.status || '').toLowerCase() === 'received' ? (isDarkMode ? 'bg-emerald-900/40 text-emerald-300' : 'bg-emerald-100 text-emerald-700') : (isDarkMode ? 'bg-slate-700/50 text-slate-300' : 'bg-slate-200 text-slate-700')}`}>
                               {individual.status || 'Registered'}
                             </span>
+                          </td>
+                          <td className="px-6 py-3">
+                            <button onClick={() => setViewingNpaIndividual(individual)} className="text-xs font-medium text-blue-600 hover:text-blue-700 transition">View →</button>
                           </td>
                         </tr>
                       ))}
@@ -935,7 +948,7 @@ function StaffDashboardPage() {
                 </div>
               ) : (
                 <div className={`rounded-lg p-8 text-center ${isDarkMode ? 'bg-slate-900 border border-slate-700' : 'bg-slate-50 border border-slate-200'}`}>
-                  <p className={`${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>No individuals registered in this barangay yet.</p>
+                  <p className={`${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>No individuals without a permanent address registered yet.</p>
                 </div>
               )}
             </article>
@@ -1315,6 +1328,42 @@ function StaffDashboardPage() {
       >
         {isDarkMode ? '☀️' : '🌙'}
       </button>
+
+      {viewingNpaIndividual && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setViewingNpaIndividual(null)}>
+          <div className={`w-full max-w-md rounded-2xl border p-6 shadow-xl ${isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-slate-200 text-slate-900'}`} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between mb-5">
+              <h3 className="text-lg font-bold">Individual Details</h3>
+              <button onClick={() => setViewingNpaIndividual(null)} className={`text-xs font-semibold px-3 py-1 rounded ${isDarkMode ? 'bg-slate-700 text-slate-200 hover:bg-slate-600' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>Close</button>
+            </div>
+            <div className="flex items-center gap-4 mb-5">
+              {viewingNpaIndividual.image ? (
+                <img src={`data:image/jpeg;base64,${viewingNpaIndividual.image}`} alt={viewingNpaIndividual.name} className="h-20 w-20 rounded-full object-cover" />
+              ) : (
+                <div className="h-20 w-20 rounded-full bg-slate-300 grid place-items-center text-2xl font-bold text-slate-700">{(viewingNpaIndividual.name || 'U').split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}</div>
+              )}
+              <div>
+                <div className="text-xl font-bold">{viewingNpaIndividual.name || '—'}</div>
+                <div className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>ID: {viewingNpaIndividual.individual_id}</div>
+              </div>
+            </div>
+            <dl className="space-y-2 text-sm">
+              {[
+                ['Gender', viewingNpaIndividual.gender || '—'],
+                ['Date of Birth', viewingNpaIndividual.date_of_birth ? new Date(viewingNpaIndividual.date_of_birth).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }) : '—'],
+                ['Age', viewingNpaIndividual.date_of_birth ? `${getAgeInYears(viewingNpaIndividual.date_of_birth)} years old` : '—'],
+                ['Status', viewingNpaIndividual.status || 'Registered'],
+                ['Barangay', 'None (NPA)'],
+              ].map(([label, value]) => (
+                <div key={label} className="flex justify-between gap-4">
+                  <dt className={`font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{label}</dt>
+                  <dd className="text-right">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        </div>
+      )}
     </main>
   )
 }

@@ -3,11 +3,28 @@ import StaffSidebar from './StaffSidebar'
 import { useDarkMode } from '../../hooks/useDarkMode'
 import { apiFetch } from '../../api/api'
 
+function getAgeInYears(dob) {
+  if (!dob) return null
+  const today = new Date()
+  const birth = new Date(dob)
+  let age = today.getFullYear() - birth.getFullYear()
+  const m = today.getMonth() - birth.getMonth()
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
+  return age
+}
+
+function formatDOB(dob) {
+  if (!dob) return '—'
+  return new Date(dob).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
 function IndividualsNoAddressPage() {
   const { isDarkMode, toggleDarkMode } = useDarkMode()
   const [individuals, setIndividuals] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+
+  // register form
   const [form, setForm] = useState({ name: '', gender: 'Male', date_of_birth: '' })
   const [imageFile, setImageFile] = useState(null)
   const [imageInputKey, setImageInputKey] = useState(0)
@@ -15,17 +32,31 @@ function IndividualsNoAddressPage() {
   const [success, setSuccess] = useState('')
   const [formError, setFormError] = useState('')
 
-  useEffect(() => {
+  // view modal
+  const [viewingIndividual, setViewingIndividual] = useState(null)
+
+  // edit modal
+  const [editingIndividual, setEditingIndividual] = useState(null)
+  const [editForm, setEditForm] = useState({ name: '', gender: 'Male', date_of_birth: '', status: 'Registered' })
+  const [editImageFile, setEditImageFile] = useState(null)
+  const [editImageInputKey, setEditImageInputKey] = useState(0)
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [editError, setEditError] = useState('')
+
+  async function fetchList() {
     setLoading(true)
-    apiFetch('/api/individuals')
-      .then((data) => {
-        const list = Array.isArray(data) ? data : []
-        const filtered = list.filter((i) => !i.barangay_id || !i.barangay_name || i.barangay_name === 'Unknown')
-        setIndividuals(filtered)
-      })
-      .catch((err) => setError(err.message || 'Failed to load individuals'))
-      .finally(() => setLoading(false))
-  }, [])
+    try {
+      const data = await apiFetch('/api/individuals')
+      const list = Array.isArray(data) ? data : []
+      setIndividuals(list.filter((i) => !i.barangay_id && !i.barangay_name))
+    } catch (err) {
+      setError(err.message || 'Failed to load individuals')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { fetchList() }, [])
 
   function handleFormChange(e) {
     const { name, value } = e.target
@@ -33,45 +64,22 @@ function IndividualsNoAddressPage() {
     setFormError('')
   }
 
-  function getAgeInYears(dob) {
-    if (!dob) return ''
-    const today = new Date()
-    const birth = new Date(dob)
-    let age = today.getFullYear() - birth.getFullYear()
-    const m = today.getMonth() - birth.getMonth()
-    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
-    return String(age)
-  }
-
   async function handleRegister(e) {
     e.preventDefault()
     setFormError('')
     setSuccess('')
-    if (!form.name || !form.name.trim()) {
-      setFormError('Full name is required')
-      return
-    }
+    if (!form.name || !form.name.trim()) { setFormError('Full name is required'); return }
     setSubmitting(true)
     try {
       const payload = new FormData()
       payload.append('name', form.name.trim())
       payload.append('gender', form.gender || 'Male')
       payload.append('date_of_birth', form.date_of_birth || '')
-      payload.append('age', getAgeInYears(form.date_of_birth))
       payload.append('barangay_id', '')
       payload.append('status', 'Registered')
-      if (imageFile) {
-        payload.append('image', imageFile)
-      }
-
+      if (imageFile) payload.append('image', imageFile)
       await apiFetch('/api/individuals', { method: 'POST', body: payload })
-
-      // refresh list to include newly registered NPA individual
-      const data = await apiFetch('/api/individuals')
-      const list = Array.isArray(data) ? data : []
-      const filtered = list.filter((i) => !i.barangay_id || !i.barangay_name || i.barangay_name === 'Unknown')
-      setIndividuals(filtered)
-
+      await fetchList()
       setSuccess('Individual registered')
       setForm({ name: '', gender: 'Male', date_of_birth: '' })
       setImageFile(null)
@@ -81,6 +89,49 @@ function IndividualsNoAddressPage() {
       setFormError(err.message || 'Failed to register individual')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  function openEdit(ind) {
+    setEditingIndividual(ind)
+    setEditForm({
+      name: ind.name || '',
+      gender: ind.gender || 'Male',
+      date_of_birth: ind.date_of_birth ? ind.date_of_birth.split('T')[0] : '',
+      status: ind.status || 'Registered',
+    })
+    setEditImageFile(null)
+    setEditImageInputKey((k) => k + 1)
+    setEditError('')
+  }
+
+  function handleEditChange(e) {
+    const { name, value } = e.target
+    setEditForm((s) => ({ ...s, [name]: value }))
+    setEditError('')
+  }
+
+  async function handleEditSubmit(e) {
+    e.preventDefault()
+    if (!editingIndividual) return
+    if (!editForm.name.trim()) { setEditError('Full name is required'); return }
+    setSavingEdit(true)
+    setEditError('')
+    try {
+      const payload = new FormData()
+      payload.append('name', editForm.name.trim())
+      payload.append('gender', editForm.gender)
+      payload.append('date_of_birth', editForm.date_of_birth || '')
+      payload.append('barangay_id', '')
+      payload.append('status', editForm.status)
+      if (editImageFile) payload.append('image', editImageFile)
+      await apiFetch(`/api/individuals/${editingIndividual.individual_id}`, { method: 'PUT', body: payload })
+      await fetchList()
+      setEditingIndividual(null)
+    } catch (err) {
+      setEditError(err.message || 'Failed to save changes')
+    } finally {
+      setSavingEdit(false)
     }
   }
 
@@ -101,7 +152,6 @@ function IndividualsNoAddressPage() {
                     <label className="block text-xs text-slate-500 mb-1">Full name *</label>
                     <input name="name" value={form.name} onChange={handleFormChange} placeholder="Juan Dela Cruz" className="w-full rounded-md border px-3 py-2 bg-transparent" required />
                   </div>
-
                   <div>
                     <label className="block text-xs text-slate-500 mb-1">Gender *</label>
                     <select name="gender" value={form.gender} onChange={handleFormChange} className="w-full rounded-md border px-3 py-2 bg-transparent" required>
@@ -110,35 +160,26 @@ function IndividualsNoAddressPage() {
                       <option>Other</option>
                     </select>
                   </div>
-
                   <div>
                     <label className="block text-xs text-slate-500 mb-1">Date of Birth</label>
                     <input name="date_of_birth" type="date" max={new Date().toISOString().split('T')[0]} value={form.date_of_birth} onChange={handleFormChange} className="w-full rounded-md border px-3 py-2 bg-transparent" />
                     <p className="text-xs text-slate-400 mt-1">Optional</p>
                   </div>
                 </div>
-
                 <div className="sm:col-span-2">
                   {formError && <div className="text-sm text-red-600">{formError}</div>}
                   {success && <div className="text-sm text-emerald-600">{success}</div>}
                 </div>
-
                 <div className="sm:col-span-2">
                   <label className="block text-xs text-slate-500 mb-1">Photo (Optional)</label>
-                  <input
-                    key={imageInputKey}
-                    type="file"
-                    accept="image/*"
-                    onChange={(event) => setImageFile(event.target.files?.[0] || null)}
-                    className="w-full rounded-md border px-3 py-2 bg-transparent"
-                  />
+                  <input key={imageInputKey} type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files?.[0] || null)} className="w-full rounded-md border px-3 py-2 bg-transparent" />
                 </div>
-
                 <div className="text-right">
                   <button type="submit" disabled={submitting} className="rounded-md bg-emerald-600 text-white px-4 py-2">{submitting ? 'Registering...' : 'Register'}</button>
                 </div>
               </form>
             </div>
+
             {loading ? (
               <p className={`text-sm ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Loading...</p>
             ) : error ? (
@@ -153,30 +194,24 @@ function IndividualsNoAddressPage() {
                   <div key={ind.individual_id} className={`rounded-lg p-4 flex flex-col justify-between ${isDarkMode ? 'bg-slate-900 border border-slate-700' : 'bg-white border border-slate-200'}`}>
                     <div className="flex items-start gap-4">
                       {ind.image ? (
-                        <img
-                          src={`data:image/jpeg;base64,${ind.image}`}
-                          alt={ind.name}
-                          className="h-16 w-16 rounded-full object-cover"
-                        />
+                        <img src={`data:image/jpeg;base64,${ind.image}`} alt={ind.name} className="h-16 w-16 rounded-full object-cover" />
                       ) : (
-                        <div className="h-16 w-16 rounded-full bg-slate-300 grid place-items-center text-lg font-semibold text-slate-700">{(ind.name || 'U').split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase()}</div>
+                        <div className="h-16 w-16 rounded-full bg-slate-300 grid place-items-center text-lg font-semibold text-slate-700">{(ind.name || 'U').split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}</div>
                       )}
                       <div className="flex-1">
                         <div className="font-semibold text-sm">{ind.name || '—'}</div>
                         <div className="text-xs text-slate-500 mt-1">ID: {ind.individual_id || '—'}</div>
-                        <div className="text-xs text-slate-500">{ind.gender || '—'} • {ind.date_of_birth ? getAgeInYears(ind.date_of_birth) : '—'} yrs</div>
+                        <div className="text-xs text-slate-500">{ind.gender || '—'} • {ind.date_of_birth ? `${getAgeInYears(ind.date_of_birth)} yrs` : '—'}</div>
                         {(ind.height_cm || ind.weight_kg) && (
-                          <div className="text-xs text-slate-500 mt-1">
-                            {ind.height_cm ? `${ind.height_cm} cm` : '—'} • {ind.weight_kg ? `${ind.weight_kg} kg` : '—'}
-                          </div>
+                          <div className="text-xs text-slate-500 mt-1">{ind.height_cm ? `${ind.height_cm} cm` : '—'} • {ind.weight_kg ? `${ind.weight_kg} kg` : '—'}</div>
                         )}
                       </div>
                     </div>
                     <div className="mt-4 flex items-center justify-between">
                       <div className="text-xs text-slate-500">{ind.status || ''}</div>
                       <div className="flex items-center gap-2">
-                        <button className="text-sm text-slate-600 hover:underline">View</button>
-                        <button className="text-sm text-emerald-600">Edit</button>
+                        <button onClick={() => setViewingIndividual(ind)} className="text-sm text-slate-600 hover:underline">View</button>
+                        <button onClick={() => openEdit(ind)} className="text-sm text-emerald-600 hover:underline">Edit</button>
                       </div>
                     </div>
                   </div>
@@ -188,6 +223,97 @@ function IndividualsNoAddressPage() {
       </div>
 
       <button onClick={toggleDarkMode} className={`fixed bottom-5 right-5 z-50 h-12 w-12 rounded-full shadow-lg transition-colors grid place-items-center text-lg font-bold ${isDarkMode ? 'bg-slate-700 text-yellow-300 hover:bg-slate-600' : 'bg-blue-900 text-white hover:bg-blue-800'}`} aria-label="Toggle dark mode">{isDarkMode ? '☀️' : '🌙'}</button>
+
+      {/* View modal */}
+      {viewingIndividual && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setViewingIndividual(null)}>
+          <div className={`w-full max-w-md rounded-2xl border p-6 shadow-xl ${isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-slate-200 text-slate-900'}`} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between mb-5">
+              <h3 className="text-lg font-bold">Individual Details</h3>
+              <button onClick={() => setViewingIndividual(null)} className={`text-xs font-semibold px-3 py-1 rounded ${isDarkMode ? 'bg-slate-700 text-slate-200 hover:bg-slate-600' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>Close</button>
+            </div>
+            <div className="flex items-center gap-4 mb-5">
+              {viewingIndividual.image ? (
+                <img src={`data:image/jpeg;base64,${viewingIndividual.image}`} alt={viewingIndividual.name} className="h-20 w-20 rounded-full object-cover" />
+              ) : (
+                <div className="h-20 w-20 rounded-full bg-slate-300 grid place-items-center text-2xl font-bold text-slate-700">{(viewingIndividual.name || 'U').split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}</div>
+              )}
+              <div>
+                <div className="text-xl font-bold">{viewingIndividual.name || '—'}</div>
+                <div className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>ID: {viewingIndividual.individual_id}</div>
+              </div>
+            </div>
+            <dl className="space-y-2 text-sm">
+              {[
+                ['Gender', viewingIndividual.gender || '—'],
+                ['Date of Birth', formatDOB(viewingIndividual.date_of_birth)],
+                ['Age', viewingIndividual.date_of_birth ? `${getAgeInYears(viewingIndividual.date_of_birth)} years old` : '—'],
+                ['Status', viewingIndividual.status || 'Registered'],
+                ['Barangay', 'None (NPA)'],
+              ].map(([label, value]) => (
+                <div key={label} className="flex justify-between gap-4">
+                  <dt className={`font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{label}</dt>
+                  <dd className="text-right">{value}</dd>
+                </div>
+              ))}
+            </dl>
+            <div className="mt-5 text-right">
+              <button onClick={() => { setViewingIndividual(null); openEdit(viewingIndividual) }} className="rounded-md bg-emerald-600 text-white px-4 py-2 text-sm font-semibold hover:bg-emerald-700">Edit</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit modal */}
+      {editingIndividual && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setEditingIndividual(null)}>
+          <div className={`w-full max-w-md rounded-2xl border p-6 shadow-xl ${isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-slate-200 text-slate-900'}`} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-bold">Edit Individual</h3>
+              <button onClick={() => setEditingIndividual(null)} className={`text-xs font-semibold px-3 py-1 rounded ${isDarkMode ? 'bg-slate-700 text-slate-200 hover:bg-slate-600' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>Close</button>
+            </div>
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Full Name *</label>
+                <input name="name" value={editForm.name} onChange={handleEditChange} required className={`w-full rounded-md border px-3 py-2 text-sm outline-none ${isDarkMode ? 'border-slate-600 bg-slate-800 text-slate-100' : 'border-slate-300 bg-white text-slate-900'}`} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1">Gender *</label>
+                  <select name="gender" value={editForm.gender} onChange={handleEditChange} className={`w-full rounded-md border px-3 py-2 text-sm outline-none ${isDarkMode ? 'border-slate-600 bg-slate-800 text-slate-100' : 'border-slate-300 bg-white text-slate-900'}`}>
+                    <option>Male</option>
+                    <option>Female</option>
+                    <option>Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1">Status</label>
+                  <select name="status" value={editForm.status} onChange={handleEditChange} className={`w-full rounded-md border px-3 py-2 text-sm outline-none ${isDarkMode ? 'border-slate-600 bg-slate-800 text-slate-100' : 'border-slate-300 bg-white text-slate-900'}`}>
+                    <option value="Registered">Registered</option>
+                    <option value="Received">Received</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Date of Birth</label>
+                <input name="date_of_birth" type="date" max={new Date().toISOString().split('T')[0]} value={editForm.date_of_birth} onChange={handleEditChange} className={`w-full rounded-md border px-3 py-2 text-sm outline-none ${isDarkMode ? 'border-slate-600 bg-slate-800 text-slate-100' : 'border-slate-300 bg-white text-slate-900'}`} />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Replace Photo (Optional)</label>
+                {editingIndividual.image && (
+                  <img src={`data:image/jpeg;base64,${editingIndividual.image}`} alt="current" className="h-12 w-12 rounded-full object-cover mb-2" />
+                )}
+                <input key={editImageInputKey} type="file" accept="image/*" onChange={(e) => setEditImageFile(e.target.files?.[0] || null)} className="w-full rounded-md border px-3 py-2 bg-transparent text-sm" />
+              </div>
+              {editError && <div className="text-sm text-red-600">{editError}</div>}
+              <div className="flex items-center justify-end gap-3 pt-1">
+                <button type="button" onClick={() => setEditingIndividual(null)} className={`rounded-lg px-4 py-2 text-sm font-semibold ${isDarkMode ? 'bg-slate-700 text-slate-200 hover:bg-slate-600' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>Cancel</button>
+                <button type="submit" disabled={savingEdit} className="rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-sm font-semibold disabled:opacity-50">{savingEdit ? 'Saving...' : 'Save Changes'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </main>
   )
 }

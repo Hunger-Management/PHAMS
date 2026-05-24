@@ -485,6 +485,21 @@ app.post('/api/families/:id/members', (req, res) => {
   )
 })
 
+// PUT update family member
+app.put('/api/members/:id', (req, res) => {
+  const { first_name, last_name, date_of_birth, gender, relationship, is_pwd, height_cm, weight_kg, nutritional_status } = req.body
+  const heightValue = height_cm !== undefined && height_cm !== null && height_cm !== '' ? Number(height_cm) : null
+  const weightValue = weight_kg !== undefined && weight_kg !== null && weight_kg !== '' ? Number(weight_kg) : null
+  db.query(
+    `UPDATE family_members SET first_name=?, last_name=?, date_of_birth=?, gender=?, relationship=?, is_pwd=?, height_cm=?, weight_kg=?, nutritional_status=? WHERE member_id=?`,
+    [first_name, last_name, date_of_birth || null, gender || 'Other', relationship || 'Other', is_pwd ? 1 : 0, heightValue, weightValue, nutritional_status || 'Unknown', req.params.id],
+    (err) => {
+      if (err) return res.status(500).json({ error: err.message })
+      res.json({ message: 'Member updated!' })
+    },
+  )
+})
+
 // DELETE family member
 app.delete('/api/members/:id', (req, res) => {
   db.query('DELETE FROM family_members WHERE member_id = ?', [req.params.id], (err) => {
