@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS individuals (
   name          VARCHAR(150) NOT NULL,
   date_of_birth DATE NULL,
   gender        VARCHAR(20),
-  barangay_id   INT NOT NULL,
+  barangay_id   INT NULL,
   status        VARCHAR(50),
   image         LONGBLOB NULL,
   created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

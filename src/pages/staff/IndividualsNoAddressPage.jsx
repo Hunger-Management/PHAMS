@@ -8,7 +8,7 @@ function IndividualsNoAddressPage() {
   const [individuals, setIndividuals] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [form, setForm] = useState({ name: '', gender: 'Male', age: '' })
+  const [form, setForm] = useState({ name: '', gender: 'Male', date_of_birth: '' })
   const [imageFile, setImageFile] = useState(null)
   const [imageInputKey, setImageInputKey] = useState(0)
   const [submitting, setSubmitting] = useState(false)
@@ -33,6 +33,16 @@ function IndividualsNoAddressPage() {
     setFormError('')
   }
 
+  function getAgeInYears(dob) {
+    if (!dob) return ''
+    const today = new Date()
+    const birth = new Date(dob)
+    let age = today.getFullYear() - birth.getFullYear()
+    const m = today.getMonth() - birth.getMonth()
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
+    return String(age)
+  }
+
   async function handleRegister(e) {
     e.preventDefault()
     setFormError('')
@@ -46,7 +56,8 @@ function IndividualsNoAddressPage() {
       const payload = new FormData()
       payload.append('name', form.name.trim())
       payload.append('gender', form.gender || 'Male')
-      payload.append('age', form.age || '')
+      payload.append('date_of_birth', form.date_of_birth || '')
+      payload.append('age', getAgeInYears(form.date_of_birth))
       payload.append('barangay_id', '')
       payload.append('status', 'Registered')
       if (imageFile) {
@@ -62,7 +73,7 @@ function IndividualsNoAddressPage() {
       setIndividuals(filtered)
 
       setSuccess('Individual registered')
-      setForm({ name: '', gender: 'Male', age: '' })
+      setForm({ name: '', gender: 'Male', date_of_birth: '' })
       setImageFile(null)
       setImageInputKey((prev) => prev + 1)
       setTimeout(() => setSuccess(''), 3000)
@@ -101,8 +112,8 @@ function IndividualsNoAddressPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs text-slate-500 mb-1">Age (years)</label>
-                    <input name="age" type="number" min="0" max="150" value={form.age} onChange={handleFormChange} placeholder="e.g. 45" className="w-full rounded-md border px-3 py-2 bg-transparent" />
+                    <label className="block text-xs text-slate-500 mb-1">Date of Birth</label>
+                    <input name="date_of_birth" type="date" max={new Date().toISOString().split('T')[0]} value={form.date_of_birth} onChange={handleFormChange} className="w-full rounded-md border px-3 py-2 bg-transparent" />
                     <p className="text-xs text-slate-400 mt-1">Optional</p>
                   </div>
                 </div>
@@ -141,11 +152,19 @@ function IndividualsNoAddressPage() {
                 {individuals.map((ind) => (
                   <div key={ind.individual_id} className={`rounded-lg p-4 flex flex-col justify-between ${isDarkMode ? 'bg-slate-900 border border-slate-700' : 'bg-white border border-slate-200'}`}>
                     <div className="flex items-start gap-4">
-                      <div className="h-16 w-16 rounded-full bg-slate-300 grid place-items-center text-lg font-semibold text-slate-700">{(ind.name || 'U').split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase()}</div>
+                      {ind.image ? (
+                        <img
+                          src={`data:image/jpeg;base64,${ind.image}`}
+                          alt={ind.name}
+                          className="h-16 w-16 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="h-16 w-16 rounded-full bg-slate-300 grid place-items-center text-lg font-semibold text-slate-700">{(ind.name || 'U').split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase()}</div>
+                      )}
                       <div className="flex-1">
                         <div className="font-semibold text-sm">{ind.name || '—'}</div>
                         <div className="text-xs text-slate-500 mt-1">ID: {ind.individual_id || '—'}</div>
-                        <div className="text-xs text-slate-500">{ind.gender || '—'} • {ind.age ?? '—'} yrs</div>
+                        <div className="text-xs text-slate-500">{ind.gender || '—'} • {ind.date_of_birth ? getAgeInYears(ind.date_of_birth) : '—'} yrs</div>
                         {(ind.height_cm || ind.weight_kg) && (
                           <div className="text-xs text-slate-500 mt-1">
                             {ind.height_cm ? `${ind.height_cm} cm` : '—'} • {ind.weight_kg ? `${ind.weight_kg} kg` : '—'}

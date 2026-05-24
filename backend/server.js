@@ -557,6 +557,23 @@ app.delete('/api/individuals/:id', (req, res) => {
   })
 })
 
+// GET nutritional status counts for all members in a barangay
+app.get('/api/members/nutritional-stats', (req, res) => {
+  const barangayId = req.query.barangay_id ? Number(req.query.barangay_id) : null
+  if (!barangayId) return res.status(400).json({ error: 'barangay_id is required' })
+  const sql = `
+    SELECT fm.nutritional_status, COUNT(*) AS count
+    FROM family_members fm
+    JOIN families f ON fm.family_id = f.family_id
+    WHERE f.barangay_id = ? AND f.is_active = 1
+    GROUP BY fm.nutritional_status
+  `
+  db.query(sql, [barangayId], (err, results) => {
+    if (err) return res.status(500).json({ error: err.message })
+    res.json(results)
+  })
+})
+
 // ─── FOOD SUPPLIES ───────────────────────────────────────────────────────────
 
 // GET all food supplies
