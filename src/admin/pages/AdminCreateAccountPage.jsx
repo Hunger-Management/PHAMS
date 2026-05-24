@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { useStaffAuth } from '../../context/StaffAuthContext'
 import AdminSidebar from '../components/AdminSidebar'
@@ -29,22 +29,7 @@ export default function AdminCreateAccountPage() {
   const [staffFormMessage, setStaffFormMessage] = useState('')
   const [staffFormError, setStaffFormError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [staffAccounts, setStaffAccounts] = useState([])
-  const [staffLoading, setStaffLoading] = useState(true)
   const { refreshStaffAccounts } = useStaffAuth()
-
-  const fetchStaffAccounts = async () => {
-    try {
-      const users = await apiFetch('/api/users')
-      setStaffAccounts(Array.isArray(users) ? users.filter((u) => String(u.role).toLowerCase() === 'staff') : [])
-    } catch {
-      setStaffAccounts([])
-    } finally {
-      setStaffLoading(false)
-    }
-  }
-
-  useEffect(() => { fetchStaffAccounts() }, [])
 
   const handleStaffInputChange = (event) => {
     const { name, value } = event.target
@@ -93,7 +78,6 @@ export default function AdminCreateAccountPage() {
         password: '',
         barangay_id: barangayOptions[0].id,
       })
-      fetchStaffAccounts()
       try {
         if (refreshStaffAccounts) await refreshStaffAccounts()
       } catch {}
@@ -121,8 +105,7 @@ export default function AdminCreateAccountPage() {
             </p>
           </div>
 
-          <section className="grid gap-6 lg:grid-cols-2">
-            {/* Create Staff Account Form */}
+          <section className="max-w-2xl">
             <article className={`p-6 rounded-2xl border shadow-sm ${
               isDarkMode
                 ? 'bg-[#111c2e] border-white/10'
@@ -254,56 +237,6 @@ export default function AdminCreateAccountPage() {
                   Create Staff Account
                 </button>
               </form>
-            </article>
-
-            {/* Staff Assignments */}
-            <article className={`p-6 rounded-2xl border shadow-sm ${
-              isDarkMode
-                ? 'bg-[#111c2e] border-white/10'
-                : 'bg-white border-slate-200'
-            }`}>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className={`font-semibold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                  Staff Assignments
-                </h3>
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                  isDarkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-600'
-                }`}>
-                  {staffAccounts.length} / 10
-                </span>
-              </div>
-
-              {staffLoading ? (
-                <p className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Loading...</p>
-              ) : staffAccounts.length === 0 ? (
-                <p className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>No staff accounts yet.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {staffAccounts
-                    .slice()
-                    .sort((a, b) => (a.barangay_id ?? 99) - (b.barangay_id ?? 99))
-                    .map((staff) => {
-                      const brgy = barangayOptions.find((b) => b.id === Number(staff.barangay_id))
-                      return (
-                        <li key={staff.user_id ?? staff.id ?? staff.email} className={`flex items-center justify-between rounded-lg px-3 py-2.5 ${
-                          isDarkMode ? 'bg-slate-800' : 'bg-slate-50'
-                        }`}>
-                          <div>
-                            <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>
-                              {staff.name}
-                            </p>
-                            <p className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                              {staff.email}
-                            </p>
-                          </div>
-                          <span className="ml-3 shrink-0 rounded-full bg-blue-600 px-2.5 py-0.5 text-xs font-medium text-white">
-                            {brgy ? brgy.name : '—'}
-                          </span>
-                        </li>
-                      )
-                    })}
-                </ul>
-              )}
             </article>
           </section>
         </div>
