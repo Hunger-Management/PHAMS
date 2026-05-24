@@ -13,7 +13,7 @@ export default function AdminBarangaysPage() {
 
   const handleLogout = () => {
     logout()
-    navigate('/staff/login')
+    navigate('/staff/login', { replace: true, state: { forceRoleChoice: true } })
   }
 
   const getInitials = (name) => {

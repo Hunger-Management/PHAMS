@@ -6,7 +6,7 @@ function AdminProtectedRoute() {
   const location = useLocation()
 
   if (!isAuthenticated) {
-    return <Navigate to="/staff/login" replace state={{ from: location }} />
+    return <Navigate to="/staff/login" replace state={{ from: location, forceRoleChoice: true }} />
   }
 
   return <Outlet />
