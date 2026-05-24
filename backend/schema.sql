@@ -52,6 +52,8 @@ CREATE TABLE IF NOT EXISTS individuals (
   gender        VARCHAR(20),
   barangay_id   INT NULL,
   status        VARCHAR(50),
+  height_cm     DECIMAL(5,2) NULL,
+  weight_kg     DECIMAL(5,2) NULL,
   image         LONGBLOB NULL,
   created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_individuals_barangay

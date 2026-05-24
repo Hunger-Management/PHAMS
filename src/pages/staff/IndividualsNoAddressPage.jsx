@@ -116,6 +116,8 @@ function IndividualsNoAddressPage() {
       gender: ind.gender || 'Male',
       date_of_birth: ind.date_of_birth ? ind.date_of_birth.split('T')[0] : '',
       status: ind.status || 'Registered',
+      height_cm: ind.height_cm ?? '',
+      weight_kg: ind.weight_kg ?? '',
     })
     setEditImageFile(null)
     setEditImageInputKey((k) => k + 1)
@@ -141,6 +143,8 @@ function IndividualsNoAddressPage() {
       payload.append('date_of_birth', editForm.date_of_birth || '')
       payload.append('barangay_id', '')
       payload.append('status', editForm.status)
+      payload.append('height_cm', editForm.height_cm ?? '')
+      payload.append('weight_kg', editForm.weight_kg ?? '')
       if (editImageFile) payload.append('image', editImageFile)
       await apiFetch(`/api/individuals/${editingIndividual.individual_id}`, { method: 'PUT', body: payload })
       await fetchList()
@@ -367,6 +371,16 @@ function IndividualsNoAddressPage() {
               <div>
                 <label className="block text-xs font-semibold text-slate-500 mb-1">Date of Birth</label>
                 <input name="date_of_birth" type="date" max={new Date().toISOString().split('T')[0]} value={editForm.date_of_birth} onChange={handleEditChange} className={`w-full rounded-md border px-3 py-2 text-sm outline-none ${isDarkMode ? 'border-slate-600 bg-slate-800 text-slate-100' : 'border-slate-300 bg-white text-slate-900'}`} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1">Height (cm)</label>
+                  <input name="height_cm" type="number" min="0" max="300" step="0.1" value={editForm.height_cm} onChange={handleEditChange} placeholder="e.g. 165" className={`w-full rounded-md border px-3 py-2 text-sm outline-none ${isDarkMode ? 'border-slate-600 bg-slate-800 text-slate-100' : 'border-slate-300 bg-white text-slate-900'}`} />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1">Weight (kg)</label>
+                  <input name="weight_kg" type="number" min="0" max="500" step="0.1" value={editForm.weight_kg} onChange={handleEditChange} placeholder="e.g. 60.5" className={`w-full rounded-md border px-3 py-2 text-sm outline-none ${isDarkMode ? 'border-slate-600 bg-slate-800 text-slate-100' : 'border-slate-300 bg-white text-slate-900'}`} />
+                </div>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-500 mb-1">Replace Photo (Optional)</label>
