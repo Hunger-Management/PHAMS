@@ -832,6 +832,7 @@ function StaffDashboardPage() {
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Head of Family</th>
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Address</th>
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Members</th>
+                        <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Priority</th>
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Status</th>
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Contact</th>
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}></th>
@@ -862,6 +863,21 @@ function StaffDashboardPage() {
                               <span className={`inline-flex items-center justify-center h-6 w-6 rounded-full text-xs font-semibold ${isDarkMode ? 'bg-blue-900/40 text-blue-300' : 'bg-blue-100 text-blue-700'}`}>
                                 {family.member_count || 0}
                               </span>
+                            </td>
+                            <td className="px-6 py-3">
+                              {(() => {
+                                const score = Number(family.priority_score)
+                                const color = score >= 60
+                                  ? (isDarkMode ? 'bg-red-900/40 text-red-300' : 'bg-red-100 text-red-700')
+                                  : score >= 30
+                                  ? (isDarkMode ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-100 text-amber-700')
+                                  : (isDarkMode ? 'bg-green-900/40 text-green-300' : 'bg-green-100 text-green-700')
+                                return (
+                                  <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold ${color}`}>
+                                    {score.toFixed(1)}
+                                  </span>
+                                )
+                              })()}
                             </td>
                             <td className={`px-6 py-3`}>
                               <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold ${isAssisted ? (isDarkMode ? 'bg-emerald-900/40 text-emerald-300' : 'bg-emerald-100 text-emerald-700') : (isDarkMode ? 'bg-slate-700/50 text-slate-300' : 'bg-slate-200 text-slate-700')}`}>

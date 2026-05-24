@@ -78,9 +78,9 @@ export default function AdminCreateAccountPage() {
         password: '',
         barangay_id: barangayOptions[0].id,
       })
-        try {
-          if (refreshStaffAccounts) await refreshStaffAccounts()
-        } catch {}
+      try {
+        if (refreshStaffAccounts) await refreshStaffAccounts()
+      } catch {}
     } catch (err) {
       setStaffFormError(err.message || 'Failed to create staff account.')
     }
@@ -105,8 +105,7 @@ export default function AdminCreateAccountPage() {
             </p>
           </div>
 
-          <section className="grid gap-6 lg:grid-cols-2">
-            {/* Create Staff Account Form */}
+          <section className="max-w-2xl">
             <article className={`p-6 rounded-2xl border shadow-sm ${
               isDarkMode
                 ? 'bg-[#111c2e] border-white/10'
@@ -136,7 +135,7 @@ export default function AdminCreateAccountPage() {
                         ? 'border-slate-600 bg-slate-900 text-slate-100'
                         : 'border-slate-300 bg-white text-slate-900'
                     }`}
-                    placeholder="Enter staff full name"
+                    placeholder="e.g. Staff Aguho"
                   />
                 </div>
 
@@ -159,7 +158,7 @@ export default function AdminCreateAccountPage() {
                           ? 'border-slate-600 bg-slate-900 text-slate-100'
                           : 'border-slate-300 bg-white text-slate-900'
                       }`}
-                      placeholder="name@example.com"
+                      placeholder="e.g. staff-aguho@pateros.gov.ph"
                     />
                   </div>
 
@@ -238,24 +237,6 @@ export default function AdminCreateAccountPage() {
                   Create Staff Account
                 </button>
               </form>
-            </article>
-
-            {/* Staff Assignments */}
-            <article className={`p-6 rounded-2xl border shadow-sm ${
-              isDarkMode
-                ? 'bg-[#111c2e] border-white/10'
-                : 'bg-white border-slate-200'
-            }`}>
-              <h3 className={`font-semibold mb-4 ${
-                isDarkMode ? 'text-white' : 'text-slate-900'
-              }`}>
-                Staff Assignments
-              </h3>
-
-              <p className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                Staff accounts are created in the database. Connect a staff list endpoint to
-                display them here.
-              </p>
             </article>
           </section>
         </div>
