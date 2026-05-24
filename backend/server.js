@@ -485,6 +485,21 @@ app.post('/api/families/:id/members', (req, res) => {
   )
 })
 
+// PUT update family member
+app.put('/api/members/:id', (req, res) => {
+  const { first_name, last_name, date_of_birth, gender, relationship, is_pwd, height_cm, weight_kg, nutritional_status } = req.body
+  const heightValue = height_cm !== undefined && height_cm !== null && height_cm !== '' ? Number(height_cm) : null
+  const weightValue = weight_kg !== undefined && weight_kg !== null && weight_kg !== '' ? Number(weight_kg) : null
+  db.query(
+    `UPDATE family_members SET first_name=?, last_name=?, date_of_birth=?, gender=?, relationship=?, is_pwd=?, height_cm=?, weight_kg=?, nutritional_status=? WHERE member_id=?`,
+    [first_name, last_name, date_of_birth || null, gender || 'Other', relationship || 'Other', is_pwd ? 1 : 0, heightValue, weightValue, nutritional_status || 'Unknown', req.params.id],
+    (err) => {
+      if (err) return res.status(500).json({ error: err.message })
+      res.json({ message: 'Member updated!' })
+    },
+  )
+})
+
 // DELETE family member
 app.delete('/api/members/:id', (req, res) => {
   db.query('DELETE FROM family_members WHERE member_id = ?', [req.params.id], (err) => {
@@ -510,15 +525,17 @@ app.get('/api/individuals', (req, res) => {
 
 // POST add individual
 app.post('/api/individuals', upload.single('image'), (req, res) => {
-  const { name, date_of_birth, gender, barangay_id, status } = req.body
+  const { name, date_of_birth, gender, barangay_id, status, height_cm, weight_kg } = req.body
   const image = req.file ? req.file.buffer : null
   const dobValue = date_of_birth || null
   const barangayValue = barangay_id === undefined || barangay_id === null || barangay_id === '' ? null : Number(barangay_id)
+  const heightValue = height_cm !== undefined && height_cm !== null && height_cm !== '' ? Number(height_cm) : null
+  const weightValue = weight_kg !== undefined && weight_kg !== null && weight_kg !== '' ? Number(weight_kg) : null
   const sql = `
-    INSERT INTO individuals (name, date_of_birth, gender, barangay_id, status, image)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO individuals (name, date_of_birth, gender, barangay_id, status, height_cm, weight_kg, image)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `
-  db.query(sql, [name, dobValue, gender, barangayValue, status, image], (err, results) => {
+  db.query(sql, [name, dobValue, gender, barangayValue, status, heightValue, weightValue, image], (err, results) => {
     if (err) return res.status(500).json({ error: err.message })
     res.json({ message: 'Individual registered!', individual_id: results.insertId })
   })
@@ -526,14 +543,16 @@ app.post('/api/individuals', upload.single('image'), (req, res) => {
 
 // PUT update individual
 app.put('/api/individuals/:id', upload.single('image'), (req, res) => {
-  const { name, date_of_birth, gender, barangay_id, status } = req.body
+  const { name, date_of_birth, gender, barangay_id, status, height_cm, weight_kg } = req.body
   const image = req.file ? req.file.buffer : null
   const dobValue = date_of_birth || null
   const barangayValue = barangay_id === undefined || barangay_id === null || barangay_id === '' ? null : Number(barangay_id)
+  const heightValue = height_cm !== undefined && height_cm !== null && height_cm !== '' ? Number(height_cm) : null
+  const weightValue = weight_kg !== undefined && weight_kg !== null && weight_kg !== '' ? Number(weight_kg) : null
   let sql = `
-    UPDATE individuals SET name=?, date_of_birth=?, gender=?, barangay_id=?, status=?
+    UPDATE individuals SET name=?, date_of_birth=?, gender=?, barangay_id=?, status=?, height_cm=?, weight_kg=?
   `
-  const params = [name, dobValue, gender, barangayValue, status]
+  const params = [name, dobValue, gender, barangayValue, status, heightValue, weightValue]
 
   if (image) {
     sql += ', image=?'
@@ -554,6 +573,23 @@ app.delete('/api/individuals/:id', (req, res) => {
   db.query('DELETE FROM individuals WHERE individual_id = ?', [req.params.id], (err) => {
     if (err) return res.status(500).json({ error: err.message })
     res.json({ message: 'Individual deleted!' })
+  })
+})
+
+// GET nutritional status counts for all members in a barangay
+app.get('/api/members/nutritional-stats', (req, res) => {
+  const barangayId = req.query.barangay_id ? Number(req.query.barangay_id) : null
+  if (!barangayId) return res.status(400).json({ error: 'barangay_id is required' })
+  const sql = `
+    SELECT fm.nutritional_status, COUNT(*) AS count
+    FROM family_members fm
+    JOIN families f ON fm.family_id = f.family_id
+    WHERE f.barangay_id = ? AND f.is_active = 1
+    GROUP BY fm.nutritional_status
+  `
+  db.query(sql, [barangayId], (err, results) => {
+    if (err) return res.status(500).json({ error: err.message })
+    res.json(results)
   })
 })
 

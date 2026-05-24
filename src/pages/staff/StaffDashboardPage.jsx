@@ -36,6 +36,16 @@ const BARANGAY_MAP = {
   'Tabacalera': 10,
 }
 
+function getAgeInYears(dob) {
+  if (!dob) return null
+  const today = new Date()
+  const birth = new Date(dob)
+  let age = today.getFullYear() - birth.getFullYear()
+  const m = today.getMonth() - birth.getMonth()
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
+  return age
+}
+
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     if (!file) {
@@ -64,6 +74,7 @@ function StaffDashboardPage() {
   const [formError, setFormError] = useState('')
   const [activityDrafts, setActivityDrafts] = useState({})
   const [activitySubmittingId, setActivitySubmittingId] = useState(null)
+  const [viewingNpaIndividual, setViewingNpaIndividual] = useState(null)
 
   const [staffBarangayName, setStaffBarangayName] = useState(
     staffUser?.barangay || staffUser?.barangay_name || ''
@@ -147,8 +158,8 @@ function StaffDashboardPage() {
   )
 
   const filteredIndividuals = useMemo(
-    () => individuals.filter((individual) => (individual.barangay_name || '').toLowerCase() === staffBarangay.toLowerCase()),
-    [individuals, staffBarangay],
+    () => individuals.filter((individual) => !individual.barangay_id && !individual.barangay_name),
+    [individuals],
   )
 
   const filteredDistributions = useMemo(
@@ -367,12 +378,60 @@ function StaffDashboardPage() {
     }
   }
 
-  const nutritionalSlices = [
-    { label: 'Normal 42%', width: '42%', color: '#27c18d' },
-    { label: 'Underweight 18%', width: '18%', color: '#6fb7ff' },
-    { label: 'Overweight 21%', width: '21%', color: '#f6c45f' },
-    { label: 'Severe 19%', width: '19%', color: '#f28b82' },
-  ]
+  const [nutritionalStats, setNutritionalStats] = useState([])
+
+  useEffect(() => {
+    if (!staffBarangayName || staffBarangayName === 'Unknown Barangay') return
+    const barangayId = BARANGAY_MAP[staffBarangayName]
+    if (!barangayId) return
+    apiFetch(`/api/members/nutritional-stats?barangay_id=${barangayId}`)
+      .then((data) => setNutritionalStats(Array.isArray(data) ? data : []))
+      .catch(() => {})
+  }, [staffBarangayName, formSuccess])
+
+  const NUTRITIONAL_COLORS = {
+    'Normal': '#27c18d',
+    'Underweight': '#6fb7ff',
+    'Severely Underweight': '#a855f7',
+    'Overweight': '#f6c45f',
+    'Obese': '#f97316',
+    'Unknown': '#94a3b8',
+  }
+
+  const nutritionalChartData = useMemo(() => {
+    const total = nutritionalStats.reduce((sum, s) => sum + Number(s.count), 0)
+    if (total === 0) return null
+    let cumulative = 0
+    const slices = nutritionalStats.map((s) => {
+      const pct = (Number(s.count) / total) * 100
+      const start = cumulative
+      cumulative += pct
+      return {
+        label: `${s.nutritional_status} ${Math.round(pct)}%`,
+        color: NUTRITIONAL_COLORS[s.nutritional_status] || '#94a3b8',
+        start,
+        pct,
+      }
+    })
+    const gradient = slices.map((s) => `${s.color} ${s.start.toFixed(1)}% ${(s.start + s.pct).toFixed(1)}%`).join(',')
+    return { slices, gradient }
+  }, [nutritionalStats])
+
+  const monthlyTrendData = useMemo(() => {
+    const now = new Date()
+    const months = Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1)
+      return { year: d.getFullYear(), month: d.getMonth(), label: d.toLocaleString('default', { month: 'short' }), count: 0 }
+    })
+    filteredDistributions.forEach((dist) => {
+      if (!dist.date_given) return
+      const d = new Date(dist.date_given)
+      const entry = months.find((m) => m.year === d.getFullYear() && m.month === d.getMonth())
+      if (entry) entry.count++
+    })
+    const max = Math.max(...months.map((m) => m.count), 1)
+    return months.map((m) => ({ ...m, heightPct: (m.count / max) * 100 }))
+  }, [filteredDistributions])
 
   const navigate = useNavigate()
   const [familyForm, setFamilyForm] = useState({
@@ -474,26 +533,11 @@ function StaffDashboardPage() {
     setMembers((prev) => prev.filter((_, i) => i !== index))
   }
 
-  const [individualForm, setIndividualForm] = useState({
-    name: '',
-    date_of_birth: '',
-    gender: 'Male',
-    barangay: staffUser?.barangay || 'Aguho',
-    status: 'Registered',
-  })
-  const [individualImageFile, setIndividualImageFile] = useState(null)
-  const [individualSubmitting, setIndividualSubmitting] = useState(false)
-  const [individualSuccess, setIndividualSuccess] = useState('')
-  const [individualError, setIndividualError] = useState('')
 
   // Initialize form with staff user's barangay name when available
   useEffect(() => {
     if (staffBarangayName) {
       setFamilyForm((prev) => ({
-        ...prev,
-        barangay: staffBarangayName,
-      }))
-      setIndividualForm((prev) => ({
         ...prev,
         barangay: staffBarangayName,
       }))
@@ -582,78 +626,6 @@ function StaffDashboardPage() {
     }
   }
 
-  function handleIndividualChange(e) {
-    const { name, value } = e.target
-    setIndividualForm((s) => ({ ...s, [name]: value }))
-  }
-
-  async function handleIndividualSubmit(e) {
-    e.preventDefault()
-    setIndividualError('')
-    setIndividualSuccess('')
-    setIndividualSubmitting(true)
-
-    try {
-      const barangayId = BARANGAY_MAP[staffBarangayName] || 1
-
-      if (!individualForm.name.trim()) {
-        throw new Error('Full name is required')
-      }
-      if (!individualForm.date_of_birth) {
-        throw new Error('Date of birth is required')
-      }
-
-      const payload = new FormData()
-      payload.append('name', individualForm.name)
-      payload.append('date_of_birth', individualForm.date_of_birth)
-      payload.append('age', String(getAgeInYears(individualForm.date_of_birth) ?? ''))
-      payload.append('gender', individualForm.gender)
-      payload.append('barangay_id', String(barangayId))
-      payload.append('status', individualForm.status)
-      if (individualImageFile) {
-        payload.append('image', individualImageFile)
-      }
-
-      await apiFetch('/api/individuals', {
-        method: 'POST',
-        body: payload,
-      })
-
-      setIndividualSuccess(`✓ Individual "${individualForm.name}" registered successfully!`)
-
-      setIndividualForm({
-        name: '',
-        date_of_birth: '',
-        gender: 'Male',
-        barangay: staffBarangayName,
-        status: 'Registered',
-      })
-      setIndividualImageFile(null)
-
-      setTimeout(() => {
-        setIndividualSuccess('')
-      }, 3000)
-
-      Promise.all([
-        apiFetch('/api/families'),
-        apiFetch('/api/individuals'),
-        apiFetch('/api/distributions'),
-      ])
-        .then(([familiesData, individualsData, distributionsData]) => {
-          setFamilies(Array.isArray(familiesData) ? familiesData : [])
-          setIndividuals(Array.isArray(individualsData) ? individualsData : [])
-          setDistributions(Array.isArray(distributionsData) ? distributionsData : [])
-        })
-        .catch(() => {
-          // keep the success state even if refresh fails
-        })
-    } catch (err) {
-      setIndividualError(err.message || 'Failed to add individual. Please try again.')
-    } finally {
-      setIndividualSubmitting(false)
-    }
-  }
-
   // Reuse admin input/card styles for pixel parity
   const inputClass = `w-full rounded-lg border px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/40 transition ${isDarkMode
     ? 'border-white/10 bg-[#0b1220] text-slate-100 placeholder-slate-500'
@@ -726,19 +698,27 @@ function StaffDashboardPage() {
               <h3 className={`text-xl font-bold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>Nutritional Status Distribution</h3>
               <p className={`mt-1 ${isDarkMode ? 'text-slate-300' : 'text-slate-500'}`}>Family members by health status</p>
 
-              <div className={`mt-10 flex min-h-[260px] items-end justify-center gap-4 overflow-hidden rounded-xl px-4 py-6 ${isDarkMode ? 'bg-slate-900' : 'bg-slate-50'}`}>
-                <div className="relative h-44 w-44 rounded-full bg-[conic-gradient(#27c18d_0_42%,#6fb7ff_42%_60%,#f6c45f_60%_81%,#f28b82_81%_100%)] shadow-inner">
-                  <div className={`absolute inset-5 rounded-full ${isDarkMode ? 'bg-slate-900' : 'bg-slate-50'}`} />
-                </div>
-
-                <div className={`flex flex-col gap-3 text-sm ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
-                  {nutritionalSlices.map((slice) => (
-                    <div key={slice.label} className="flex items-center gap-3">
-                      <span className="h-3 w-3 rounded-full" style={{ backgroundColor: slice.color }} />
-                      <span>{slice.label}</span>
+              <div className={`mt-10 flex min-h-[260px] items-center justify-center gap-8 overflow-hidden rounded-xl px-4 py-6 ${isDarkMode ? 'bg-slate-900' : 'bg-slate-50'}`}>
+                {nutritionalChartData ? (
+                  <>
+                    <div
+                      className="relative h-44 w-44 shrink-0 rounded-full shadow-inner"
+                      style={{ background: `conic-gradient(${nutritionalChartData.gradient})` }}
+                    >
+                      <div className={`absolute inset-5 rounded-full ${isDarkMode ? 'bg-slate-900' : 'bg-slate-50'}`} />
                     </div>
-                  ))}
-                </div>
+                    <div className={`flex flex-col gap-3 text-sm ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                      {nutritionalChartData.slices.map((slice) => (
+                        <div key={slice.label} className="flex items-center gap-3">
+                          <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: slice.color }} />
+                          <span>{slice.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <p className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>No member data yet.</p>
+                )}
               </div>
             </article>
 
@@ -748,13 +728,18 @@ function StaffDashboardPage() {
 
               <div className={`mt-8 rounded-xl p-4 ${isDarkMode ? 'border border-slate-700 bg-slate-800' : 'border border-slate-200 bg-white'}`}>
                 <div className="flex h-64 items-end gap-4">
-                  {[52, 58, 65, 71, 74, 78].map((value, index) => (
-                    <div key={index} className="flex flex-1 flex-col items-center gap-3">
-                      <div
-                        className="w-full rounded-t-lg bg-blue-500/80 shadow-sm"
-                        style={{ height: `${value}%`, minHeight: '48px' }}
-                      />
-                      <span className={`text-xs ${isDarkMode ? 'text-slate-300' : 'text-slate-500'}`}>{index + 1}</span>
+                  {monthlyTrendData.map((month) => (
+                    <div key={`${month.year}-${month.month}`} className="flex flex-1 flex-col items-center gap-2">
+                      <span className={`text-xs font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                        {month.count > 0 ? month.count : ''}
+                      </span>
+                      <div className="flex w-full flex-1 items-end">
+                        <div
+                          className={`w-full rounded-t-lg ${month.count > 0 ? 'bg-blue-500/80' : (isDarkMode ? 'bg-slate-700' : 'bg-slate-300')}`}
+                          style={{ height: month.count > 0 ? `${month.heightPct}%` : '12px' }}
+                        />
+                      </div>
+                      <span className={`text-xs ${isDarkMode ? 'text-slate-300' : 'text-slate-500'}`}>{month.label}</span>
                     </div>
                   ))}
                 </div>
@@ -908,8 +893,8 @@ function StaffDashboardPage() {
             <article id="individuals-list-section" className={`rounded-2xl px-7 py-7 shadow-[0_2px_8px_rgba(15,23,42,0.08)] ${isDarkMode ? 'border border-slate-700 bg-slate-800' : 'border border-slate-200 bg-white'}`}>
               <div className="mb-6 flex items-center justify-between">
                 <div>
-                  <h3 className={`text-2xl font-black ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>Individuals in {staffBarangay}</h3>
-                  <p className={`${isDarkMode ? 'text-slate-300' : 'text-slate-500'} mt-1`}>Recently added and registered individuals in your barangay</p>
+                  <h3 className={`text-2xl font-black ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>Individuals without Permanent Address</h3>
+                  <p className={`${isDarkMode ? 'text-slate-300' : 'text-slate-500'} mt-1`}>Registered individuals with no barangay assignment (NPA)</p>
                 </div>
                 <span className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold ${isDarkMode ? 'bg-slate-900 text-slate-300' : 'bg-slate-100 text-slate-700'}`}>
                   Total: {filteredIndividuals.length}
@@ -925,8 +910,8 @@ function StaffDashboardPage() {
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Image</th>
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Age</th>
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Gender</th>
-                        <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Barangay</th>
                         <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Status</th>
+                        <th className={`px-6 py-3 text-left font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -946,13 +931,15 @@ function StaffDashboardPage() {
                               </span>
                             )}
                           </td>
-                          <td className={`px-6 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{individual.age ?? '—'}</td>
+                          <td className={`px-6 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{getAgeInYears(individual.date_of_birth) ?? '—'}</td>
                           <td className={`px-6 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{individual.gender || '—'}</td>
-                          <td className={`px-6 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{individual.barangay_name || '—'}</td>
                           <td className={`px-6 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
                             <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold ${String(individual.status || '').toLowerCase() === 'received' ? (isDarkMode ? 'bg-emerald-900/40 text-emerald-300' : 'bg-emerald-100 text-emerald-700') : (isDarkMode ? 'bg-slate-700/50 text-slate-300' : 'bg-slate-200 text-slate-700')}`}>
                               {individual.status || 'Registered'}
                             </span>
+                          </td>
+                          <td className="px-6 py-3">
+                            <button onClick={() => setViewingNpaIndividual(individual)} className="text-xs font-medium text-blue-600 hover:text-blue-700 transition">View →</button>
                           </td>
                         </tr>
                       ))}
@@ -961,7 +948,7 @@ function StaffDashboardPage() {
                 </div>
               ) : (
                 <div className={`rounded-lg p-8 text-center ${isDarkMode ? 'bg-slate-900 border border-slate-700' : 'bg-slate-50 border border-slate-200'}`}>
-                  <p className={`${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>No individuals registered in this barangay yet.</p>
+                  <p className={`${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>No individuals without a permanent address registered yet.</p>
                 </div>
               )}
             </article>
@@ -1191,117 +1178,7 @@ function StaffDashboardPage() {
           </section>
           
 
-          <section className="mt-10 grid gap-6">
-            <article id="add-individual-section" className={`rounded-2xl px-7 py-7 shadow-[0_2px_8px_rgba(15,23,42,0.08)] ${isDarkMode ? 'border border-slate-700 bg-slate-900' : 'border border-slate-200 bg-white'}`}>
-              <div className="mb-6 flex items-center justify-between">
-                <div>
-                  <h3 className={`text-2xl font-black ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>Register New Individual</h3>
-                  <p className={`${isDarkMode ? 'text-slate-300' : 'text-slate-500'} mt-1`}>Add a new individual beneficiary record.</p>
-                </div>
-              </div>
-
-              {individualSuccess && (
-                <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                  {individualSuccess}
-                </div>
-              )}
-
-              {individualError && (
-                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {individualError}
-                </div>
-              )}
-
-              <form onSubmit={handleIndividualSubmit} className="rounded-2xl p-1" aria-label="Register individual form">
-                <div className={cardClass}>
-                  <div className={`grid gap-4 grid-cols-1 lg:grid-cols-2`}>
-                    <div className="lg:col-span-2">
-                      <label className={labelClass}>Full Name *</label>
-                      <input name="name" value={individualForm.name} onChange={handleIndividualChange} placeholder="e.g. Maria Santos" className={`${inputClass} mt-2`} required />
-                    </div>
-
-                    <div>
-                      <label className={labelClass}>Date of Birth *</label>
-                      <input type="date" name="date_of_birth" max={new Date().toISOString().split('T')[0]} value={individualForm.date_of_birth} onChange={handleIndividualChange} className={`${inputClass} mt-2`} required />
-                    </div>
-
-                    <div>
-                      <label className={labelClass}>Gender *</label>
-                      <select name="gender" value={individualForm.gender} onChange={handleIndividualChange} className={`${inputClass} mt-2`}>
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                        <option value="Other">Other</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className={labelClass}>Barangay</label>
-                      <div className={`mt-2 flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm ${isDarkMode ? 'border-white/10 bg-[#0b1220]/50 text-slate-300' : 'border-slate-200 bg-slate-100 text-slate-700'}`}>
-                        <span>📍</span>
-                        <span className="font-medium">{staffBarangayName}</span>
-                        <span className={`ml-auto text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Assigned</span>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className={labelClass}>Status *</label>
-                      <select name="status" value={individualForm.status} onChange={handleIndividualChange} className={`${inputClass} mt-2`}>
-                        <option value="Registered">Registered</option>
-                        <option value="Received">Received</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className={labelClass}>Photo (Optional)</label>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(event) => setIndividualImageFile(event.target.files?.[0] || null)}
-                        className={`${inputClass} mt-2`}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-6 flex items-center justify-between">
-                  <div className={`text-sm ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}></div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIndividualForm({
-                          name: '',
-                          date_of_birth: '',
-                          gender: 'Male',
-                          barangay: staffUser?.barangay || 'Aguho',
-                          status: 'Registered',
-                        })
-                        setIndividualImageFile(null)
-                        setIndividualError('')
-                        setIndividualSuccess('')
-                      }}
-                      disabled={individualSubmitting}
-                      className={`rounded-full px-5 py-2 text-sm ${isDarkMode ? 'bg-slate-800 border border-slate-700 text-slate-300' : 'bg-slate-100 border border-slate-200 text-slate-900'}`}
-                    >
-                      Clear
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={individualSubmitting}
-                      className={`rounded-full px-5 py-2 text-sm font-semibold ${individualSubmitting
-                        ? (isDarkMode ? 'bg-emerald-600/50 text-white' : 'bg-emerald-600/50 text-white')
-                        : (isDarkMode ? 'bg-emerald-600 text-white hover:bg-emerald-500' : 'bg-emerald-600 text-white hover:bg-emerald-700')
-                      }`}
-                    >
-                      {individualSubmitting ? 'Adding...' : 'Register Individual'}
-                    </button>
-                  </div>
-                </div>
-              </form>
-            </article>
-          </section>
-
-            <section id="transparency-section" className={`mt-10 rounded-2xl px-7 py-7 shadow-[0_2px_8px_rgba(15,23,42,0.08)] ${isDarkMode ? 'border border-slate-700 bg-slate-800' : 'border border-slate-200 bg-white'}`}>
+          <section id="transparency-section" className={`mt-10 rounded-2xl px-7 py-7 shadow-[0_2px_8px_rgba(15,23,42,0.08)] ${isDarkMode ? 'border border-slate-700 bg-slate-800' : 'border border-slate-200 bg-white'}`}>
             <h3 className={`text-xl font-bold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>Transparency & System Overview</h3>
             <p className={`mt-2 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Current status for {staffUser?.barangay || 'Aguho'}</p>
 
@@ -1451,6 +1328,42 @@ function StaffDashboardPage() {
       >
         {isDarkMode ? '☀️' : '🌙'}
       </button>
+
+      {viewingNpaIndividual && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setViewingNpaIndividual(null)}>
+          <div className={`w-full max-w-md rounded-2xl border p-6 shadow-xl ${isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-slate-200 text-slate-900'}`} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between mb-5">
+              <h3 className="text-lg font-bold">Individual Details</h3>
+              <button onClick={() => setViewingNpaIndividual(null)} className={`text-xs font-semibold px-3 py-1 rounded ${isDarkMode ? 'bg-slate-700 text-slate-200 hover:bg-slate-600' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>Close</button>
+            </div>
+            <div className="flex items-center gap-4 mb-5">
+              {viewingNpaIndividual.image ? (
+                <img src={`data:image/jpeg;base64,${viewingNpaIndividual.image}`} alt={viewingNpaIndividual.name} className="h-20 w-20 rounded-full object-cover" />
+              ) : (
+                <div className="h-20 w-20 rounded-full bg-slate-300 grid place-items-center text-2xl font-bold text-slate-700">{(viewingNpaIndividual.name || 'U').split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}</div>
+              )}
+              <div>
+                <div className="text-xl font-bold">{viewingNpaIndividual.name || '—'}</div>
+                <div className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>ID: {viewingNpaIndividual.individual_id}</div>
+              </div>
+            </div>
+            <dl className="space-y-2 text-sm">
+              {[
+                ['Gender', viewingNpaIndividual.gender || '—'],
+                ['Date of Birth', viewingNpaIndividual.date_of_birth ? new Date(viewingNpaIndividual.date_of_birth).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }) : '—'],
+                ['Age', viewingNpaIndividual.date_of_birth ? `${getAgeInYears(viewingNpaIndividual.date_of_birth)} years old` : '—'],
+                ['Status', viewingNpaIndividual.status || 'Registered'],
+                ['Barangay', 'None (NPA)'],
+              ].map(([label, value]) => (
+                <div key={label} className="flex justify-between gap-4">
+                  <dt className={`font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{label}</dt>
+                  <dd className="text-right">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        </div>
+      )}
     </main>
   )
 }

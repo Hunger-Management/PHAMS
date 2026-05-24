@@ -4,6 +4,10 @@ import { apiFetch } from '../../api/api'
 import { useDarkMode } from '../../hooks/useDarkMode'
 import StaffSidebar from './StaffSidebar'
 
+const PROGRAMS = ['4Ps', 'Solo Parent', 'PWD Assistance', 'Senior Citizen', 'Pregnant/Lactating']
+const NUTRITIONAL_OPTIONS = ['Normal', 'Underweight', 'Severely Underweight', 'Overweight', 'Obese', 'Unknown']
+const RELATIONSHIP_OPTIONS = ['Head', 'Spouse', 'Child', 'Parent', 'Sibling', 'Relative', 'Other']
+
 function getBMI(heightCm, weightKg) {
   const h = parseFloat(heightCm)
   const w = parseFloat(weightKg)
@@ -52,22 +56,122 @@ export default function StaffFamilyDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    Promise.all([
-      apiFetch(`/api/families/${familyId}`),
-      apiFetch(`/api/families/${familyId}/members`),
-    ])
-      .then(([familyData, membersData]) => {
-        setFamily(familyData)
-        setMembers(Array.isArray(membersData) ? membersData : [])
+  // edit family modal
+  const [editingFamily, setEditingFamily] = useState(false)
+  const [familyForm, setFamilyForm] = useState({})
+  const [familyPrograms, setFamilyPrograms] = useState([])
+  const [savingFamily, setSavingFamily] = useState(false)
+  const [familyEditError, setFamilyEditError] = useState('')
+
+  // edit member modal
+  const [editingMember, setEditingMember] = useState(null)
+  const [memberForm, setMemberForm] = useState({})
+  const [savingMember, setSavingMember] = useState(false)
+  const [memberEditError, setMemberEditError] = useState('')
+
+  async function loadData() {
+    try {
+      const [familyData, membersData] = await Promise.all([
+        apiFetch(`/api/families/${familyId}`),
+        apiFetch(`/api/families/${familyId}/members`),
+      ])
+      setFamily(familyData)
+      setMembers(Array.isArray(membersData) ? membersData : [])
+    } catch (err) {
+      setError(err.message || 'Failed to load family details.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { loadData() }, [familyId])
+
+  function openEditFamily() {
+    setFamilyForm({
+      family_name: family.family_name || '',
+      head_of_family: family.head_of_family || '',
+      address: family.address || '',
+      phone: family.phone || '',
+      monthly_income: family.monthly_income ?? '',
+    })
+    const existing = (family.food_assistance_status || '').split(',').map((s) => s.trim()).filter(Boolean)
+    setFamilyPrograms(existing.filter((p) => p !== 'None'))
+    setFamilyEditError('')
+    setEditingFamily(true)
+  }
+
+  function toggleProgram(p) {
+    setFamilyPrograms((prev) => prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p])
+  }
+
+  async function handleFamilySubmit(e) {
+    e.preventDefault()
+    setSavingFamily(true)
+    setFamilyEditError('')
+    try {
+      const payload = new FormData()
+      payload.append('family_name', familyForm.family_name)
+      payload.append('head_of_family', familyForm.head_of_family)
+      payload.append('address', familyForm.address)
+      payload.append('phone', familyForm.phone)
+      payload.append('monthly_income', familyForm.monthly_income !== '' ? familyForm.monthly_income : '')
+      payload.append('food_assistance_status', familyPrograms.length ? familyPrograms.join(',') : 'None')
+      payload.append('barangay_id', family.barangay_id)
+      payload.append('is_npa', family.is_npa ? '1' : '0')
+      payload.append('priority_score', family.priority_score ?? 0)
+      await apiFetch(`/api/families/${familyId}`, { method: 'PUT', body: payload })
+      await loadData()
+      setEditingFamily(false)
+    } catch (err) {
+      setFamilyEditError(err.message || 'Failed to save changes')
+    } finally {
+      setSavingFamily(false)
+    }
+  }
+
+  function openEditMember(m) {
+    setEditingMember(m)
+    setMemberForm({
+      first_name: m.first_name || '',
+      last_name: m.last_name || '',
+      date_of_birth: m.date_of_birth ? m.date_of_birth.split('T')[0] : '',
+      gender: m.gender || 'Male',
+      relationship: m.relationship || 'Other',
+      is_pwd: Boolean(m.is_pwd),
+      height_cm: m.height_cm ?? '',
+      weight_kg: m.weight_kg ?? '',
+      nutritional_status: m.nutritional_status || 'Unknown',
+    })
+    setMemberEditError('')
+  }
+
+  async function handleMemberSubmit(e) {
+    e.preventDefault()
+    setSavingMember(true)
+    setMemberEditError('')
+    try {
+      await apiFetch(`/api/members/${editingMember.member_id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          ...memberForm,
+          height_cm: memberForm.height_cm !== '' ? Number(memberForm.height_cm) : null,
+          weight_kg: memberForm.weight_kg !== '' ? Number(memberForm.weight_kg) : null,
+          date_of_birth: memberForm.date_of_birth || null,
+        }),
       })
-      .catch((err) => setError(err.message || 'Failed to load family details.'))
-      .finally(() => setLoading(false))
-  }, [familyId])
+      await loadData()
+      setEditingMember(null)
+    } catch (err) {
+      setMemberEditError(err.message || 'Failed to save changes')
+    } finally {
+      setSavingMember(false)
+    }
+  }
 
   const cardClass = `rounded-2xl border p-6 shadow-sm ${isDarkMode ? 'border-white/10 bg-[#111c2e]' : 'border-slate-200 bg-white'}`
   const labelClass = `text-xs font-semibold uppercase tracking-[0.08em] ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`
   const valueClass = `mt-0.5 text-sm ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`
+  const inputClass = `w-full rounded-md border px-3 py-2 text-sm outline-none ${isDarkMode ? 'border-slate-600 bg-slate-800 text-slate-100' : 'border-slate-300 bg-white text-slate-900'}`
 
   return (
     <div className={`flex min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-[#0b1220] text-slate-100' : 'bg-[#eef5f2] text-slate-900'}`}>
@@ -112,7 +216,15 @@ export default function StaffFamilyDetailPage() {
             <>
               {/* Family Info */}
               <div className={`${cardClass} mb-6`}>
-                <h3 className={`font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Family Information</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className={`font-semibold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Family Information</h3>
+                  <button
+                    onClick={openEditFamily}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${isDarkMode ? 'bg-slate-700 text-slate-200 hover:bg-slate-600' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+                  >
+                    Edit
+                  </button>
+                </div>
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
                   <div>
                     <p className={labelClass}>Head of Family</p>
@@ -167,11 +279,18 @@ export default function StaffFamilyDetailPage() {
                                 {m.first_name} {m.last_name}
                               </p>
                               <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                                {m.relationship}
-                                {m.is_pwd ? ' · PWD' : ''}
+                                {m.relationship}{m.is_pwd ? ' · PWD' : ''}
                               </p>
                             </div>
-                            <NutritionalBadge status={m.nutritional_status} isDarkMode={isDarkMode} />
+                            <div className="flex items-center gap-2">
+                              <NutritionalBadge status={m.nutritional_status} isDarkMode={isDarkMode} />
+                              <button
+                                onClick={() => openEditMember(m)}
+                                className={`rounded-lg px-3 py-1 text-xs font-semibold transition ${isDarkMode ? 'bg-slate-700 text-slate-200 hover:bg-slate-600' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
+                              >
+                                Edit
+                              </button>
+                            </div>
                           </div>
 
                           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
@@ -215,6 +334,131 @@ export default function StaffFamilyDetailPage() {
           )}
         </div>
       </main>
+
+      {/* Edit Family Modal */}
+      {editingFamily && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto" onClick={() => setEditingFamily(false)}>
+          <div className={`w-full max-w-lg rounded-2xl border p-6 shadow-xl my-8 ${isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-slate-200 text-slate-900'}`} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-bold">Edit Family</h3>
+              <button onClick={() => setEditingFamily(false)} className={`text-xs font-semibold px-3 py-1 rounded ${isDarkMode ? 'bg-slate-700 text-slate-200 hover:bg-slate-600' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>Close</button>
+            </div>
+            <form onSubmit={handleFamilySubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Family Name *</label>
+                <input value={familyForm.family_name} onChange={(e) => setFamilyForm((s) => ({ ...s, family_name: e.target.value }))} required className={inputClass} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1">Head of Family</label>
+                  <input value={familyForm.head_of_family} onChange={(e) => setFamilyForm((s) => ({ ...s, head_of_family: e.target.value }))} className={inputClass} />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1">Contact Number</label>
+                  <input value={familyForm.phone} onChange={(e) => setFamilyForm((s) => ({ ...s, phone: e.target.value }))} className={inputClass} />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Address</label>
+                <input value={familyForm.address} onChange={(e) => setFamilyForm((s) => ({ ...s, address: e.target.value }))} className={inputClass} />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Monthly Income (₱)</label>
+                <input type="number" min="0" value={familyForm.monthly_income} onChange={(e) => setFamilyForm((s) => ({ ...s, monthly_income: e.target.value }))} placeholder="Leave blank if unknown" className={inputClass} />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-2">Assistance Programs</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {PROGRAMS.map((p) => (
+                    <button key={p} type="button" onClick={() => toggleProgram(p)} className={`rounded-lg border px-3 py-2 text-left text-xs flex items-center gap-2 ${familyPrograms.includes(p) ? (isDarkMode ? 'bg-emerald-700 border-emerald-600 text-white' : 'bg-emerald-600 border-emerald-600 text-white') : (isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700')}`}>
+                      <span className={`h-3.5 w-3.5 rounded border flex-shrink-0 flex items-center justify-center text-white ${familyPrograms.includes(p) ? 'bg-white/30 border-white/50' : 'border-current'}`}>{familyPrograms.includes(p) ? '✓' : ''}</span>
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {familyEditError && <div className="text-sm text-red-600">{familyEditError}</div>}
+              <div className="flex justify-end gap-3 pt-1">
+                <button type="button" onClick={() => setEditingFamily(false)} className={`rounded-lg px-4 py-2 text-sm font-semibold ${isDarkMode ? 'bg-slate-700 text-slate-200 hover:bg-slate-600' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>Cancel</button>
+                <button type="submit" disabled={savingFamily} className="rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 text-sm font-semibold disabled:opacity-50">{savingFamily ? 'Saving…' : 'Save Changes'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Member Modal */}
+      {editingMember && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto" onClick={() => setEditingMember(null)}>
+          <div className={`w-full max-w-lg rounded-2xl border p-6 shadow-xl my-8 ${isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-slate-200 text-slate-900'}`} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-bold">Edit Member</h3>
+              <button onClick={() => setEditingMember(null)} className={`text-xs font-semibold px-3 py-1 rounded ${isDarkMode ? 'bg-slate-700 text-slate-200 hover:bg-slate-600' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>Close</button>
+            </div>
+            <form onSubmit={handleMemberSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1">First Name *</label>
+                  <input value={memberForm.first_name} onChange={(e) => setMemberForm((s) => ({ ...s, first_name: e.target.value }))} required className={inputClass} />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1">Last Name *</label>
+                  <input value={memberForm.last_name} onChange={(e) => setMemberForm((s) => ({ ...s, last_name: e.target.value }))} required className={inputClass} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1">Date of Birth</label>
+                  <input type="date" max={new Date().toISOString().split('T')[0]} value={memberForm.date_of_birth} onChange={(e) => setMemberForm((s) => ({ ...s, date_of_birth: e.target.value }))} className={inputClass} />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1">Gender</label>
+                  <select value={memberForm.gender} onChange={(e) => setMemberForm((s) => ({ ...s, gender: e.target.value }))} className={inputClass}>
+                    <option>Male</option>
+                    <option>Female</option>
+                    <option>Other</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1">Relationship</label>
+                  <select value={memberForm.relationship} onChange={(e) => setMemberForm((s) => ({ ...s, relationship: e.target.value }))} className={inputClass}>
+                    {RELATIONSHIP_OPTIONS.map((r) => <option key={r}>{r}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1">Nutritional Status</label>
+                  <select value={memberForm.nutritional_status} onChange={(e) => setMemberForm((s) => ({ ...s, nutritional_status: e.target.value }))} className={inputClass}>
+                    {NUTRITIONAL_OPTIONS.map((n) => <option key={n}>{n}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1">Height (cm)</label>
+                  <input type="number" min="0" step="0.1" value={memberForm.height_cm} onChange={(e) => setMemberForm((s) => ({ ...s, height_cm: e.target.value }))} placeholder="e.g. 160" className={inputClass} />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1">Weight (kg)</label>
+                  <input type="number" min="0" step="0.1" value={memberForm.weight_kg} onChange={(e) => setMemberForm((s) => ({ ...s, weight_kg: e.target.value }))} placeholder="e.g. 55" className={inputClass} />
+                </div>
+              </div>
+              <div>
+                <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                  <input type="checkbox" checked={memberForm.is_pwd} onChange={(e) => setMemberForm((s) => ({ ...s, is_pwd: e.target.checked }))} className="h-4 w-4 rounded" />
+                  Person with Disability (PWD)
+                </label>
+              </div>
+              {memberEditError && <div className="text-sm text-red-600">{memberEditError}</div>}
+              <div className="flex justify-end gap-3 pt-1">
+                <button type="button" onClick={() => setEditingMember(null)} className={`rounded-lg px-4 py-2 text-sm font-semibold ${isDarkMode ? 'bg-slate-700 text-slate-200 hover:bg-slate-600' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>Cancel</button>
+                <button type="submit" disabled={savingMember} className="rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 text-sm font-semibold disabled:opacity-50">{savingMember ? 'Saving…' : 'Save Changes'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
