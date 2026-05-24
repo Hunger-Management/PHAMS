@@ -52,6 +52,7 @@ function DonationPage() {
   const [monetaryImageFile, setMonetaryImageFile] = useState(null)
   const [monetaryImagePreview, setMonetaryImagePreview] = useState('')
   const [recentDonors, setRecentDonors] = useState([])
+  const [showAllDonors, setShowAllDonors] = useState(false)
   const [donorError, setDonorError] = useState('')
   const [foodSupplies, setFoodSupplies] = useState([])
   const [foodSuppliesError, setFoodSuppliesError] = useState('')
@@ -220,7 +221,7 @@ function DonationPage() {
     apiFetch('/api/donations')
       .then((data) => {
         const list = Array.isArray(data) ? data : []
-        const mapped = list.slice(0, 6).map((item, index) => ({
+        const mapped = list.map((item, index) => ({
           name: item.donor_name || 'Anonymous',
           type: item.food_name ? `Donation: ${item.food_name}` : 'Donation',
           amount: item.quantity ? `${item.quantity} ${item.unit || ''}`.trim() : '—',
@@ -1238,7 +1239,7 @@ function DonationPage() {
 
           {recentDonors.length > 0 ? (
             <div className="mt-6 space-y-3">
-              {recentDonors.map((donor) => (
+              {(showAllDonors ? recentDonors : recentDonors.slice(0, 6)).map((donor) => (
                 <div
                   key={donor.id}
                   className={`flex items-center justify-between rounded-xl border px-4 py-3 md:px-5 md:py-4 ${
@@ -1290,16 +1291,19 @@ function DonationPage() {
             </div>
           )}
 
-          <button
-            type="button"
-            className={`mt-5 w-full rounded-lg border px-5 py-3 text-base md:text-lg font-semibold transition-colors ${
-              isDarkMode
-                ? 'border-slate-600 bg-slate-800 text-slate-100 hover:bg-slate-700'
-                : 'border-slate-300 bg-[#e8edf1] text-[#071a2f] hover:bg-[#dde5ea]'
-            }`}
-          >
-            View All Donors →
-          </button>
+          {!showAllDonors && recentDonors.length > 6 && (
+            <button
+              type="button"
+              onClick={() => setShowAllDonors(true)}
+              className={`mt-5 w-full rounded-lg border px-5 py-3 text-base md:text-lg font-semibold transition-colors ${
+                isDarkMode
+                  ? 'border-slate-600 bg-slate-800 text-slate-100 hover:bg-slate-700'
+                  : 'border-slate-300 bg-[#e8edf1] text-[#071a2f] hover:bg-[#dde5ea]'
+              }`}
+            >
+              View All Donors →
+            </button>
+          )}
         </article>
       </section>
 
