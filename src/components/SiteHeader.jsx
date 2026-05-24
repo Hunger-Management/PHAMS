@@ -36,7 +36,7 @@ function SiteHeader({ isDarkMode, toggleDarkMode }) {
 
   return (
     <header
-      className={`transition-colors ${
+      className={`sticky top-0 z-40 transition-colors ${
         isDarkMode ? 'bg-slate-900 border-b border-slate-700 shadow-md' : 'bg-[#f6f8f9] border-b border-slate-200 shadow-sm'
       }`}
     >

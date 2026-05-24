@@ -669,28 +669,75 @@ app.get('/api/donations', (req, res) => {
 
 // POST add donation
 app.post('/api/donations', upload.single('image'), (req, res) => {
-  const { donor_id, food_id, quantity, date_given } = req.body
+  const { donor_id, food_id, food_description, quantity, quantity_unit, date_given } = req.body
   const image = req.file ? req.file.buffer : null
   const donorValue = donor_id === undefined || donor_id === null || donor_id === '' ? null : Number(donor_id)
-  const foodValue = food_id === undefined || food_id === null || food_id === '' ? null : Number(food_id)
   const quantityValue = quantity === undefined || quantity === null || quantity === '' ? null : Number(quantity)
-  const sql = `
-    INSERT INTO donations (donor_id, food_id, quantity, date_given, image)
-    VALUES (?, ?, ?, ?, ?)
-  `
-  db.query(sql, [donorValue, foodValue, quantityValue, date_given, image], (err, results) => {
-    if (err) return res.status(500).json({ error: err.message })
+  const typedFoodDescription = String(food_description || '').trim()
+  const unitValue = String(quantity_unit || 'unit').trim() || 'unit'
+  const parsedFoodId = food_id === undefined || food_id === null || food_id === '' ? null : Number(food_id)
 
-    if (foodValue && quantityValue) {
+  const createDonation = (resolvedFoodId) => {
+    const sql = `
+      INSERT INTO donations (donor_id, food_id, quantity, date_given, image)
+      VALUES (?, ?, ?, ?, ?)
+    `
+
+    db.query(sql, [donorValue, resolvedFoodId, quantityValue, date_given, image], (err, results) => {
+      if (err) return res.status(500).json({ error: err.message })
+
+      if (resolvedFoodId && quantityValue) {
+        db.query(
+          'UPDATE food_supplies SET total_quantity = total_quantity + ? WHERE food_id = ?',
+          [quantityValue, resolvedFoodId],
+          (foodErr) => {
+            if (foodErr) {
+              console.error('Failed to update food supply on donation:', foodErr)
+              return res.status(500).json({ error: foodErr.message })
+            }
+
+            res.json({ message: 'Donation recorded!', donation_id: results.insertId })
+          },
+        )
+        return
+      }
+
+      res.json({ message: 'Donation recorded!', donation_id: results.insertId })
+    })
+  }
+
+  if (parsedFoodId) {
+    createDonation(parsedFoodId)
+    return
+  }
+
+  // If no food id and no typed description, treat as a monetary donation
+  if (!typedFoodDescription) {
+    createDonation(null)
+    return
+  }
+
+  db.query(
+    'SELECT food_id FROM food_supplies WHERE LOWER(TRIM(food_name)) = LOWER(TRIM(?)) LIMIT 1',
+    [typedFoodDescription],
+    (findErr, rows) => {
+      if (findErr) return res.status(500).json({ error: findErr.message })
+
+      if (rows && rows[0] && rows[0].food_id) {
+        createDonation(Number(rows[0].food_id))
+        return
+      }
+
       db.query(
-        'UPDATE food_supplies SET total_quantity = total_quantity + ? WHERE food_id = ?',
-        [quantityValue, foodValue],
-        (foodErr) => { if (foodErr) console.error('Failed to update food supply on donation:', foodErr) },
+        'INSERT INTO food_supplies (food_name, unit, total_quantity) VALUES (?, ?, 0)',
+        [typedFoodDescription, unitValue],
+        (insertFoodErr, insertFoodResult) => {
+          if (insertFoodErr) return res.status(500).json({ error: insertFoodErr.message })
+          createDonation(Number(insertFoodResult.insertId))
+        },
       )
-    }
-
-    res.json({ message: 'Donation recorded!', donation_id: results.insertId })
-  })
+    },
+  )
 })
 
 // DELETE donation
@@ -813,23 +860,24 @@ app.get('/api/distributions', (req, res) => {
 
 // POST add distribution
 app.post('/api/distributions', upload.single('image'), (req, res) => {
-  const { recipient_type, family_id, individual_id, barangay_id, food_id, quantity, date_given, status } = req.body
+  const { recipient_type, family_id, individual_id, barangay_id, distribution_type, food_id, quantity, date_given, status } = req.body
   const image = req.file ? req.file.buffer : null
   const actor = getRequestActor(req)
   const familyValue = family_id === undefined || family_id === null || family_id === '' ? null : Number(family_id)
   const individualValue = individual_id === undefined || individual_id === null || individual_id === '' ? null : Number(individual_id)
   const barangayValue = barangay_id === undefined || barangay_id === null || barangay_id === '' ? null : Number(barangay_id)
+  const distributionTypeValue = String(distribution_type || 'Food').trim() || 'Food'
   const foodValue = food_id === undefined || food_id === null || food_id === '' ? null : Number(food_id)
   const quantityValue = quantity === undefined || quantity === null || quantity === '' ? null : Number(quantity)
   const sql = `
     INSERT INTO distribution 
-    (recipient_type, family_id, individual_id, barangay_id, food_id, quantity, date_given, status, image)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (recipient_type, family_id, individual_id, barangay_id, distribution_type, food_id, quantity, date_given, status, image)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `
-  db.query(sql, [recipient_type, familyValue, individualValue, barangayValue, foodValue, quantityValue, date_given, status, image], (err, results) => {
+  db.query(sql, [recipient_type, familyValue, individualValue, barangayValue, distributionTypeValue, distributionTypeValue === 'Food' ? foodValue : null, quantityValue, date_given, status, image], (err, results) => {
     if (err) return res.status(500).json({ error: err.message })
 
-    if (foodValue && quantityValue) {
+    if (distributionTypeValue === 'Food' && foodValue && quantityValue) {
       db.query(
         'UPDATE food_supplies SET total_quantity = GREATEST(0, total_quantity - ?) WHERE food_id = ?',
         [quantityValue, foodValue],
@@ -868,6 +916,7 @@ app.post('/api/distributions', upload.single('image'), (req, res) => {
         family_id: familyValue,
         individual_id: individualValue,
         barangay_id: barangayValue,
+        distribution_type: distributionTypeValue,
         food_id: foodValue,
         quantity: quantityValue,
         date_given,

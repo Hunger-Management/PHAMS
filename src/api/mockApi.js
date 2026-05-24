@@ -639,25 +639,33 @@ function handlePost(path, db, body) {
     db.donations.unshift(item)
     updateFoodQuantity(db, item.food_id, item.quantity)
     saveDb(db)
+    // Monetary donations are stored in `donations` only. Do not auto-create
+    // distribution records for monetary donations so we can track a central
+    // fund balance separately from recorded distributions.
+
     return item
   }
 
   if (path === '/api/distributions') {
     const distribution_id = nextId(db.distributions, 'distribution_id')
+    const distributionType = String(body.distribution_type || 'Food').trim() || 'Food'
     const item = {
       distribution_id,
       recipient_type: body.recipient_type || 'Family',
       family_id: body.family_id ? Number(body.family_id) : null,
       individual_id: body.individual_id ? Number(body.individual_id) : null,
       barangay_id: Number(body.barangay_id) || 1,
-      food_id: Number(body.food_id),
+      distribution_type: distributionType,
+      food_id: distributionType === 'Food' && body.food_id ? Number(body.food_id) : null,
       quantity: Number(body.quantity || 0),
       date_given: body.date_given || nowIso(),
       status: body.status || 'Pending',
       image: body.image_data || null,
     }
     db.distributions.unshift(item)
-    updateFoodQuantity(db, item.food_id, -item.quantity)
+    if (item.distribution_type === 'Food' && item.food_id) {
+      updateFoodQuantity(db, item.food_id, -item.quantity)
+    }
     const enriched = withJoins(db).distributions.find((distribution) => distribution.distribution_id === distribution_id) || item
     const actor = normalizeActor(body)
     const action = determineDistributionAction(item.status, 'created')

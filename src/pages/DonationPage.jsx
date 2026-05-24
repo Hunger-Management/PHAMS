@@ -221,14 +221,19 @@ function DonationPage() {
     apiFetch('/api/donations')
       .then((data) => {
         const list = Array.isArray(data) ? data : []
-        const mapped = list.map((item, index) => ({
-          name: item.donor_name || 'Anonymous',
-          type: item.food_name ? `Donation: ${item.food_name}` : 'Donation',
-          amount: item.quantity ? `${item.quantity} ${item.unit || ''}`.trim() : '—',
-          when: formatDonationDate(item.date_given),
-          id: item.donation_id || `${item.donor_name || 'donor'}-${index}`,
-          image: item.image || null,
-        }))
+        const mapped = list.map((item, index) => {
+          const isMonetary = !item.food_id || Number(item.food_id) === 0
+          return {
+            name: item.donor_name || 'Anonymous',
+            type: isMonetary ? 'Donation' : `Donation: ${item.food_name || 'Unknown food'}`,
+            amount: isMonetary
+              ? (item.quantity ? `₱${formatPhpAmount(Number(item.quantity))}` : '—')
+              : (item.quantity ? `${item.quantity} ${item.quantity_unit || item.unit || ''}`.trim() : '—'),
+            when: formatDonationDate(item.date_given),
+            id: item.donation_id || `${item.donor_name || 'donor'}-${index}`,
+            image: item.image || null,
+          }
+        })
         setRecentDonors(mapped)
         setDonorError('')
       })
@@ -378,8 +383,13 @@ function DonationPage() {
 
       const donationPayload = new FormData()
       donationPayload.append('donor_id', String(donor.donor_id))
-      donationPayload.append('food_id', String(Number(foodForm.foodId)))
-      donationPayload.append('food_description', foodForm.foodDescription)
+      if (foodForm.foodId) {
+        donationPayload.append('food_id', String(Number(foodForm.foodId)))
+        donationPayload.append('food_description', '')
+      } else {
+        donationPayload.append('food_id', '')
+        donationPayload.append('food_description', foodForm.foodDescription || '')
+      }
       donationPayload.append('quantity', String(Number(foodForm.quantity)))
       donationPayload.append('quantity_unit', foodForm.quantityUnit)
       donationPayload.append('date_given', foodForm.dateGiven)
@@ -406,6 +416,7 @@ function DonationPage() {
       })
       setFoodImageFile(null)
       loadRecentDonors()
+      loadFoodSupplies()
     } catch (err) {
       setFoodError(err.message || 'Unable to record donation right now.')
     } finally {
@@ -458,6 +469,7 @@ function DonationPage() {
       setSuppliesSuccess('Thank you! Your supplies donation has been recorded.')
       setSuppliesForm({
         foodId: '',
+        foodDescription: '',
         quantity: '',
         donorName: '',
         contactInfo: '',
@@ -467,6 +479,7 @@ function DonationPage() {
       })
       setSuppliesImageFile(null)
       loadRecentDonors()
+      loadFoodSupplies()
     } catch (err) {
       setSuppliesError(err.message || 'Unable to record donation right now.')
     } finally {
@@ -604,7 +617,7 @@ function DonationPage() {
               <h3 className={`text-lg md:text-xl font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>Select Amount (PHP)</h3>
               <div className="mt-3 grid grid-cols-2 md:grid-cols-5 gap-2">
                 {donationAmounts.map((amount) => {
-                  const isSelected = selectedAmount === amount && customAmount === ''
+                  const isSelected = Number(customAmount || 0) === amount || (selectedAmount === amount && customAmount === '')
 
                   return (
                     <button
@@ -612,7 +625,10 @@ function DonationPage() {
                       type="button"
                       onClick={() => {
                         setSelectedAmount(amount)
-                        setCustomAmount('')
+                        setCustomAmount(String(amount))
+                        // focus the custom amount input (best-effort)
+                        const el = document.getElementById('custom-amount')
+                        if (el) el.focus()
                       }}
                       className={`rounded-lg border px-4 py-2 text-lg font-semibold transition-colors ${
                         isSelected

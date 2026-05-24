@@ -98,6 +98,7 @@ CREATE TABLE IF NOT EXISTS distribution (
   family_id       INT,
   individual_id   INT,
   barangay_id     INT,
+  distribution_type VARCHAR(20) NOT NULL DEFAULT 'Food',
   food_id         INT,
   quantity        DECIMAL(12,2) NOT NULL,
   date_given      DATE NOT NULL,

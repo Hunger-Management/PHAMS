@@ -43,6 +43,7 @@ ALTER TABLE individuals
 -- ─── distribution ────────────────────────────────────────────────────────────
 
 ALTER TABLE distribution
+  ADD COLUMN IF NOT EXISTS distribution_type VARCHAR(20) NOT NULL DEFAULT 'Food' AFTER barangay_id,
   ADD COLUMN IF NOT EXISTS image LONGBLOB NULL AFTER status;
 
 -- ─── donations ───────────────────────────────────────────────────────────────
