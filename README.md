@@ -1,249 +1,185 @@
-# PHAMS Frontend — feature/manage-families
+# PHAMS — Pateros Hunger Assistance Management System
 
-## Frontend-only mode (no database needed)
+Full-stack web app for managing household beneficiary registration, priority scoring, nutritional status tracking, and food distribution records across 10 barangays of Pateros.
 
-The frontend now supports a built-in mock API so classmates can work on UI without running MySQL or the backend.
-
-- Default in local dev: mock API is ON.
-- Start frontend only:
-  1. `npm install`
-  2. `npm run dev`
-
-### Toggle behavior
-
-- Use mock API explicitly:
-  - `VITE_USE_MOCK_API=true`
-- Use real backend API:
-  - `VITE_USE_MOCK_API=false`
-  - Set `VITE_API_URL` to your backend URL.
-
-Example `.env` in project root:
-
-```env
-VITE_USE_MOCK_API=true
-VITE_API_URL=http://localhost:3000
-```
-
-## What this branch adds
-
-This branch implements the **Manage Families** feature for the admin dashboard,
-connected to the real backend API via JWT authentication. It also upgrades the
-admin auth system from a hardcoded demo to real backend login.
-
-### New files
-- `src/api/api.js` — Central API fetch wrapper. All API calls must use
-  `apiFetch()` from this file. Never write raw `fetch()` calls in components.
-  Automatically attaches the JWT token from localStorage to every request.
-  Auto-redirects to login on 401 (expired token).
-- `src/admin/components/AdminSidebar.jsx` — Shared sidebar component used by
-  all admin pages. Highlights the active route using `useLocation()`. All nav
-  items are clickable and route-aware.
-- `src/admin/pages/FamilyListPage.jsx` — View and manage all registered
-  families at `/admin/families`
-- `src/admin/pages/AddFamilyPage.jsx` — Register new families at
-  `/admin/families/add`
-
-## MySQL Workbench setup
-
-The backend already uses `mysql2` and reads its connection settings from `backend/.env`.
-To connect the app to a local MySQL server managed through MySQL Workbench:
-
-1. Open MySQL Workbench and connect to your local MySQL instance.
-2. Run the SQL file at `backend/schema.sql` to create the `zero_hunger` database and tables.
-3. Confirm `backend/.env` matches your local connection details.
-4. Start the backend from `backend/` with `npm start`.
-5. Start the frontend from the project root with `npm run dev`.
-
-## Sharing the database with classmates
-
-Two safe options are provided so classmates can reproduce the same database locally:
-
-- Option A — Import schema & seed files (no credentials):
-  1. Copy `backend/.env.example` to `backend/.env` and fill values if needed.
-  2. In MySQL Workbench or the CLI, run:
-     ```sql
-     SOURCE backend/schema.sql;
-     SOURCE backend/seed.sql; -- optional sample data
-     ```
-
-- Option B — Run via Docker Compose (recommended for consistency):
-  1. Ensure Docker Desktop is installed and running.
-  2. From the `backend/` folder run:
-     ```bash
-     docker compose up -d
-     ```
-  3. This starts a MySQL container and initializes it with `schema.sql` and `seed.sql`.
-
-Security notes:
-- Never commit `backend/.env` with real passwords — only commit `backend/.env.example`.
-- The provided `seed.sql` uses sample, non-sensitive data. Remove or sanitize before sharing if you have real data.
-
-If you'd like, I can add a short `CONTRIBUTING.md` with setup steps or create a GitHub Actions workflow to build a sample dump file for download.
-
-## Deploying on Railway
-
-The cleanest Railway setup for this project is to create **two services** in the same Railway project:
-
-### 1) Backend service
-
-1. Create a new Railway project and deploy this GitHub repo.
-2. Set the backend service root to the repository root.
-3. Use the default start command for the backend:
-  ```bash
-  npm start
-  ```
-4. Add your database variables in Railway.
-  - If Railway gives you a `DATABASE_URL` or `MYSQL_URL`, the backend will use it automatically.
-  - If Railway gives you split MySQL variables, the backend also supports `MYSQLHOST`, `MYSQLPORT`, `MYSQLUSER`, `MYSQLPASSWORD`, and `MYSQLDATABASE`.
-5. Import the schema into the Railway database once, then add seed data if you want sample rows.
-
-### 2) Frontend service
-
-1. Add a second Railway service from the same repo.
-2. Set its start command to:
-  ```bash
-  npm run build && npm run preview -- --host 0.0.0.0 --port $PORT
-  ```
-3. Set `VITE_API_URL` to the public URL of your deployed backend service.
-4. Redeploy after changing `VITE_API_URL` because Vite reads it at build time.
-
-### Important deployment notes
-
-- Keep `backend/.env` only for local development; do not commit real secrets.
-- For a public app, the frontend should call the deployed backend URL, not `localhost`.
-- If you want one shared database for everyone, host the DB in Railway too and point the backend to that database.
-
-Suggested order:
-1. Deploy backend.
-2. Add hosted MySQL.
-3. Import `backend/schema.sql`.
-4. Deploy frontend with `VITE_API_URL` set.
-
-The frontend dev server now proxies `/api` requests to `http://localhost:3000`, which is the port used by the backend.
-
-### Modified files
-- `src/context/AdminAuthContext.jsx` — Replaced hardcoded demo credentials
-  with real JWT login via `POST /api/auth/login`
-- `src/pages/staff/StaffLoginPage.jsx` — Admin login form changed from
-  username to email field to match backend
-- `src/admin/pages/AdminDashboardPage.jsx` — Uses shared `AdminSidebar`,
-  Quick Action buttons navigate to real routes
-- `src/App.jsx` — Added `/admin/families` and `/admin/families/add` routes
+- **Frontend:** React 19 + Vite + Tailwind CSS 4 → deployed on Vercel
+- **Backend:** Express.js + MySQL → deployed on Railway
+- **Live app:** https://phams.vercel.app *(or your Vercel URL)*
 
 ---
 
-Note: Several features were deliberately added or changed based on real-world
-requirements for a government hunger management system.
+## Quick start (local development)
 
-### 1. Household ID (e.g., AGU-2026-0001)
+```bash
+npm install
+npm run dev
+```
 
-The prototype had no unique identifier for households beyond family name and
-address. This is insufficient in practice — multiple families in the same
-barangay can share a surname, and two families on the same street with the
-same surname would be indistinguishable.
+Opens at **http://localhost:5173**. Mock API is on by default — no database or backend needed.
 
-The system now generates a structured household ID on registration:
-`[BARANGAY_CODE]-[YEAR]-[SEQUENCE]`. This follows the pattern used by DSWD's
-Listahanan national household targeting system, where household IDs are the
-primary reference for all assistance records.
+---
 
-### 2. Priority Score
+## Test credentials
 
-The prototype had no mechanism for determining which families should receive
-food assistance first. Without prioritization, distribution is arbitrary —
-whoever registers first or whoever staff happen to visit.
+### Admin
+| Email | Password |
+|---|---|
+| admin@pateros.gov.ph | admin123 |
 
-The system computes a 0–100 priority score for each family based on five
-weighted factors: monthly income relative to the NCR poverty line (35%),
-malnourished members (30%), presence of vulnerable individuals such as
-children under 5, seniors, and PWDs (20%), per-capita dependency burden (10%),
-and days since last distribution (5%). Higher score = more urgent need.
+### Barangay Staff
+All staff accounts use password **`Staff1234`**.
 
-This is the core SDG 2 contribution of the system: food goes to those who
-need it most, determined by objective criteria, not administrative convenience.
+| Barangay | Email |
+|---|---|
+| Aguho | staff-aguho@pateros.gov.ph |
+| Magtanggol | staff-magtanggol@pateros.gov.ph |
+| Martires del '96 | staff-martires-del-96@pateros.gov.ph |
+| Poblacion | staff-poblacion@pateros.gov.ph |
+| San Pedro | staff-san-pedro@pateros.gov.ph |
+| San Roque | staff-san-roque@pateros.gov.ph |
+| Santa Ana | staff-santa-ana@pateros.gov.ph |
+| Santo Rosario-Kanluran | staff-santo-rosario-kanluran@pateros.gov.ph |
+| Santo Rosario-Silangan | staff-santo-rosario-silangan@pateros.gov.ph |
+| Tabacalera | staff-tabacalera@pateros.gov.ph |
 
-### 3. BMI-Based Nutritional Status with Age Bands
+> These credentials work in both **mock mode** (localhost default) and against the **live Railway backend**.
 
-The prototype used a manual dropdown for nutritional status with no objective
-basis. A staff member guessing "Normal" or "Underweight" introduces error and
-inconsistency across barangays.
+---
 
-The system now captures height (cm) and weight (kg) per family member and
-computes BMI automatically. Nutritional status is auto-set using
-age-appropriate Philippine DOH/NNC classifications:
-- Under 5: simplified pediatric thresholds
-- 5–17: WHO BMI-for-age simplified ranges
-- 18+: Filipino/Asian cutoffs (overweight threshold 23.0, not 25.0)
+## Running modes
 
-Staff can override the auto-set value if measurement data is unavailable.
-This produces consistent, objective nutritional data across all barangays —
-which is what SDG 2 actually measures.
+### Mock mode (default — no backend needed)
+No setup required. Just run `npm run dev`. All data is stored in your browser's localStorage and resets on clear.
 
-### 4. Multi-Select Food Assistance Program Enrollment
+```env
+# .env (optional — mock is already the default in dev)
+VITE_USE_MOCK_API=true
+```
 
-In reality, a family can be simultaneously enrolled in
-multiple government programs (e.g., both 4Ps and Solo Parent benefits).
+### Live Railway backend
+To test against the shared production database:
 
-The field uses MySQL's SET type to store multiple values. The form uses
-checkboxes to reflect this correctly.
+1. Create a `.env` file in the project root:
+   ```env
+   VITE_USE_MOCK_API=false
+   VITE_API_URL=https://web-production-59ac1.up.railway.app
+   ```
+2. Run `npm run dev` — the app now hits Railway instead of mock data.
 
-### 5. Distinction: Family-Level Programs vs. Individual-Level Status
+> **Note:** `.env` is gitignored. Each team member needs their own copy. Changes you make in this mode affect the shared Railway database.
 
-The prototype did not distinguish between these two different types of
-information. The system now tracks them separately:
+---
 
-- **Food Assistance Program Enrollment** (family level): Which government
-  programs is this household officially registered for? Tracks administrative
-  program enrollment — 4Ps, Solo Parent, PWD Program, Senior Citizen Program,
-  Pregnant/Lactating Program.
+## What to expect when testing
 
-- **Individual flags per member**: What is the actual health and disability
-  status of each person? Tracks `is_pwd` (has a disability) and
-  `nutritional_status` (measured health outcome). These feed directly into
-  the priority score.
+- **Staff portal** (`/staff/login`) — select "Barangay Staff", enter a staff email + `Staff1234`. You land on the staff dashboard scoped to that barangay only (families, distributions, and NPA individuals are filtered to your barangay).
+- **Admin portal** (`/staff/login`) — select "Administrator", enter `admin@pateros.gov.ph` / `admin123`. You land on `/admin/dashboard` with access to all barangays.
+- **Wrong password** → shows an error message (does not silently redirect).
+- **NPA individuals** (`/staff/individuals/no-address`) — each barangay staff only sees the NPA individuals registered by their own barangay.
 
-A family can have a PWD member without being enrolled in the PWD assistance
-program (e.g., recently acquired disability, not yet registered). Both facts
-matter and they are different facts.
+---
 
-### 6. Single Head of Family Enforcement
+## Local backend setup (optional — for backend development)
 
-The prototype had no validation preventing multiple members from being marked
-as "Head." The system enforces exactly one Head per family — selecting Head
-on one member automatically demotes the previous Head to "Other." The Head's
-name auto-populates the family-level Head of Family field.
+> Skip this if you're only working on frontend. Use mock mode or Railway instead.
 
-### 7. Soft Delete Instead of Hard Delete
+### Prerequisites
+- Node.js
+- MySQL (local) or Docker
 
-The prototype's delete function permanently removed records. The system uses
-soft delete (`is_active = 0`) so that distribution history, audit logs, and
-beneficiary records are preserved. This is standard practice for government
-systems where records are legally accountable.
+### Steps
 
-### 8. Separate Pages Instead of Single Scrollable Page
+```bash
+# 1. Install backend dependencies
+cd backend && npm install
 
-The prototype used one long scrollable page where sidebar navigation scrolled
-to sections. This was rejected because:
-- Each section cannot be linked to directly from other parts of the system
-- The browser back button does not work between sections
-- Two developers cannot work on different sections without merge conflicts
-- Role-based access control works at the route level, not scroll-section level
+# 2. Set up backend environment
+cp backend/.env.example backend/.env
+# Edit backend/.env with your local MySQL credentials
 
-The system uses separate routes per feature, consistent with how all
-production management systems are structured.
+# 3. Create the database
+# In MySQL Workbench or CLI:
+SOURCE backend/schema.sql;
+SOURCE backend/seed.sql;   # optional sample data
+
+# 4. Start the backend
+cd backend && npm start    # runs on http://localhost:3000
+
+# 5. Start the frontend (in a separate terminal, project root)
+# Create .env in project root:
+# VITE_USE_MOCK_API=false
+# VITE_API_URL=http://localhost:3000
+npm run dev
+```
+
+### Docker (recommended for consistency)
+```bash
+cd backend && docker compose up -d
+```
+Starts MySQL in a container and initializes it with `schema.sql` and `seed.sql`.
+
+---
+
+## Deployment
+
+| Service | Platform | Notes |
+|---|---|---|
+| Frontend | Vercel | Auto-deploys from `main`. Only `VITE_API_URL` is needed in Vercel environment variables. |
+| Backend + DB | Railway | Two services: Express app + MySQL. Schema initialized once via `backend/schema.sql`. |
+
+### Vercel env vars
+```
+VITE_API_URL=https://web-production-59ac1.up.railway.app
+```
+
+### Railway env vars (backend service)
+```
+MYSQLHOST, MYSQLPORT, MYSQLUSER, MYSQLPASSWORD, MYSQLDATABASE
+```
+Railway injects these automatically when a MySQL service is linked.
+
+---
+
+## Project structure
+
+```
+src/
+  admin/pages/        # Admin dashboard, families, barangays, accounts
+  pages/staff/        # Staff login, dashboard, NPA individuals
+  pages/              # Public pages (Home, About, Donation, etc.)
+  components/auth/    # AdminProtectedRoute, StaffProtectedRoute
+  context/            # AdminAuthContext, StaffAuthContext
+  api/                # apiFetch() wrapper, mockApi.js (in-browser DB)
+backend/
+  server.js           # Express API
+  schema.sql          # MySQL schema
+  seed.sql            # Sample data
+  tools/seed_staff.js # Seeds staff accounts to Railway
+```
+
+---
+
+## Design notes
+
+### Household ID (e.g., AGU-2026-0001)
+Structured ID following DSWD Listahanan convention: `[BARANGAY_CODE]-[YEAR]-[SEQUENCE]`. Prevents ambiguity when multiple families share a surname in the same barangay.
+
+### Priority Score (0–100)
+Computed from five weighted factors: monthly income vs NCR poverty line (35%), malnourished members (30%), vulnerable individuals — children under 5, seniors, PWDs (20%), per-capita dependency burden (10%), days since last distribution (5%). Higher = more urgent.
+
+### BMI-Based Nutritional Status
+Computed automatically from height + weight using age-appropriate Philippine DOH/NNC classifications (pediatric, adolescent, and adult bands with Asian BMI cutoffs). Staff can override if measurements are unavailable.
+
+### Multi-Program Enrollment
+Families can be enrolled in multiple programs simultaneously (4Ps, Solo Parent, PWD, Senior Citizen, Pregnant/Lactating). Stored as a MySQL SET field, displayed as checkboxes.
+
+### Soft Delete
+Records use `is_active = 0` rather than hard delete to preserve distribution history and audit logs.
 
 ---
 
 ## Known limitations
 
-- Pediatric nutritional classification uses simplified thresholds, not full
-  WHO Anthro z-score tables. Future improvement.
-- NPA families with the same surname in the same barangay cannot be
-  distinguished by name + address alone. A future improvement is a
-  barangay-issued NPA reference number as secondary identifier.
-- Food assistance status in the form maps to a single MySQL SET field.
-  If a family's enrollment changes, the entire field is overwritten. An
-  enrollment history table would be a future improvement.
-- Dashboard statistics are currently hardcoded. They will be connected to
-  the backend API in a future integration sprint.
-- Minors < 18 shouldn't be flagged as the 'Head'
+- Pediatric nutritional classification uses simplified thresholds, not full WHO Anthro z-score tables.
+- Dashboard statistics loaded fresh on each visit; no real-time push updates.
+- Food assistance program enrollment history is not tracked — only current enrollment.

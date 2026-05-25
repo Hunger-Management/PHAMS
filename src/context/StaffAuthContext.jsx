@@ -66,6 +66,7 @@ export function StaffAuthProvider({ children }) {
   const logout = () => {
     setStaffUser(null)
     localStorage.removeItem(STAFF_STORAGE_KEY)
+    localStorage.removeItem(STAFF_TOKEN_KEY)
   }
 
   // Load staff accounts once (non-critical, best-effort). Normalize shape to

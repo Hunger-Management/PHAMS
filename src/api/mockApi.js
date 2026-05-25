@@ -115,6 +115,16 @@ function buildSeedDb() {
         barangay_name: 'Aguho',
         created_at: nowIso(),
       },
+      { user_id: 11, name: 'Staff Aguho',                  full_name: 'Staff Aguho',                  email: 'staff-aguho@pateros.gov.ph',                  password: 'Staff1234', role: 'Staff', barangay_id: 1,  barangay_name: 'Aguho',                  created_at: nowIso() },
+      { user_id: 12, name: 'Staff Magtanggol',             full_name: 'Staff Magtanggol',             email: 'staff-magtanggol@pateros.gov.ph',             password: 'Staff1234', role: 'Staff', barangay_id: 2,  barangay_name: 'Magtanggol',             created_at: nowIso() },
+      { user_id: 13, name: 'Staff Martires del 96',        full_name: 'Staff Martires del 96',        email: 'staff-martires-del-96@pateros.gov.ph',        password: 'Staff1234', role: 'Staff', barangay_id: 3,  barangay_name: "Martires del '96",       created_at: nowIso() },
+      { user_id: 14, name: 'Staff Poblacion',              full_name: 'Staff Poblacion',              email: 'staff-poblacion@pateros.gov.ph',              password: 'Staff1234', role: 'Staff', barangay_id: 4,  barangay_name: 'Poblacion',              created_at: nowIso() },
+      { user_id: 15, name: 'Staff San Pedro',              full_name: 'Staff San Pedro',              email: 'staff-san-pedro@pateros.gov.ph',              password: 'Staff1234', role: 'Staff', barangay_id: 5,  barangay_name: 'San Pedro',              created_at: nowIso() },
+      { user_id: 16, name: 'Staff San Roque',              full_name: 'Staff San Roque',              email: 'staff-san-roque@pateros.gov.ph',              password: 'Staff1234', role: 'Staff', barangay_id: 6,  barangay_name: 'San Roque',              created_at: nowIso() },
+      { user_id: 17, name: 'Staff Santa Ana',              full_name: 'Staff Santa Ana',              email: 'staff-santa-ana@pateros.gov.ph',              password: 'Staff1234', role: 'Staff', barangay_id: 7,  barangay_name: 'Santa Ana',              created_at: nowIso() },
+      { user_id: 18, name: 'Staff Santo Rosario Kanluran', full_name: 'Staff Santo Rosario Kanluran', email: 'staff-santo-rosario-kanluran@pateros.gov.ph', password: 'Staff1234', role: 'Staff', barangay_id: 8,  barangay_name: 'Santo Rosario-Kanluran', created_at: nowIso() },
+      { user_id: 19, name: 'Staff Santo Rosario Silangan', full_name: 'Staff Santo Rosario Silangan', email: 'staff-santo-rosario-silangan@pateros.gov.ph', password: 'Staff1234', role: 'Staff', barangay_id: 9,  barangay_name: 'Santo Rosario-Silangan', created_at: nowIso() },
+      { user_id: 20, name: 'Staff Tabacalera',             full_name: 'Staff Tabacalera',             email: 'staff-tabacalera@pateros.gov.ph',             password: 'Staff1234', role: 'Staff', barangay_id: 10, barangay_name: 'Tabacalera',             created_at: nowIso() },
     ],
     families: [
       {
@@ -579,13 +589,18 @@ function handlePost(path, db, body) {
     const barangay_id = rawBarangayId === null || rawBarangayId === undefined || rawBarangayId === ''
       ? null
       : Number(rawBarangayId)
+    const rawRegBy = body.registered_by_barangay_id
+    const registered_by_barangay_id = rawRegBy === null || rawRegBy === undefined || rawRegBy === ''
+      ? null
+      : Number(rawRegBy)
     const item = {
       individual_id,
       name: body.name || `Individual ${individual_id}`,
       age: body.age === null || body.age === undefined || body.age === '' ? null : Number(body.age || 0),
       gender: body.gender || 'Male',
       barangay_id,
-      barangay_name: barangay_id ? getBarangayName(barangay_id) : 'Unknown',
+      barangay_name: barangay_id ? getBarangayName(barangay_id) : null,
+      registered_by_barangay_id,
       status: body.status || 'Registered',
       image: body.image_data || null,
     }

@@ -1,27 +1,30 @@
 import { useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
-import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation } from 'react-router-dom'
 import { useDarkMode } from '../../hooks/useDarkMode'
 import { useStaffAuth } from '../../context/StaffAuthContext'
 import { useAdminAuth } from '../../context/AdminAuthContext'
 
 function StaffLoginPage() {
     const { isDarkMode, toggleDarkMode } = useDarkMode()
-    const { login: staffLogin, isAuthenticated: staffAuthenticated } = useStaffAuth()
-    const { login: adminLogin, isAuthenticated: adminAuthenticated } = useAdminAuth()
-    const navigate = useNavigate()
+    const { login: staffLogin, isAuthenticated: staffAuthenticated, logout: staffLogout } = useStaffAuth()
+    const { login: adminLogin, isAuthenticated: adminAuthenticated, logout: adminLogout } = useAdminAuth()
     const location = useLocation()
     const forceRoleChoice = location.state?.forceRoleChoice === true
 
     const [formData, setFormData] = useState({ email: '', password: '' })
     const [errorMessage, setErrorMessage] = useState('')
     const [selectedRole, setSelectedRole] = useState(null)
+    // Tracks a pending redirect after successful login so navigation happens
+    // through React's render cycle (after state is committed) rather than
+    // directly from an async callback, avoiding a race with StaffProtectedRoute.
+    const [justLoggedIn, setJustLoggedIn] = useState(null) // 'staff' | 'admin' | null
 
-    if (staffAuthenticated && !forceRoleChoice) {
+    if (staffAuthenticated && (!forceRoleChoice || justLoggedIn === 'staff')) {
         return <Navigate to="/staff/dashboard" replace />
     }
 
-    if (adminAuthenticated && !forceRoleChoice) {
+    if (adminAuthenticated && (!forceRoleChoice || justLoggedIn === 'admin')) {
         return <Navigate to="/admin/dashboard" replace />
     }
 
@@ -34,30 +37,24 @@ function StaffLoginPage() {
         event.preventDefault()
         setErrorMessage('')
 
-        const intendedPath = location.state?.from?.pathname
-
         if (selectedRole === 'admin') {
-                const result = await adminLogin(formData.email, formData.password)
-
-                if (!result.ok) {
-                    setErrorMessage(result.message)
-                    return
-                }
-
-                const redirectTo = intendedPath || '/admin/dashboard'
-                navigate(redirectTo, { replace: true })
-                return
-            }
-
-            const result = await staffLogin(formData.email, formData.password)
-
+            staffLogout()
+            const result = await adminLogin(formData.email, formData.password)
             if (!result.ok) {
                 setErrorMessage(result.message)
                 return
             }
+            setJustLoggedIn('admin')
+            return
+        }
 
-            const redirectTo = intendedPath || '/staff/dashboard'
-            navigate(redirectTo, { replace: true })
+        adminLogout()
+        const result = await staffLogin(formData.email, formData.password)
+        if (!result.ok) {
+            setErrorMessage(result.message)
+            return
+        }
+        setJustLoggedIn('staff')
     }
 
     return (

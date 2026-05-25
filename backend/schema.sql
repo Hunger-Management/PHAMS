@@ -46,16 +46,17 @@ CREATE TABLE IF NOT EXISTS family_members (
 );
 
 CREATE TABLE IF NOT EXISTS individuals (
-  individual_id INT AUTO_INCREMENT PRIMARY KEY,
-  name          VARCHAR(150) NOT NULL,
-  date_of_birth DATE NULL,
-  gender        VARCHAR(20),
-  barangay_id   INT NULL,
-  status        VARCHAR(50),
-  height_cm     DECIMAL(5,2) NULL,
-  weight_kg     DECIMAL(5,2) NULL,
-  image         LONGBLOB NULL,
-  created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  individual_id              INT AUTO_INCREMENT PRIMARY KEY,
+  name                       VARCHAR(150) NOT NULL,
+  date_of_birth              DATE NULL,
+  gender                     VARCHAR(20),
+  barangay_id                INT NULL,
+  registered_by_barangay_id  INT NULL,
+  status                     VARCHAR(50),
+  height_cm                  DECIMAL(5,2) NULL,
+  weight_kg                  DECIMAL(5,2) NULL,
+  image                      LONGBLOB NULL,
+  created_at                 TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_individuals_barangay
     FOREIGN KEY (barangay_id) REFERENCES barangays(barangay_id)
     ON UPDATE CASCADE
