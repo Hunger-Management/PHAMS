@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import StaffSidebar from './StaffSidebar'
 import { useDarkMode } from '../../hooks/useDarkMode'
 import { apiFetch } from '../../api/api'
+import { useStaffAuth } from '../../context/StaffAuthContext'
 
 function getAgeInYears(dob) {
   if (!dob) return null
@@ -20,6 +21,7 @@ function formatDOB(dob) {
 
 function IndividualsNoAddressPage() {
   const { isDarkMode, toggleDarkMode } = useDarkMode()
+  const { staffUser } = useStaffAuth()
   const [individuals, setIndividuals] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -50,7 +52,11 @@ function IndividualsNoAddressPage() {
     try {
       const data = await apiFetch('/api/individuals')
       const list = Array.isArray(data) ? data : []
-      setIndividuals(list.filter((i) => !i.barangay_id && !i.barangay_name))
+      const myBarangayId = staffUser?.barangay_id
+      setIndividuals(list.filter((i) =>
+        !i.barangay_id && !i.barangay_name &&
+        (!myBarangayId || i.registered_by_barangay_id === myBarangayId)
+      ))
     } catch (err) {
       setError(err.message || 'Failed to load individuals')
     } finally {
@@ -92,6 +98,7 @@ function IndividualsNoAddressPage() {
       payload.append('height_cm', form.height_cm || '')
       payload.append('weight_kg', form.weight_kg || '')
       payload.append('barangay_id', '')
+      payload.append('registered_by_barangay_id', staffUser?.barangay_id ?? '')
       payload.append('status', 'Registered')
       if (imageFile) payload.append('image', imageFile)
       await apiFetch('/api/individuals', { method: 'POST', body: payload })

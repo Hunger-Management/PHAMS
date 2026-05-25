@@ -157,10 +157,13 @@ function StaffDashboardPage() {
     [families, staffBarangay],
   )
 
-  const filteredIndividuals = useMemo(
-    () => individuals.filter((individual) => !individual.barangay_id && !individual.barangay_name),
-    [individuals],
-  )
+  const filteredIndividuals = useMemo(() => {
+    const myBarangayId = staffUser?.barangay_id
+    return individuals.filter((individual) =>
+      !individual.barangay_id && !individual.barangay_name &&
+      (!myBarangayId || individual.registered_by_barangay_id === myBarangayId)
+    )
+  }, [individuals, staffUser?.barangay_id])
 
   const filteredDistributions = useMemo(
     () => distributions.filter((dist) => (dist.barangay_name || '').toLowerCase() === staffBarangay.toLowerCase()),
