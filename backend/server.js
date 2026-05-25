@@ -544,16 +544,17 @@ app.post('/api/individuals', upload.single('image'), (req, res) => {
 
 // PUT update individual
 app.put('/api/individuals/:id', upload.single('image'), (req, res) => {
-  const { name, date_of_birth, gender, barangay_id, status, height_cm, weight_kg } = req.body
+  const { name, date_of_birth, gender, barangay_id, status, height_cm, weight_kg, registered_by_barangay_id } = req.body
   const image = req.file ? req.file.buffer : null
   const dobValue = date_of_birth || null
   const barangayValue = barangay_id === undefined || barangay_id === null || barangay_id === '' ? null : Number(barangay_id)
+  const registeredByBarangayValue = registered_by_barangay_id === undefined || registered_by_barangay_id === null || registered_by_barangay_id === '' ? null : Number(registered_by_barangay_id)
   const heightValue = height_cm !== undefined && height_cm !== null && height_cm !== '' ? Number(height_cm) : null
   const weightValue = weight_kg !== undefined && weight_kg !== null && weight_kg !== '' ? Number(weight_kg) : null
   let sql = `
-    UPDATE individuals SET name=?, date_of_birth=?, gender=?, barangay_id=?, status=?, height_cm=?, weight_kg=?
+    UPDATE individuals SET name=?, date_of_birth=?, gender=?, barangay_id=?, status=?, height_cm=?, weight_kg=?, registered_by_barangay_id=?
   `
-  const params = [name, dobValue, gender, barangayValue, status, heightValue, weightValue]
+  const params = [name, dobValue, gender, barangayValue, status, heightValue, weightValue, registeredByBarangayValue]
 
   if (image) {
     sql += ', image=?'

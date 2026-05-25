@@ -53,10 +53,11 @@ function IndividualsNoAddressPage() {
       const data = await apiFetch('/api/individuals')
       const list = Array.isArray(data) ? data : []
       const myBarangayId = staffUser?.barangay_id
-      setIndividuals(list.filter((i) =>
-        !i.barangay_id && !i.barangay_name &&
-        (!myBarangayId || i.registered_by_barangay_id === myBarangayId)
-      ))
+      setIndividuals(list.filter((i) => {
+        const hasNoBarangay = !i.barangay_id && !i.barangay_name
+        const isRegisteredByMyBarangay = !myBarangayId || i.registered_by_barangay_id === myBarangayId
+        return hasNoBarangay && isRegisteredByMyBarangay
+      }))
     } catch (err) {
       setError(err.message || 'Failed to load individuals')
     } finally {
@@ -329,6 +330,8 @@ function IndividualsNoAddressPage() {
                 ['Gender', viewingIndividual.gender || '—'],
                 ['Date of Birth', formatDOB(viewingIndividual.date_of_birth)],
                 ['Age', viewingIndividual.date_of_birth ? `${getAgeInYears(viewingIndividual.date_of_birth)} years old` : '—'],
+                ['Height', viewingIndividual.height_cm ? `${viewingIndividual.height_cm} cm` : '—'],
+                ['Weight', viewingIndividual.weight_kg ? `${viewingIndividual.weight_kg} kg` : '—'],
                 ['Status', viewingIndividual.status || 'Registered'],
                 ['Barangay', 'None (NPA)'],
               ].map(([label, value]) => (
