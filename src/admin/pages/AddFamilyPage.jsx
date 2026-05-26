@@ -188,21 +188,23 @@ function AddFamilyPage() {
                 nutritional_status: m.nutritional_status,
             }))
 
-            const formData = new FormData()
-            formData.append('family_name', familyData.family_name)
-            formData.append('barangay_id', String(parseInt(familyData.barangay_id)))
-            formData.append('address', familyData.address)
-            formData.append('head_of_family', familyData.head_of_family)
-            formData.append('phone', familyData.contact_number)
-            formData.append('monthly_income', familyData.monthly_income ? String(parseFloat(familyData.monthly_income)) : '')
-            formData.append('food_assistance_status', familyData.food_assistance_status.length
-                ? familyData.food_assistance_status.join(',')
-                : 'None')
-            formData.append('is_npa', familyData.is_npa ? '1' : '0')
-            formData.append('members', JSON.stringify(membersPayload))
+            const payload = {
+                family_name: familyData.family_name,
+                barangay_id: Number(familyData.barangay_id),
+                address: familyData.address,
+                head_of_family: familyData.head_of_family,
+                phone: familyData.contact_number,
+                monthly_income: familyData.monthly_income ? Number(familyData.monthly_income) : null,
+                food_assistance_status: familyData.food_assistance_status.length
+                    ? familyData.food_assistance_status.join(',')
+                    : 'None',
+                is_npa: familyData.is_npa ? 1 : 0,
+                members: membersPayload,
+            }
+
             const data = await apiFetch('/api/families', {
                 method: 'POST',
-                body: formData,
+                body: JSON.stringify(payload),
             })
 
             setSuccessMessage(

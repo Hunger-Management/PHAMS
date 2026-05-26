@@ -20,6 +20,7 @@ function DonationsListPage() {
     const [searchQuery, setSearchQuery] = useState('')
     const [deletingId, setDeletingId] = useState(null)
     const [refreshing, setRefreshing] = useState(false)
+    const [proofDonation, setProofDonation] = useState(null)
     const pollIntervalRef = useRef(null)
     const lastCountRef = useRef(0)
 
@@ -87,6 +88,16 @@ function DonationsListPage() {
         } finally {
             setDeletingId(null)
         }
+    }
+
+    const openProofModal = (donation) => {
+        setProofDonation(donation)
+        document.body.style.overflow = 'hidden'
+    }
+
+    const closeProofModal = () => {
+        setProofDonation(null)
+        document.body.style.overflow = 'unset'
     }
 
     const filtered = donations.filter((donation) => {
@@ -244,14 +255,31 @@ function DonationsListPage() {
                                                     {formatDate(donation.date_given)}
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    <button
-                                                        onClick={() => handleDelete(donation.donation_id)}
-                                                        disabled={deletingId === donation.donation_id}
-                                                        className="inline-flex items-center gap-1 rounded-lg border border-red-300 text-red-600 hover:bg-red-50 px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50"
-                                                    >
-                                                        <Trash2 size={12} />
-                                                        {deletingId === donation.donation_id ? 'Deleting...' : 'Delete'}
-                                                    </button>
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        {donation.image ? (
+                                                            <button
+                                                                onClick={() => openProofModal(donation)}
+                                                                className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${isDarkMode
+                                                                    ? 'bg-blue-700/70 text-blue-100 hover:bg-blue-700'
+                                                                    : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                                                }`}
+                                                            >
+                                                                View Proof
+                                                            </button>
+                                                        ) : (
+                                                            <span className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                                                No Proof
+                                                            </span>
+                                                        )}
+                                                        <button
+                                                            onClick={() => handleDelete(donation.donation_id)}
+                                                            disabled={deletingId === donation.donation_id}
+                                                            className="inline-flex items-center gap-1 rounded-lg border border-red-300 text-red-600 hover:bg-red-50 px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50"
+                                                        >
+                                                            <Trash2 size={12} />
+                                                            {deletingId === donation.donation_id ? 'Deleting...' : 'Delete'}
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))}
@@ -270,6 +298,36 @@ function DonationsListPage() {
             >
                 {isDarkMode ? '☀️' : '🌙'}
             </button>
+
+            {proofDonation ? (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className={`w-full max-w-3xl rounded-2xl border p-4 shadow-xl ${isDarkMode
+                        ? 'bg-[#111c2e] border-white/10 text-slate-100'
+                        : 'bg-white border-slate-200 text-slate-900'
+                    }`}
+                    >
+                        <div className="flex items-center justify-between mb-3">
+                            <h3 className="text-lg font-semibold">Proof of Transaction</h3>
+                            <button
+                                onClick={closeProofModal}
+                                className={`text-xs font-semibold px-3 py-1 rounded ${isDarkMode
+                                    ? 'bg-slate-700 text-slate-200 hover:bg-slate-600'
+                                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                }`}
+                            >
+                                Close
+                            </button>
+                        </div>
+                        <div className="flex items-center justify-center">
+                            <img
+                                src={`data:image/jpeg;base64,${proofDonation.image}`}
+                                alt="Donation proof"
+                                className="max-h-[75vh] w-full rounded-lg object-contain"
+                            />
+                        </div>
+                    </div>
+                </div>
+            ) : null}
         </div>
     )
 }

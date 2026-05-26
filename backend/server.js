@@ -246,7 +246,19 @@ app.get('/api/barangays/:id', (req, res) => {
 app.get('/api/families', (req, res) => {
   const sql = `
     SELECT
-      f.*,
+      f.family_id,
+      f.barangay_id,
+      f.household_id,
+      f.family_name,
+      f.address,
+      f.head_of_family,
+      f.phone,
+      f.monthly_income,
+      f.food_assistance_status,
+      f.is_npa,
+      f.priority_score,
+      f.is_active,
+      f.created_at,
       b.name AS barangay_name,
       (SELECT COUNT(*) FROM family_members fm WHERE fm.family_id = f.family_id) AS member_count
     FROM families f
@@ -254,7 +266,7 @@ app.get('/api/families', (req, res) => {
   `
   db.query(sql, (err, results) => {
     if (err) return res.status(500).json({ error: err.message })
-    res.json(encodeImageList(results))
+    res.json(results)
   })
 })
 
@@ -262,7 +274,19 @@ app.get('/api/families', (req, res) => {
 app.get('/api/families/:id', (req, res) => {
   const sql = `
     SELECT
-      f.*,
+      f.family_id,
+      f.barangay_id,
+      f.household_id,
+      f.family_name,
+      f.address,
+      f.head_of_family,
+      f.phone,
+      f.monthly_income,
+      f.food_assistance_status,
+      f.is_npa,
+      f.priority_score,
+      f.is_active,
+      f.created_at,
       b.name AS barangay_name,
       (SELECT COUNT(*) FROM family_members fm WHERE fm.family_id = f.family_id) AS member_count
     FROM families f
@@ -271,23 +295,24 @@ app.get('/api/families/:id', (req, res) => {
   `
   db.query(sql, [req.params.id], (err, results) => {
     if (err) return res.status(500).json({ error: err.message })
-    res.json(encodeImage(results[0]))
+    res.json(results[0])
   })
 })
 
 // POST add new family
-app.post('/api/families', upload.single('image'), (req, res) => {
+app.post('/api/families', (req, res) => {
   const {
     barangay_id, family_name, address, head_of_family, phone,
     monthly_income, food_assistance_status, is_npa, priority_score,
   } = req.body
-  const image = req.file ? req.file.buffer : null
   const monthlyIncomeValue = monthly_income === undefined || monthly_income === null || monthly_income === '' ? null : Number(monthly_income)
   const isNpaValue = is_npa === 1 || is_npa === '1' || is_npa === true ? 1 : 0
   const assistanceStatus = food_assistance_status || 'None'
 
   let members = []
-  if (req.body.members) {
+  if (Array.isArray(req.body.members)) {
+    members = req.body.members
+  } else if (req.body.members) {
     try {
       const parsed = JSON.parse(req.body.members)
       members = Array.isArray(parsed) ? parsed : []
@@ -304,8 +329,8 @@ app.post('/api/families', upload.single('image'), (req, res) => {
   const familySql = `
     INSERT INTO families
       (barangay_id, family_name, address, head_of_family, phone,
-       monthly_income, food_assistance_status, is_npa, priority_score, image)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       monthly_income, food_assistance_status, is_npa, priority_score)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `
 
   db.getConnection((connErr, connection) => {
@@ -320,7 +345,7 @@ app.post('/api/families', upload.single('image'), (req, res) => {
       connection.query(
         familySql,
         [barangay_id, family_name, address, head_of_family, phone,
-         monthlyIncomeValue, assistanceStatus, isNpaValue, priorityScoreValue, image],
+         monthlyIncomeValue, assistanceStatus, isNpaValue, priorityScoreValue],
         (familyErr, familyResult) => {
           if (familyErr) {
             return connection.rollback(() => {
@@ -403,12 +428,11 @@ app.post('/api/families', upload.single('image'), (req, res) => {
 })
 
 // PUT update family
-app.put('/api/families/:id', upload.single('image'), (req, res) => {
+app.put('/api/families/:id', (req, res) => {
   const {
     barangay_id, family_name, address, head_of_family, phone,
     monthly_income, food_assistance_status, is_npa, priority_score,
   } = req.body
-  const image = req.file ? req.file.buffer : null
   const monthlyIncomeValue = monthly_income === undefined || monthly_income === null || monthly_income === '' ? null : Number(monthly_income)
   const isNpaValue = is_npa !== undefined ? (is_npa === 1 || is_npa === '1' || is_npa === true ? 1 : 0) : undefined
   const priorityScoreValue = priority_score !== undefined && priority_score !== null && priority_score !== '' ? Number(priority_score) : undefined
@@ -425,11 +449,6 @@ app.put('/api/families/:id', upload.single('image'), (req, res) => {
     isNpaValue ?? 0,
     priorityScoreValue ?? 0,
   ]
-
-  if (image) {
-    sql += ', image=?'
-    params.push(image)
-  }
 
   sql += ' WHERE family_id=?'
   params.push(req.params.id)

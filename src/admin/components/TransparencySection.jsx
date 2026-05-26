@@ -41,6 +41,7 @@ export default function TransparencySection({ isDarkMode }) {
   const [savingStatus, setSavingStatus] = useState(false)
   const [deletingId, setDeletingId] = useState(null)
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false)
+  const [proofDistribution, setProofDistribution] = useState(null)
 
   const loadTransparencyData = async () => {
     setLoading(true)
@@ -491,6 +492,16 @@ export default function TransparencySection({ isDarkMode }) {
     document.body.style.overflow = 'unset'
   }
 
+  const openProofModal = (distribution) => {
+    setProofDistribution(distribution)
+    document.body.style.overflow = 'hidden'
+  }
+
+  const closeProofModal = () => {
+    setProofDistribution(null)
+    document.body.style.overflow = 'unset'
+  }
+
   const handleUpdateStatus = async (event) => {
     event.preventDefault()
     if (!editingDistribution) return
@@ -890,6 +901,22 @@ export default function TransparencySection({ isDarkMode }) {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap items-center gap-2">
+                          {distribution.image ? (
+                            <button
+                              onClick={() => openProofModal(distribution)}
+                              className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                                isDarkMode
+                                  ? 'bg-blue-700/70 text-blue-100 hover:bg-blue-700'
+                                  : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                              }`}
+                            >
+                              View Proof
+                            </button>
+                          ) : (
+                            <span className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                              No Proof
+                            </span>
+                          )}
                           <button
                             onClick={() => openEditModal(distribution)}
                             className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
@@ -1024,6 +1051,40 @@ export default function TransparencySection({ isDarkMode }) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      ) : null}
+
+      {proofDistribution ? (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
+          <div
+            role="dialog"
+            className={`w-full max-w-3xl rounded-2xl border p-4 shadow-xl ${
+              isDarkMode
+                ? 'bg-[#111c2e] border-white/10 text-slate-100'
+                : 'bg-white border-slate-200 text-slate-900'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold">Proof Image</h3>
+              <button
+                onClick={closeProofModal}
+                className={`text-xs font-semibold px-3 py-1 rounded ${
+                  isDarkMode
+                    ? 'bg-slate-700 text-slate-200 hover:bg-slate-600'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                Close
+              </button>
+            </div>
+            <div className="flex items-center justify-center">
+              <img
+                src={`data:image/jpeg;base64,${proofDistribution.image}`}
+                alt="Distribution proof"
+                className="max-h-[75vh] w-full rounded-lg object-contain"
+              />
+            </div>
           </div>
         </div>
       ) : null}
