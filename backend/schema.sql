@@ -67,28 +67,49 @@ CREATE TABLE IF NOT EXISTS food_supplies (
   food_id        INT AUTO_INCREMENT PRIMARY KEY,
   food_name      VARCHAR(150) NOT NULL,
   unit           VARCHAR(50) NOT NULL,
-  total_quantity DECIMAL(12,2) NOT NULL DEFAULT 0
+  total_quantity DECIMAL(12,2) NOT NULL DEFAULT 0,
+  barangay_id    INT NULL,
+  type           ENUM('food','equipment') NOT NULL DEFAULT 'food',
+  donation_id    INT NULL,
+  CONSTRAINT fk_food_supplies_barangay
+    FOREIGN KEY (barangay_id) REFERENCES barangays(barangay_id)
+    ON UPDATE CASCADE ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS donors (
   donor_id     INT AUTO_INCREMENT PRIMARY KEY,
   donor_name   VARCHAR(150) NOT NULL,
-  contact_info VARCHAR(255)
+  contact_info VARCHAR(255),
+  email        VARCHAR(255) NULL,
+  phone        VARCHAR(50) NULL
 );
 
 CREATE TABLE IF NOT EXISTS donations (
-  donation_id INT AUTO_INCREMENT PRIMARY KEY,
-  donor_id    INT,
-  food_id     INT,
-  quantity    DECIMAL(12,2) NOT NULL,
-  date_given  DATE NOT NULL,
-  image       LONGBLOB NULL,
+  donation_id      INT AUTO_INCREMENT PRIMARY KEY,
+  donor_id         INT,
+  food_id          INT,
+  food_description VARCHAR(255) NULL,
+  donation_type    ENUM('food','monetary','equipment') NOT NULL DEFAULT 'food',
+  quantity         DECIMAL(12,2) NOT NULL,
+  quantity_unit    VARCHAR(50) NOT NULL DEFAULT 'kg',
+  date_given       DATE NOT NULL,
+  image            LONGBLOB NULL,
+  barangay_id      INT NULL,
+  status           ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+  tracking_number  VARCHAR(20) NULL UNIQUE,
+  approved_by      INT NULL,
+  approved_at      DATETIME NULL,
+  rejection_reason TEXT NULL,
   CONSTRAINT fk_donations_donor
     FOREIGN KEY (donor_id) REFERENCES donors(donor_id)
     ON UPDATE CASCADE
     ON DELETE SET NULL,
   CONSTRAINT fk_donations_food
     FOREIGN KEY (food_id) REFERENCES food_supplies(food_id)
+    ON UPDATE CASCADE
+    ON DELETE SET NULL,
+  CONSTRAINT fk_donations_barangay
+    FOREIGN KEY (barangay_id) REFERENCES barangays(barangay_id)
     ON UPDATE CASCADE
     ON DELETE SET NULL
 );

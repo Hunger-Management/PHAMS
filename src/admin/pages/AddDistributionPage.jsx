@@ -57,8 +57,9 @@ function AddDistributionPage() {
     ? individuals
     : families
 
-  const loadFoodSupplies = async () => {
-    const foodsData = await apiFetch('/api/food-supplies')
+  const loadFoodSupplies = async (barangayId) => {
+    const query = barangayId ? `?barangay_id=${barangayId}` : ''
+    const foodsData = await apiFetch(`/api/food-supplies${query}`)
     setFoodSupplies(Array.isArray(foodsData) ? foodsData : [])
   }
 
@@ -77,11 +78,13 @@ function AddDistributionPage() {
       setLoading(true)
       setLoadingError('')
         try {
+          const initialBarangayId = isStaffLockedBarangay ? staffBarangayId : null
+          const foodQuery = initialBarangayId ? `?barangay_id=${initialBarangayId}` : ''
           const [familiesData, individualsData, barangaysData, foodsData, distributionsData, donationsData] = await Promise.all([
             apiFetch('/api/families'),
             apiFetch('/api/individuals'),
             apiFetch('/api/barangays'),
-            apiFetch('/api/food-supplies'),
+            apiFetch(`/api/food-supplies${foodQuery}`),
             apiFetch('/api/distributions'),
             apiFetch('/api/donations'),
           ])
@@ -101,6 +104,11 @@ function AddDistributionPage() {
 
     loadData()
   }, [])
+
+  useEffect(() => {
+    if (isStaffLockedBarangay) return
+    loadFoodSupplies(formData.barangay_id || null)
+  }, [formData.barangay_id, isStaffLockedBarangay])
 
   useEffect(() => {
     if (!isStaffLockedBarangay) return
@@ -205,6 +213,15 @@ function AddDistributionPage() {
     ) {
       setErrorMessage('Please complete all required fields before submitting.')
       return
+    }
+
+    if (needsFood && formData.food_id) {
+      const selected = foodSupplies.find((f) => String(f.food_id) === String(formData.food_id))
+      const available = selected ? Number(selected.total_quantity || 0) : 0
+      if (Number(formData.quantity) > available) {
+        setErrorMessage(`Insufficient stock. Available: ${available} ${selected?.unit || ''}, Requested: ${formData.quantity}`)
+        return
+      }
     }
 
     setSubmitting(true)
@@ -442,11 +459,21 @@ function AddDistributionPage() {
                     >
                       <option value="">Select food item</option>
                       {foodSupplies.map((food) => (
-                        <option key={food.food_id} value={food.food_id}>
-                          {food.food_name}
+                        <option key={food.food_id} value={food.food_id} disabled={Number(food.total_quantity || 0) <= 0}>
+                          {food.food_name} — {Number(food.total_quantity || 0)} {food.unit || ''} available
+                          {Number(food.total_quantity || 0) <= 0 ? ' (out of stock)' : ''}
                         </option>
                       ))}
                     </select>
+                    {formData.food_id && (() => {
+                      const selected = foodSupplies.find((f) => String(f.food_id) === String(formData.food_id))
+                      if (!selected) return null
+                      return (
+                        <p className={`mt-1 text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                          Available: <span className="font-semibold">{Number(selected.total_quantity || 0)} {selected.unit || ''}</span>
+                        </p>
+                      )
+                    })()}
                   </div>
                 ) : null}
 
@@ -462,6 +489,19 @@ function AddDistributionPage() {
                     className={inputClass}
                     placeholder={formData.distribution_type === 'Monetary' ? 'Enter amount in PHP' : 'Enter quantity'}
                   />
+                  {formData.distribution_type === 'Food' && formData.food_id && formData.quantity && (() => {
+                    const selected = foodSupplies.find((f) => String(f.food_id) === String(formData.food_id))
+                    const available = selected ? Number(selected.total_quantity || 0) : 0
+                    const requested = Number(formData.quantity)
+                    if (requested > available) {
+                      return (
+                        <p className="mt-1 text-xs text-red-600 font-semibold">
+                          Exceeds available stock ({available} {selected?.unit || ''})
+                        </p>
+                      )
+                    }
+                    return null
+                  })()}
                   {formData.distribution_type === 'Monetary' ? (
                     <p className={`mt-2 text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                       Recorded amount: <span className="font-semibold">{formatPhpAmount(formData.quantity)}</span>

@@ -40,6 +40,8 @@ function DonationPage() {
   const [paymentMethod, setPaymentMethod] = useState('Bank Transfer')
   const [selectedAmount, setSelectedAmount] = useState(500)
   const [customAmount, setCustomAmount] = useState('')
+  const [barangays, setBarangays] = useState([])
+  const [monetaryBarangayId, setMonetaryBarangayId] = useState('')
   const [monetaryForm, setMonetaryForm] = useState({
     fullName: '',
     email: '',
@@ -68,6 +70,7 @@ function DonationPage() {
     donorName: '',
     contactInfo: '',
     dateGiven: '',
+    barangayId: '',
     deliveryMethod: 'I will drop off at the municipal office',
     pickupAddress: '',
   })
@@ -82,6 +85,7 @@ function DonationPage() {
     donorName: '',
     contactInfo: '',
     dateGiven: '',
+    barangayId: '',
     condition: 'Brand New',
     notes: '',
   })
@@ -258,6 +262,9 @@ function DonationPage() {
   useEffect(() => {
     loadRecentDonors()
     loadFoodSupplies()
+    apiFetch('/api/barangays')
+      .then((data) => setBarangays(Array.isArray(data) ? data : []))
+      .catch(() => {})
   }, [])
 
   const handleFoodChange = (event) => {
@@ -316,39 +323,36 @@ function DonationPage() {
     setMonetarySubmitting(true)
 
     try {
-      const contactInfo = [monetaryForm.contactNumber.trim(), monetaryForm.email.trim()]
-        .filter(Boolean)
-        .join(' / ')
-
       const donor = await apiFetch('/api/donors', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           donor_name: monetaryForm.fullName.trim(),
-          contact_info: contactInfo || 'N/A',
+          email: monetaryForm.email.trim() || null,
+          phone: monetaryForm.contactNumber.trim() || null,
+          contact_info: [monetaryForm.contactNumber.trim(), monetaryForm.email.trim()].filter(Boolean).join(' / ') || 'N/A',
         }),
       })
 
       const donationPayload = new FormData()
       donationPayload.append('donor_id', String(donor.donor_id))
-      donationPayload.append('food_id', '')
+      donationPayload.append('donation_type', 'monetary')
       donationPayload.append('quantity', String(resolvedAmount))
+      donationPayload.append('quantity_unit', 'PHP')
       donationPayload.append('date_given', new Date().toISOString().split('T')[0])
+      if (monetaryBarangayId) {
+        donationPayload.append('barangay_id', String(Number(monetaryBarangayId)))
+      }
       if (monetaryImageFile) {
         donationPayload.append('image', monetaryImageFile)
       }
 
-      await apiFetch('/api/donations', {
-        method: 'POST',
-        body: donationPayload,
-      })
+      const result = await apiFetch('/api/donations', { method: 'POST', body: donationPayload })
 
-      setMonetarySuccess('Thank you! Your donation has been recorded.')
-      setMonetaryForm({
-        fullName: '',
-        email: '',
-        contactNumber: '',
-        message: '',
-      })
+      const trackingMsg = result?.tracking_number ? ` Your tracking number is ${result.tracking_number}.` : ''
+      setMonetarySuccess(`Thank you! Your donation has been recorded and is pending review.${trackingMsg}`)
+      setMonetaryForm({ fullName: '', email: '', contactNumber: '', message: '' })
+      setMonetaryBarangayId('')
       setCustomAmount('')
       setSelectedAmount(500)
       setMonetaryImageFile(null)
@@ -366,7 +370,7 @@ function DonationPage() {
     setFoodError('')
 
     if (!foodForm.donorName || !foodForm.contactInfo || (!foodForm.foodId && !foodForm.foodDescription) || !foodForm.quantity || !foodForm.dateGiven) {
-      setFoodError('Please complete all required fields before submitting.')
+      setFoodError('Please complete all required fields (Name, Contact, Food item, Quantity, Date).')
       return
     }
 
@@ -375,14 +379,13 @@ function DonationPage() {
     try {
       const donor = await apiFetch('/api/donors', {
         method: 'POST',
-        body: JSON.stringify({
-          donor_name: foodForm.donorName,
-          contact_info: foodForm.contactInfo,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ donor_name: foodForm.donorName, contact_info: foodForm.contactInfo }),
       })
 
       const donationPayload = new FormData()
       donationPayload.append('donor_id', String(donor.donor_id))
+      donationPayload.append('donation_type', 'food')
       if (foodForm.foodId) {
         donationPayload.append('food_id', String(Number(foodForm.foodId)))
         donationPayload.append('food_description', '')
@@ -393,16 +396,17 @@ function DonationPage() {
       donationPayload.append('quantity', String(Number(foodForm.quantity)))
       donationPayload.append('quantity_unit', foodForm.quantityUnit)
       donationPayload.append('date_given', foodForm.dateGiven)
+      if (foodForm.barangayId) {
+        donationPayload.append('barangay_id', String(Number(foodForm.barangayId)))
+      }
       if (foodImageFile) {
         donationPayload.append('image', foodImageFile)
       }
 
-      await apiFetch('/api/donations', {
-        method: 'POST',
-        body: donationPayload,
-      })
+      const result = await apiFetch('/api/donations', { method: 'POST', body: donationPayload })
 
-      setFoodSuccess('Thank you! Your food donation has been recorded.')
+      const trackingMsg = result?.tracking_number ? ` Your tracking number is ${result.tracking_number}.` : ''
+      setFoodSuccess(`Thank you! Your food donation has been recorded and is pending review.${trackingMsg}`)
       setFoodForm({
         foodId: '',
         foodDescription: '',
@@ -411,6 +415,7 @@ function DonationPage() {
         donorName: '',
         contactInfo: '',
         dateGiven: '',
+        barangayId: '',
         deliveryMethod: 'I will drop off at the municipal office',
         pickupAddress: '',
       })
@@ -430,7 +435,7 @@ function DonationPage() {
     setSuppliesError('')
 
     if (!suppliesForm.donorName || !suppliesForm.contactInfo || (!suppliesForm.foodId && !suppliesForm.foodDescription) || !suppliesForm.quantity || !suppliesForm.dateGiven) {
-      setSuppliesError('Please complete all required fields before submitting.')
+      setSuppliesError('Please complete all required fields (Name, Contact, Item, Quantity, Date).')
       return
     }
 
@@ -439,15 +444,13 @@ function DonationPage() {
     try {
       const donor = await apiFetch('/api/donors', {
         method: 'POST',
-        body: JSON.stringify({
-          donor_name: suppliesForm.donorName,
-          contact_info: suppliesForm.contactInfo,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ donor_name: suppliesForm.donorName, contact_info: suppliesForm.contactInfo }),
       })
 
       const donationPayload = new FormData()
       donationPayload.append('donor_id', String(donor.donor_id))
-      // If a known foodId is selected, send it; otherwise send description
+      donationPayload.append('donation_type', 'equipment')
       if (suppliesForm.foodId) {
         donationPayload.append('food_id', String(Number(suppliesForm.foodId)))
         donationPayload.append('food_description', '')
@@ -457,16 +460,17 @@ function DonationPage() {
       }
       donationPayload.append('quantity', String(suppliesForm.quantity))
       donationPayload.append('date_given', suppliesForm.dateGiven)
+      if (suppliesForm.barangayId) {
+        donationPayload.append('barangay_id', String(Number(suppliesForm.barangayId)))
+      }
       if (suppliesImageFile) {
         donationPayload.append('image', suppliesImageFile)
       }
 
-      await apiFetch('/api/donations', {
-        method: 'POST',
-        body: donationPayload,
-      })
+      const result = await apiFetch('/api/donations', { method: 'POST', body: donationPayload })
 
-      setSuppliesSuccess('Thank you! Your supplies donation has been recorded.')
+      const trackingMsg = result?.tracking_number ? ` Your tracking number is ${result.tracking_number}.` : ''
+      setSuppliesSuccess(`Thank you! Your supplies donation has been recorded and is pending review.${trackingMsg}`)
       setSuppliesForm({
         foodId: '',
         foodDescription: '',
@@ -474,6 +478,7 @@ function DonationPage() {
         donorName: '',
         contactInfo: '',
         dateGiven: '',
+        barangayId: '',
         condition: 'Brand New',
         notes: '',
       })
@@ -665,6 +670,26 @@ function DonationPage() {
             </div>
 
             <form className="mt-7 space-y-4" onSubmit={handleMonetarySubmit}>
+              <div>
+                <label htmlFor="monetary-barangay" className={`mb-1 block text-base md:text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
+                  Donate to Barangay (Optional)
+                </label>
+                <select
+                  id="monetary-barangay"
+                  value={monetaryBarangayId}
+                  onChange={(event) => setMonetaryBarangayId(event.target.value)}
+                  className={`w-full max-w-xs rounded-lg border px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-blue-500/40 ${
+                    isDarkMode
+                      ? 'border-slate-600 bg-slate-800 text-slate-100'
+                      : 'border-slate-300 bg-[#f5f7f9] text-slate-900'
+                  }`}
+                >
+                  <option value="">No preference (municipality decides)</option>
+                  {barangays.map((b) => (
+                    <option key={b.barangay_id} value={b.barangay_id}>{b.name}</option>
+                  ))}
+                </select>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="full-name" className={`mb-1 block text-base md:text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
@@ -836,6 +861,27 @@ function DonationPage() {
             )}
 
             <form className="mt-7 space-y-4" onSubmit={handleFoodSubmit}>
+              <div>
+                <label htmlFor="food-barangay" className={`mb-1 block text-base md:text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
+                  Donate to Barangay (Optional)
+                </label>
+                <select
+                  id="food-barangay"
+                  name="barangayId"
+                  value={foodForm.barangayId}
+                  onChange={handleFoodChange}
+                  className={`w-full max-w-xs rounded-lg border px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-blue-500/40 ${
+                    isDarkMode
+                      ? 'border-slate-600 bg-slate-800 text-slate-100'
+                      : 'border-slate-300 bg-[#f5f7f9] text-slate-900'
+                  }`}
+                >
+                  <option value="">No preference (municipality decides)</option>
+                  {barangays.map((b) => (
+                    <option key={b.barangay_id} value={b.barangay_id}>{b.name}</option>
+                  ))}
+                </select>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="food-type" className={`mb-1 block text-base md:text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
@@ -1070,6 +1116,27 @@ function DonationPage() {
             )}
 
             <form className="mt-7 space-y-4" onSubmit={handleSuppliesSubmit}>
+              <div>
+                <label htmlFor="supplies-barangay" className={`mb-1 block text-base md:text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
+                  Donate to Barangay (Optional)
+                </label>
+                <select
+                  id="supplies-barangay"
+                  name="barangayId"
+                  value={suppliesForm.barangayId}
+                  onChange={handleSuppliesChange}
+                  className={`w-full max-w-xs rounded-lg border px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-blue-500/40 ${
+                    isDarkMode
+                      ? 'border-slate-600 bg-slate-800 text-slate-100'
+                      : 'border-slate-300 bg-[#f5f7f9] text-slate-900'
+                  }`}
+                >
+                  <option value="">No preference (municipality decides)</option>
+                  {barangays.map((b) => (
+                    <option key={b.barangay_id} value={b.barangay_id}>{b.name}</option>
+                  ))}
+                </select>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="supplies-type" className={`mb-1 block text-base md:text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
