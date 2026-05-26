@@ -27,6 +27,10 @@ function Sparkline({ data, color }) {
   )
 }
 
+function getDistributionStatus(distribution) {
+  return distribution?.image ? 'Completed' : (distribution?.status || 'Pending')
+}
+
 export default function TransparencySection({ isDarkMode }) {
   const [distributions, setDistributions] = useState([])
   const [foodSupplies, setFoodSupplies] = useState([])
@@ -137,7 +141,7 @@ export default function TransparencySection({ isDarkMode }) {
         timestamp: formatTimestamp(activity.performed_at || activity.created_at || activity.date_given),
         staff: `${staffName} (${staffId})`,
         details: activity.distribution_details || formatDistributionDetails(activity),
-        status: activity.status || 'Recorded',
+        status: activity.image ? 'Completed' : (activity.status || 'Pending'),
       }
     })
   }, [activityLogs])
@@ -182,7 +186,7 @@ export default function TransparencySection({ isDarkMode }) {
     const uniqueFamilies = new Set(
       distributions.map((item) => item.family_id).filter((value) => value !== null && value !== undefined),
     )
-    const totalCompleted = distributions.filter((item) => item.status !== 'Pending').length
+    const totalCompleted = distributions.filter((item) => getDistributionStatus(item) !== 'Pending').length
     const complianceRate = totalAssistance > 0
       ? Math.round((totalCompleted / totalAssistance) * 100)
       : 0
@@ -857,6 +861,7 @@ export default function TransparencySection({ isDarkMode }) {
                   const recipient = distribution.family_name || distribution.individual_name || 'Unknown'
                   const itemName = distribution.food_name || 'Food supply'
                   const itemQty = distribution.quantity ? `${distribution.quantity} ${distribution.unit || ''}`.trim() : '—'
+                  const displayStatus = getDistributionStatus(distribution)
                   return (
                     <tr
                       key={distribution.distribution_id}
@@ -889,11 +894,11 @@ export default function TransparencySection({ isDarkMode }) {
                       </td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-                          distribution.status === 'Pending'
+                          displayStatus === 'Pending'
                             ? 'bg-amber-100 text-amber-700'
                             : 'bg-emerald-100 text-emerald-700'
                         }`}>
-                          {distribution.status || 'Pending'}
+                          {displayStatus}
                         </span>
                       </td>
                       <td className={`px-4 py-3 text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>

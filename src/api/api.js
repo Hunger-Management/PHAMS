@@ -37,10 +37,30 @@ export async function apiFetch(path, options = {}) {
             const body = options.body
             let foodId = null
             let foodDescription = null
+            let imageData = null
+
+            const fileToDataUrl = (file) => new Promise((resolve, reject) => {
+                if (!file) {
+                    resolve(null)
+                    return
+                }
+
+                const reader = new FileReader()
+                reader.onload = () => {
+                    const result = typeof reader.result === 'string' ? reader.result : null
+                    resolve(result)
+                }
+                reader.onerror = () => reject(reader.error || new Error('Failed to read uploaded file'))
+                reader.readAsDataURL(file)
+            })
 
             if (typeof FormData !== 'undefined' && body instanceof FormData) {
                 foodId = body.get('food_id')
                 foodDescription = body.get('food_description')
+                const imageFile = body.get('image')
+                if (imageFile instanceof File) {
+                    imageData = await fileToDataUrl(imageFile)
+                }
             } else if (body && typeof body === 'object') {
                 foodId = body.food_id
                 foodDescription = body.food_description
@@ -57,6 +77,7 @@ export async function apiFetch(path, options = {}) {
                     mockBody.quantity = body.get('quantity') || '0'
                     mockBody.quantity_unit = body.get('quantity_unit') || ''
                     mockBody.date_given = body.get('date_given') || new Date().toISOString().split('T')[0]
+                    mockBody.image_data = imageData
                 } else {
                     mockBody.donor_id = body?.donor_id || ''
                     mockBody.food_id = ''
@@ -64,6 +85,7 @@ export async function apiFetch(path, options = {}) {
                     mockBody.quantity = body?.quantity || 0
                     mockBody.quantity_unit = body?.quantity_unit || ''
                     mockBody.date_given = body?.date_given || new Date().toISOString().split('T')[0]
+                    mockBody.image_data = body?.image_data || null
                 }
 
                 return mockApiFetch('/api/donations', { method: 'POST', body: mockBody })

@@ -320,6 +320,12 @@ function DonationPage() {
       return
     }
 
+    // Require proof image for monetary donations
+    if (!monetaryImageFile) {
+      setMonetaryError('Please upload a proof of transaction (photo) for monetary donations.')
+      return
+    }
+
     setMonetarySubmitting(true)
 
     try {
@@ -792,13 +798,14 @@ function DonationPage() {
 
               <div>
                 <label htmlFor="proof-image" className={`mb-1 block text-base md:text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
-                  Upload Proof of Transaction (optional)
+                    Upload Proof of Transaction (required)
                 </label>
                 <input
                   id="proof-image"
                   type="file"
                   accept="image/*"
-                  onChange={(event) => setMonetaryImageFile(event.target.files?.[0] || null)}
+                    onChange={(event) => setMonetaryImageFile(event.target.files?.[0] || null)}
+                    required
                   className={`w-full rounded-lg border px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-blue-500/40 ${
                     isDarkMode
                       ? 'border-slate-600 bg-slate-800 text-slate-100'

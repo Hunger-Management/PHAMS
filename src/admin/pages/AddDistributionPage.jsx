@@ -52,6 +52,8 @@ function AddDistributionPage() {
 
   const staffBarangayId = staffUser?.barangay_id ? String(staffUser.barangay_id) : ''
   const isStaffLockedBarangay = isStaffView && Boolean(staffBarangayId)
+  const activeBarangayId = isStaffLockedBarangay ? staffBarangayId : formData.barangay_id
+  const activeBarangayName = barangays.find((barangay) => String(barangay.barangay_id) === String(activeBarangayId))?.name || staffUser?.barangay || staffUser?.barangay_name || ''
 
   const availableRecipients = formData.recipient_type === 'Individual'
     ? individuals
@@ -206,7 +208,6 @@ function AddDistributionPage() {
       !formData.barangay_id ||
       !formData.quantity ||
       !formData.date_given ||
-      !formData.status ||
       (needsFood && !formData.food_id) ||
       (needsFamily && !formData.family_id) ||
       (needsIndividual && !formData.individual_id)
@@ -236,7 +237,7 @@ function AddDistributionPage() {
       payload.append('food_id', needsFood ? String(Number(formData.food_id)) : '')
       payload.append('quantity', String(Number(formData.quantity)))
       payload.append('date_given', formData.date_given)
-      payload.append('status', formData.status)
+      payload.append('status', imageFile ? 'Completed' : 'Pending')
       const actor = getCurrentStaffActor(isStaffView ? 'staff' : 'admin')
       payload.append('staff_user_id', actor.staff_user_id || '')
       payload.append('staff_name', actor.staff_name || '')
@@ -285,11 +286,16 @@ function AddDistributionPage() {
 
   const monetaryDistributions = distributions
     .filter((item) => String(item.distribution_type || 'Food').toLowerCase() === 'monetary')
+    .filter((item) => !activeBarangayId || String(item.barangay_id || '') === String(activeBarangayId))
     .slice()
     .sort((a, b) => new Date(b.date_given || 0).getTime() - new Date(a.date_given || 0).getTime())
 
+  const monetaryDonations = (donations || [])
+    .filter((d) => !activeBarangayId || String(d.barangay_id || '') === String(activeBarangayId))
+    .filter((d) => String(d.donation_type || 'monetary').toLowerCase() === 'monetary' || !d.food_id || Number(d.food_id) === 0)
+
   const totalMonetaryDistributed = monetaryDistributions.reduce((sum, item) => sum + Number(item.quantity || 0), 0)
-  const totalMonetaryDonations = (donations || []).reduce((sum, d) => sum + Number(d.quantity || 0), 0)
+  const totalMonetaryDonations = monetaryDonations.reduce((sum, d) => sum + Number(d.quantity || 0), 0)
   const fundBalance = totalMonetaryDonations - totalMonetaryDistributed
 
   const formatPhpAmount = (value) => {
@@ -305,11 +311,14 @@ function AddDistributionPage() {
   }
 
   const resetMonetaryTotal = async () => {
+    if (!activeBarangayId) {
+      setErrorMessage('Please select a barangay first before resetting the monetary fund.')
+      return
+    }
+
     if (!confirm('Reset monetary fund? This will remove monetary donations (mock) or delete them on the backend.')) return
     try {
-      const isMock = String(import.meta.env.VITE_USE_MOCK_API || '').toLowerCase() === 'true'
-      // Delete monetary donations (those without a food_id)
-      const monetaryDonations = (donations || []).filter((x) => !x.food_id || Number(x.food_id) === 0)
+      // Delete only monetary donations for the active barangay.
       for (const d of monetaryDonations) {
         await apiFetch(`/api/donations/${d.donation_id}`, { method: 'DELETE' })
       }
@@ -521,19 +530,6 @@ function AddDistributionPage() {
                 </div>
 
                 <div>
-                  <label className={labelClass}>Status *</label>
-                  <select
-                    name="status"
-                    value={formData.status}
-                    onChange={handleChange}
-                    className={inputClass}
-                  >
-                    <option value="Pending">Pending</option>
-                    <option value="Completed">Completed</option>
-                  </select>
-                </div>
-
-                <div>
                   <label className={labelClass}>Photo (Optional)</label>
                   <input
                     type="file"
@@ -594,10 +590,10 @@ function AddDistributionPage() {
                 <div className="flex items-center justify-between gap-3 mb-4">
                   <div>
                     <h3 className={`font-semibold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                      Monetary Total
+                      Monetary Total {activeBarangayName ? `- ${activeBarangayName}` : ''}
                     </h3>
                     <p className={`text-xs mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                      Fund balance: total donations minus monetary distributions.
+                      Fund balance for the selected barangay only.
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
@@ -607,6 +603,7 @@ function AddDistributionPage() {
                     <button
                       type="button"
                       onClick={resetMonetaryTotal}
+                      disabled={!activeBarangayId}
                       className={`rounded-full px-3 py-1 text-xs font-semibold transition ${isDarkMode ? 'bg-red-700 text-white hover:bg-red-600' : 'bg-red-100 text-red-800 hover:bg-red-200'}`}
                     >
                       Reset
@@ -633,7 +630,7 @@ function AddDistributionPage() {
                     </div>
                   )) : (
                     <p className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                      No monetary distributions recorded yet.
+                      {activeBarangayId ? 'No monetary distributions recorded yet for this barangay.' : 'Select a barangay to view its monetary total.'}
                     </p>
                   )}
                 </div>

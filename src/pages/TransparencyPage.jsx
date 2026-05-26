@@ -3,6 +3,10 @@ import { apiFetch } from '../api/api'
 import { useDarkMode } from '../hooks/useDarkMode'
 import SiteHeader from '../components/SiteHeader'
 
+function getDistributionStatus(distribution) {
+  return distribution?.image ? 'Completed' : (distribution?.status || 'Pending')
+}
+
 function TransparencyPage() {
   const { isDarkMode, toggleDarkMode } = useDarkMode()
   const [distributions, setDistributions] = useState([])
@@ -39,7 +43,7 @@ function TransparencyPage() {
     ).size
     const totalDistributions = distributions.length
     const completedDistributions = distributions.filter(
-      (d) => String(d.status || '').toLowerCase() !== 'pending',
+      (d) => getDistributionStatus(d) !== 'Pending',
     ).length
     const distributionRate =
       totalDistributions > 0
