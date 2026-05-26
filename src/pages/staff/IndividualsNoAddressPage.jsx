@@ -150,6 +150,7 @@ function IndividualsNoAddressPage() {
       payload.append('gender', editForm.gender)
       payload.append('date_of_birth', editForm.date_of_birth || '')
       payload.append('barangay_id', '')
+      payload.append('registered_by_barangay_id', editingIndividual.registered_by_barangay_id ?? staffUser?.barangay_id ?? '')
       payload.append('status', editForm.status)
       payload.append('height_cm', editForm.height_cm ?? '')
       payload.append('weight_kg', editForm.weight_kg ?? '')
@@ -187,7 +188,7 @@ function IndividualsNoAddressPage() {
                     )}
                   </div>
                   <div className="flex-1">
-                    <label className="block text-xs text-slate-500 mb-1">Photo (Optional)</label>
+                    <label className="block text-xs text-slate-500 mb-1">Profile Photo</label>
                     <input
                       key={imageInputKey}
                       type="file"
@@ -195,7 +196,7 @@ function IndividualsNoAddressPage() {
                       onChange={handleImageChange}
                       className="w-full rounded-md border px-3 py-2 bg-transparent text-sm"
                     />
-                    <p className="text-xs text-slate-400 mt-1">Selected photo will appear as the profile picture above.</p>
+                    <p className="text-xs text-slate-400 mt-1">Selected profile photo will appear above.</p>
                   </div>
                 </div>
 

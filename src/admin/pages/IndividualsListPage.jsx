@@ -20,6 +20,7 @@ function IndividualsListPage() {
     const [selectedBarangayId, setSelectedBarangayId] = useState('')
     const [deletingId, setDeletingId] = useState(null)
     const [editingIndividual, setEditingIndividual] = useState(null)
+    const [profileIndividual, setProfileIndividual] = useState(null)
     const [editForm, setEditForm] = useState({
         name: '',
         age: '',
@@ -100,6 +101,16 @@ function IndividualsListPage() {
 
     const closeEditModal = () => {
         setEditingIndividual(null)
+    }
+
+    const openProfileModal = (individual) => {
+        setProfileIndividual(individual)
+        document.body.style.overflow = 'hidden'
+    }
+
+    const closeProfileModal = () => {
+        setProfileIndividual(null)
+        document.body.style.overflow = 'unset'
     }
 
     const handleEditChange = (event) => {
@@ -307,6 +318,21 @@ function IndividualsListPage() {
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="flex flex-wrap items-center gap-2">
+                                                        {individual.image ? (
+                                                            <button
+                                                                onClick={() => openProfileModal(individual)}
+                                                                className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${isDarkMode
+                                                                    ? 'bg-blue-700/70 text-blue-100 hover:bg-blue-700'
+                                                                    : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                                                }`}
+                                                            >
+                                                                View Profile
+                                                            </button>
+                                                        ) : (
+                                                            <span className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                                                No Photo
+                                                            </span>
+                                                        )}
                                                         <button
                                                             onClick={() => openEditModal(individual)}
                                                             className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${isDarkMode
@@ -493,6 +519,58 @@ function IndividualsListPage() {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            ) : null}
+
+            {profileIndividual ? (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className={`w-full max-w-3xl rounded-2xl border p-4 shadow-xl ${isDarkMode
+                        ? 'bg-[#111c2e] border-white/10 text-slate-100'
+                        : 'bg-white border-slate-200 text-slate-900'
+                    }`}
+                    >
+                        <div className="flex items-center justify-between mb-3">
+                            <h3 className="text-lg font-semibold">Profile Image</h3>
+                            <button
+                                onClick={closeProfileModal}
+                                className={`text-xs font-semibold px-3 py-1 rounded ${isDarkMode
+                                    ? 'bg-slate-700 text-slate-200 hover:bg-slate-600'
+                                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                }`}
+                            >
+                                Close
+                            </button>
+                        </div>
+                        <div className="flex items-center justify-center">
+                            <img
+                                src={`data:image/jpeg;base64,${profileIndividual.image}`}
+                                alt="Individual profile"
+                                className="max-h-[60vh] w-full rounded-lg object-contain"
+                            />
+                        </div>
+                        <div className="mt-4 grid gap-2 text-sm">
+                            <div className="flex items-center justify-between">
+                                <span className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>Name</span>
+                                <span>{profileIndividual.name || '—'}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>Age</span>
+                                <span>{profileIndividual.age ?? '—'}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>Gender</span>
+                                <span>{profileIndividual.gender || '—'}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>Barangay</span>
+                                <span>{profileIndividual.barangay_name || '—'}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>Status</span>
+                                <span>{profileIndividual.status || 'Registered'}</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             ) : null}
