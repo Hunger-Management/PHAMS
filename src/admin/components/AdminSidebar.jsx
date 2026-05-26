@@ -1,4 +1,4 @@
-import { Home, MapPin, Users, FileText, LogOut, Menu, X } from 'lucide-react'
+import { Home, MapPin, Users, FileText, LogOut, Menu, X, Gift } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAdminAuth } from '../../context/AdminAuthContext'
@@ -34,6 +34,7 @@ function AdminSidebar({ isDarkMode }) {
         { name: 'Manage Families', icon: Users, path: '/admin/families' },
         { name: 'Manage Individuals', icon: Users, path: '/admin/individuals' },
         { name: 'Manage Donations', icon: Users, path: '/admin/donations' },
+        { name: 'Log Donation', icon: Gift, path: '/admin/donations/add' },
         { name: 'Manage Users', icon: Users, path: '/admin/users' },
         { name: 'User Management', icon: Users, path: '/admin/create-account' },
         { name: 'Transparency', icon: FileText, path: '/admin/transparency' },

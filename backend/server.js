@@ -59,6 +59,30 @@ function getRequestActor(req) {
   })
 }
 
+// Extract user_id from simple token format: phams-{userId}-token
+function getTokenUserId(req) {
+  const authHeader = req.headers['authorization'] || req.headers['Authorization'] || ''
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader
+  const match = token.match(/^phams-(\d+)-token$/)
+  return match ? Number(match[1]) : null
+}
+
+// Look up user by token and call cb(err, user) where user has .role, .user_id, .barangay_id
+function getUserFromToken(req, db, cb) {
+  const userId = getTokenUserId(req)
+  if (!userId) return cb(null, null)
+  db.query('SELECT user_id, role, barangay_id, name, email FROM users WHERE user_id = ?', [userId], (err, rows) => {
+    if (err) return cb(err, null)
+    cb(null, rows && rows[0] ? rows[0] : null)
+  })
+}
+
+function generateTrackingNumber() {
+  const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+  const suffix = Math.random().toString(36).slice(2, 6).toUpperCase()
+  return `DON-${datePart}-${suffix}`
+}
+
 function formatDistributionDetails(distribution) {
   if (!distribution) return 'Distribution details unavailable.'
 
@@ -616,9 +640,14 @@ app.get('/api/members/nutritional-stats', (req, res) => {
 
 // ─── FOOD SUPPLIES ───────────────────────────────────────────────────────────
 
-// GET all food supplies
+// GET all food supplies (optionally filtered by barangay_id)
 app.get('/api/food-supplies', (req, res) => {
-  db.query('SELECT * FROM food_supplies', (err, results) => {
+  const barangayId = req.query.barangay_id ? Number(req.query.barangay_id) : null
+  const sql = barangayId
+    ? 'SELECT * FROM food_supplies WHERE barangay_id = ?'
+    : 'SELECT * FROM food_supplies'
+  const params = barangayId ? [barangayId] : []
+  db.query(sql, params, (err, results) => {
     if (err) return res.status(500).json({ error: err.message })
     res.json(results)
   })
@@ -626,9 +655,10 @@ app.get('/api/food-supplies', (req, res) => {
 
 // POST add food supply
 app.post('/api/food-supplies', (req, res) => {
-  const { food_name, unit, total_quantity } = req.body
-  const sql = `INSERT INTO food_supplies (food_name, unit, total_quantity) VALUES (?, ?, ?)`
-  db.query(sql, [food_name, unit, total_quantity], (err, results) => {
+  const { food_name, unit, total_quantity, barangay_id } = req.body
+  const barangayValue = barangay_id ? Number(barangay_id) : null
+  const sql = `INSERT INTO food_supplies (food_name, unit, total_quantity, barangay_id) VALUES (?, ?, ?, ?)`
+  db.query(sql, [food_name, unit, total_quantity, barangayValue], (err, results) => {
     if (err) return res.status(500).json({ error: err.message })
     res.json({ message: 'Food supply added!', food_id: results.insertId })
   })
@@ -636,9 +666,10 @@ app.post('/api/food-supplies', (req, res) => {
 
 // PUT update food supply
 app.put('/api/food-supplies/:id', (req, res) => {
-  const { food_name, unit, total_quantity } = req.body
-  const sql = `UPDATE food_supplies SET food_name=?, unit=?, total_quantity=? WHERE food_id=?`
-  db.query(sql, [food_name, unit, total_quantity, req.params.id], (err) => {
+  const { food_name, unit, total_quantity, barangay_id } = req.body
+  const barangayValue = barangay_id ? Number(barangay_id) : null
+  const sql = `UPDATE food_supplies SET food_name=?, unit=?, total_quantity=?, barangay_id=? WHERE food_id=?`
+  db.query(sql, [food_name, unit, total_quantity, barangayValue, req.params.id], (err) => {
     if (err) return res.status(500).json({ error: err.message })
     res.json({ message: 'Food supply updated!' })
   })
@@ -662,25 +693,53 @@ app.get('/api/donors', (req, res) => {
   })
 })
 
-// POST add donor
+// POST add donor (with deduplication by name + email/phone)
 app.post('/api/donors', (req, res) => {
-  const { donor_name, contact_info } = req.body
-  const sql = `INSERT INTO donors (donor_name, contact_info) VALUES (?, ?)`
-  db.query(sql, [donor_name, contact_info], (err, results) => {
-    if (err) return res.status(500).json({ error: err.message })
-    res.json({ message: 'Donor added!', donor_id: results.insertId })
+  const { donor_name, contact_info, email, phone } = req.body
+  const nameNorm = String(donor_name || '').trim()
+  const emailNorm = email ? String(email).trim().toLowerCase() : null
+  const phoneNorm = phone ? String(phone).trim() : null
+  const contactNorm = contact_info ? String(contact_info).trim() : null
+
+  // Try to find an existing donor with the same name + at least one matching contact field
+  const conditions = ['LOWER(TRIM(donor_name)) = LOWER(TRIM(?))']
+  const dedupParams = [nameNorm]
+  const contactConditions = []
+  if (emailNorm) { contactConditions.push('email = ?'); dedupParams.push(emailNorm) }
+  if (phoneNorm) { contactConditions.push('phone = ?'); dedupParams.push(phoneNorm) }
+  if (contactNorm) { contactConditions.push('contact_info = ?'); dedupParams.push(contactNorm) }
+
+  if (contactConditions.length > 0) {
+    conditions.push(`(${contactConditions.join(' OR ')})`)
+  }
+
+  const dedupSql = `SELECT donor_id FROM donors WHERE ${conditions.join(' AND ')} LIMIT 1`
+  db.query(dedupSql, dedupParams, (findErr, rows) => {
+    if (findErr) return res.status(500).json({ error: findErr.message })
+    if (rows && rows[0]) {
+      return res.json({ message: 'Existing donor found.', donor_id: rows[0].donor_id, existing: true })
+    }
+    db.query(
+      'INSERT INTO donors (donor_name, contact_info, email, phone) VALUES (?, ?, ?, ?)',
+      [nameNorm, contactNorm, emailNorm, phoneNorm],
+      (err, results) => {
+        if (err) return res.status(500).json({ error: err.message })
+        res.json({ message: 'Donor added!', donor_id: results.insertId, existing: false })
+      },
+    )
   })
 })
 
 // ─── DONATIONS ───────────────────────────────────────────────────────────────
 
-// GET all donations (with donor and food names)
+// GET all donations (with donor, food, and barangay names)
 app.get('/api/donations', (req, res) => {
   const sql = `
-    SELECT dn.*, d.donor_name, f.food_name, f.unit
+    SELECT dn.*, d.donor_name, f.food_name, f.unit, b.name AS barangay_name
     FROM donations dn
     LEFT JOIN donors d ON dn.donor_id = d.donor_id
     LEFT JOIN food_supplies f ON dn.food_id = f.food_id
+    LEFT JOIN barangays b ON dn.barangay_id = b.barangay_id
   `
   db.query(sql, (err, results) => {
     if (err) return res.status(500).json({ error: err.message })
@@ -690,86 +749,181 @@ app.get('/api/donations', (req, res) => {
 
 // POST add donation
 app.post('/api/donations', upload.single('image'), (req, res) => {
-  const { donor_id, food_id, food_description, quantity, quantity_unit, date_given } = req.body
+  const { donor_id, food_id, food_description, donation_type, quantity, quantity_unit, date_given, barangay_id } = req.body
   const image = req.file ? req.file.buffer : null
   const donorValue = donor_id === undefined || donor_id === null || donor_id === '' ? null : Number(donor_id)
   const quantityValue = quantity === undefined || quantity === null || quantity === '' ? null : Number(quantity)
   const typedFoodDescription = String(food_description || '').trim()
   const unitValue = String(quantity_unit || 'unit').trim() || 'unit'
   const parsedFoodId = food_id === undefined || food_id === null || food_id === '' ? null : Number(food_id)
+  const barangayValue = barangay_id === undefined || barangay_id === null || barangay_id === '' ? null : Number(barangay_id)
+  const donationTypeValue = ['food', 'monetary', 'equipment'].includes(String(donation_type || '').toLowerCase())
+    ? String(donation_type).toLowerCase() : 'food'
 
-  const createDonation = (resolvedFoodId) => {
-    const sql = `
-      INSERT INTO donations (donor_id, food_id, quantity, date_given, image)
-      VALUES (?, ?, ?, ?, ?)
-    `
+  getUserFromToken(req, db, (authErr, reqUser) => {
+    if (authErr) return res.status(500).json({ error: authErr.message })
+    const isAdmin = reqUser && reqUser.role === 'Admin'
+    // Admin-submitted donations are auto-approved; public submissions are pending
+    const initialStatus = isAdmin ? 'approved' : 'pending'
+    const approvedBy = isAdmin ? reqUser.user_id : null
+    const approvedAt = isAdmin ? new Date() : null
 
-    db.query(sql, [donorValue, resolvedFoodId, quantityValue, date_given, image], (err, results) => {
-      if (err) return res.status(500).json({ error: err.message })
+    const finalizeDonation = (resolvedFoodId) => {
+      const tracking = generateTrackingNumber()
+      const sql = `
+        INSERT INTO donations
+          (donor_id, food_id, food_description, donation_type, quantity, quantity_unit, date_given, image, barangay_id, status, tracking_number, approved_by, approved_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `
+      db.query(
+        sql,
+        [donorValue, resolvedFoodId, typedFoodDescription || null, donationTypeValue, quantityValue, unitValue, date_given, image, barangayValue, initialStatus, tracking, approvedBy, approvedAt],
+        (err, results) => {
+          if (err) return res.status(500).json({ error: err.message })
 
-      if (resolvedFoodId && quantityValue) {
-        db.query(
-          'UPDATE food_supplies SET total_quantity = total_quantity + ? WHERE food_id = ?',
-          [quantityValue, resolvedFoodId],
-          (foodErr) => {
-            if (foodErr) {
-              console.error('Failed to update food supply on donation:', foodErr)
-              return res.status(500).json({ error: foodErr.message })
-            }
+          // Only update food inventory when approved AND it's a food/equipment donation
+          if (isAdmin && resolvedFoodId && quantityValue && donationTypeValue !== 'monetary') {
+            db.query(
+              'UPDATE food_supplies SET total_quantity = total_quantity + ? WHERE food_id = ?',
+              [quantityValue, resolvedFoodId],
+              (foodErr) => {
+                if (foodErr) {
+                  console.error('Failed to update food supply on approved donation:', foodErr)
+                  return res.status(500).json({ error: foodErr.message })
+                }
+                res.json({ message: 'Donation recorded!', donation_id: results.insertId, tracking_number: tracking, status: initialStatus })
+              },
+            )
+            return
+          }
 
-            res.json({ message: 'Donation recorded!', donation_id: results.insertId })
-          },
-        )
-        return
-      }
+          res.json({ message: 'Donation recorded!', donation_id: results.insertId, tracking_number: tracking, status: initialStatus })
+        },
+      )
+    }
 
-      res.json({ message: 'Donation recorded!', donation_id: results.insertId })
-    })
-  }
+    // Monetary donations never touch food_supply
+    if (donationTypeValue === 'monetary') {
+      finalizeDonation(null)
+      return
+    }
 
-  if (parsedFoodId) {
-    createDonation(parsedFoodId)
-    return
-  }
+    if (parsedFoodId) {
+      finalizeDonation(parsedFoodId)
+      return
+    }
 
-  // If no food id and no typed description, treat as a monetary donation
-  if (!typedFoodDescription) {
-    createDonation(null)
-    return
-  }
+    if (!typedFoodDescription) {
+      finalizeDonation(null)
+      return
+    }
 
-  db.query(
-    'SELECT food_id FROM food_supplies WHERE LOWER(TRIM(food_name)) = LOWER(TRIM(?)) LIMIT 1',
-    [typedFoodDescription],
-    (findErr, rows) => {
+    // Look up or create food_supply row for this item + barangay
+    const lookupSql = barangayValue
+      ? 'SELECT food_id FROM food_supplies WHERE LOWER(TRIM(food_name)) = LOWER(TRIM(?)) AND barangay_id = ? LIMIT 1'
+      : 'SELECT food_id FROM food_supplies WHERE LOWER(TRIM(food_name)) = LOWER(TRIM(?)) AND barangay_id IS NULL LIMIT 1'
+    const lookupParams = barangayValue ? [typedFoodDescription, barangayValue] : [typedFoodDescription]
+    const typeForSupply = donationTypeValue === 'equipment' ? 'equipment' : 'food'
+
+    db.query(lookupSql, lookupParams, (findErr, rows) => {
       if (findErr) return res.status(500).json({ error: findErr.message })
 
       if (rows && rows[0] && rows[0].food_id) {
-        createDonation(Number(rows[0].food_id))
+        finalizeDonation(Number(rows[0].food_id))
         return
       }
 
       db.query(
-        'INSERT INTO food_supplies (food_name, unit, total_quantity) VALUES (?, ?, 0)',
-        [typedFoodDescription, unitValue],
+        'INSERT INTO food_supplies (food_name, unit, total_quantity, barangay_id, type) VALUES (?, ?, 0, ?, ?)',
+        [typedFoodDescription, unitValue, barangayValue, typeForSupply],
         (insertFoodErr, insertFoodResult) => {
           if (insertFoodErr) return res.status(500).json({ error: insertFoodErr.message })
-          createDonation(Number(insertFoodResult.insertId))
+          finalizeDonation(Number(insertFoodResult.insertId))
         },
       )
-    },
-  )
+    })
+  })
+})
+
+// PUT approve donation (admin only)
+app.put('/api/donations/:id/approve', (req, res) => {
+  getUserFromToken(req, db, (authErr, reqUser) => {
+    if (authErr) return res.status(500).json({ error: authErr.message })
+    if (!reqUser || reqUser.role !== 'Admin') return res.status(403).json({ error: 'Admin access required.' })
+
+    db.query(
+      'SELECT donation_id, food_id, quantity, donation_type, status FROM donations WHERE donation_id = ?',
+      [req.params.id],
+      (fetchErr, rows) => {
+        if (fetchErr) return res.status(500).json({ error: fetchErr.message })
+        const donation = rows && rows[0] ? rows[0] : null
+        if (!donation) return res.status(404).json({ error: 'Donation not found.' })
+        if (donation.status === 'approved') return res.status(400).json({ error: 'Donation is already approved.' })
+
+        db.query(
+          'UPDATE donations SET status = ?, approved_by = ?, approved_at = NOW() WHERE donation_id = ?',
+          ['approved', reqUser.user_id, req.params.id],
+          (updateErr) => {
+            if (updateErr) return res.status(500).json({ error: updateErr.message })
+
+            // Add to food inventory only for food/equipment donations
+            if (donation.food_id && donation.quantity && donation.donation_type !== 'monetary') {
+              db.query(
+                'UPDATE food_supplies SET total_quantity = total_quantity + ? WHERE food_id = ?',
+                [donation.quantity, donation.food_id],
+                (foodErr) => {
+                  if (foodErr) console.error('Failed to update food supply on donation approval:', foodErr)
+                },
+              )
+            }
+
+            res.json({ message: 'Donation approved.' })
+          },
+        )
+      },
+    )
+  })
+})
+
+// PUT reject donation (admin only)
+app.put('/api/donations/:id/reject', (req, res) => {
+  const { rejection_reason } = req.body
+  getUserFromToken(req, db, (authErr, reqUser) => {
+    if (authErr) return res.status(500).json({ error: authErr.message })
+    if (!reqUser || reqUser.role !== 'Admin') return res.status(403).json({ error: 'Admin access required.' })
+
+    db.query(
+      'SELECT donation_id, status FROM donations WHERE donation_id = ?',
+      [req.params.id],
+      (fetchErr, rows) => {
+        if (fetchErr) return res.status(500).json({ error: fetchErr.message })
+        const donation = rows && rows[0] ? rows[0] : null
+        if (!donation) return res.status(404).json({ error: 'Donation not found.' })
+        if (donation.status === 'rejected') return res.status(400).json({ error: 'Donation is already rejected.' })
+
+        db.query(
+          'UPDATE donations SET status = ?, rejection_reason = ? WHERE donation_id = ?',
+          ['rejected', rejection_reason || null, req.params.id],
+          (updateErr) => {
+            if (updateErr) return res.status(500).json({ error: updateErr.message })
+            res.json({ message: 'Donation rejected.' })
+          },
+        )
+      },
+    )
+  })
 })
 
 // DELETE donation
 app.delete('/api/donations/:id', (req, res) => {
-  db.query('SELECT food_id, quantity FROM donations WHERE donation_id = ?', [req.params.id], (fetchErr, rows) => {
+  db.query('SELECT food_id, quantity, status FROM donations WHERE donation_id = ?', [req.params.id], (fetchErr, rows) => {
     const existing = rows && rows[0] ? rows[0] : null
 
     db.query('DELETE FROM donations WHERE donation_id = ?', [req.params.id], (err) => {
       if (err) return res.status(500).json({ error: err.message })
 
-      if (existing && existing.food_id && existing.quantity) {
+      // Only reverse food inventory if the donation was already approved
+      if (existing && existing.food_id && existing.quantity && existing.status === 'approved') {
         db.query(
           'UPDATE food_supplies SET total_quantity = GREATEST(0, total_quantity - ?) WHERE food_id = ?',
           [existing.quantity, existing.food_id],
@@ -890,67 +1044,86 @@ app.post('/api/distributions', upload.single('image'), (req, res) => {
   const distributionTypeValue = String(distribution_type || 'Food').trim() || 'Food'
   const foodValue = food_id === undefined || food_id === null || food_id === '' ? null : Number(food_id)
   const quantityValue = quantity === undefined || quantity === null || quantity === '' ? null : Number(quantity)
-  const sql = `
-    INSERT INTO distribution 
-    (recipient_type, family_id, individual_id, barangay_id, distribution_type, food_id, quantity, date_given, status, image)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `
-  db.query(sql, [recipient_type, familyValue, individualValue, barangayValue, distributionTypeValue, distributionTypeValue === 'Food' ? foodValue : null, quantityValue, date_given, status, image], (err, results) => {
-    if (err) return res.status(500).json({ error: err.message })
+  const statusValue = String(status || 'Pending').trim()
+
+  // Validate available quantity before inserting
+  const checkAndInsert = () => {
+    const insertAndRespond = () => {
+      const sql = `
+        INSERT INTO distribution
+        (recipient_type, family_id, individual_id, barangay_id, distribution_type, food_id, quantity, date_given, status, image)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `
+      db.query(
+        sql,
+        [recipient_type, familyValue, individualValue, barangayValue, distributionTypeValue, distributionTypeValue === 'Food' ? foodValue : null, quantityValue, date_given, statusValue, image],
+        (err, results) => {
+          if (err) return res.status(500).json({ error: err.message })
+
+          // Deduct inventory only when status is Completed
+          if (statusValue === 'Completed' && distributionTypeValue === 'Food' && foodValue && quantityValue) {
+            db.query(
+              'UPDATE food_supplies SET total_quantity = GREATEST(0, total_quantity - ?) WHERE food_id = ?',
+              [quantityValue, foodValue],
+              (foodErr) => { if (foodErr) console.error('Failed to update food supply on completed distribution:', foodErr) },
+            )
+          }
+
+          const selectSql = `
+            SELECT
+              dist.*,
+              b.name AS barangay_name,
+              f.food_name,
+              f.unit,
+              fam.family_name,
+              i.name AS individual_name
+            FROM distribution dist
+            LEFT JOIN barangays b ON dist.barangay_id = b.barangay_id
+            LEFT JOIN food_supplies f ON dist.food_id = f.food_id
+            LEFT JOIN families fam ON dist.family_id = fam.family_id
+            LEFT JOIN individuals i ON dist.individual_id = i.individual_id
+            WHERE dist.distribution_id = ?
+          `
+
+          db.query(selectSql, [results.insertId], (selectErr, rows) => {
+            const distribution = rows && rows[0] ? rows[0] : {
+              distribution_id: results.insertId,
+              recipient_type,
+              family_id: familyValue,
+              individual_id: individualValue,
+              barangay_id: barangayValue,
+              distribution_type: distributionTypeValue,
+              food_id: foodValue,
+              quantity: quantityValue,
+              date_given,
+              status: statusValue,
+            }
+
+            persistActivityLog(db, distribution, determineDistributionAction(statusValue, 'created'), actor, (logErr) => {
+              if (logErr) console.error('Failed to write distribution activity log:', logErr)
+              if (selectErr) console.error('Failed to reload distribution for activity log:', selectErr)
+              res.json({ message: 'Distribution recorded!', distribution_id: results.insertId })
+            })
+          })
+        },
+      )
+    }
 
     if (distributionTypeValue === 'Food' && foodValue && quantityValue) {
-      db.query(
-        'UPDATE food_supplies SET total_quantity = GREATEST(0, total_quantity - ?) WHERE food_id = ?',
-        [quantityValue, foodValue],
-        (foodErr) => { if (foodErr) console.error('Failed to update food supply on distribution:', foodErr) },
-      )
-    }
-
-    const selectSql = `
-      SELECT
-        dist.*,
-        b.name AS barangay_name,
-        f.food_name,
-        f.unit,
-        fam.family_name,
-        i.name AS individual_name
-      FROM distribution dist
-      LEFT JOIN barangays b ON dist.barangay_id = b.barangay_id
-      LEFT JOIN food_supplies f ON dist.food_id = f.food_id
-      LEFT JOIN families fam ON dist.family_id = fam.family_id
-      LEFT JOIN individuals i ON dist.individual_id = i.individual_id
-      WHERE dist.distribution_id = ?
-    `
-
-    if (foodValue && quantityValue) {
-      db.query(
-        'UPDATE food_supplies SET total_quantity = GREATEST(0, total_quantity - ?) WHERE food_id = ?',
-        [quantityValue, foodValue],
-        (foodErr) => { if (foodErr) console.error('Failed to update food supply on distribution:', foodErr) },
-      )
-    }
-
-    db.query(selectSql, [results.insertId], (selectErr, rows) => {
-      const distribution = rows && rows[0] ? rows[0] : {
-        distribution_id: results.insertId,
-        recipient_type,
-        family_id: familyValue,
-        individual_id: individualValue,
-        barangay_id: barangayValue,
-        distribution_type: distributionTypeValue,
-        food_id: foodValue,
-        quantity: quantityValue,
-        date_given,
-        status,
-      }
-
-      persistActivityLog(db, distribution, determineDistributionAction(status, 'created'), actor, (logErr) => {
-        if (logErr) console.error('Failed to write distribution activity log:', logErr)
-        if (selectErr) console.error('Failed to reload distribution for activity log:', selectErr)
-        res.json({ message: 'Distribution recorded!', distribution_id: results.insertId })
+      db.query('SELECT total_quantity FROM food_supplies WHERE food_id = ?', [foodValue], (checkErr, rows) => {
+        if (checkErr) return res.status(500).json({ error: checkErr.message })
+        const available = rows && rows[0] ? Number(rows[0].total_quantity) : 0
+        if (quantityValue > available) {
+          return res.status(400).json({ error: `Insufficient stock. Available: ${available}, Requested: ${quantityValue}` })
+        }
+        insertAndRespond()
       })
-    })
-  })
+    } else {
+      insertAndRespond()
+    }
+  }
+
+  checkAndInsert()
 })
 
 // PUT update distribution status
@@ -958,52 +1131,82 @@ app.put('/api/distributions/:id', upload.single('image'), (req, res) => {
   const { status } = req.body
   const image = req.file ? req.file.buffer : null
   const actor = getRequestActor(req)
-  let sql = 'UPDATE distribution SET status=?'
-  const params = [status]
+  const newStatus = String(status || '').trim()
 
-  if (image) {
-    sql += ', image=?'
-    params.push(image)
-  }
+  // Fetch current distribution to check status transition for inventory
+  db.query(
+    'SELECT distribution_id, status, food_id, quantity, distribution_type FROM distribution WHERE distribution_id = ?',
+    [req.params.id],
+    (fetchErr, fetchRows) => {
+      if (fetchErr) return res.status(500).json({ error: fetchErr.message })
+      const current = fetchRows && fetchRows[0] ? fetchRows[0] : null
+      const oldStatus = current ? current.status : null
 
-  sql += ' WHERE distribution_id=?'
-  params.push(req.params.id)
+      let sql = 'UPDATE distribution SET status=?'
+      const params = [newStatus]
+      if (image) { sql += ', image=?'; params.push(image) }
+      sql += ' WHERE distribution_id=?'
+      params.push(req.params.id)
 
-  db.query(sql, params, (err) => {
-    if (err) return res.status(500).json({ error: err.message })
+      db.query(sql, params, (err) => {
+        if (err) return res.status(500).json({ error: err.message })
 
-    const selectSql = `
-      SELECT
-        dist.*,
-        b.name AS barangay_name,
-        f.food_name,
-        f.unit,
-        fam.family_name,
-        i.name AS individual_name
-      FROM distribution dist
-      LEFT JOIN barangays b ON dist.barangay_id = b.barangay_id
-      LEFT JOIN food_supplies f ON dist.food_id = f.food_id
-      LEFT JOIN families fam ON dist.family_id = fam.family_id
-      LEFT JOIN individuals i ON dist.individual_id = i.individual_id
-      WHERE dist.distribution_id = ?
-    `
+        // Inventory transitions: only adjust for Food distributions
+        if (current && current.distribution_type === 'Food' && current.food_id && current.quantity) {
+          const wasCompleted = String(oldStatus || '').toLowerCase() === 'completed'
+          const isNowCompleted = newStatus.toLowerCase() === 'completed'
 
-    db.query(selectSql, [req.params.id], (selectErr, rows) => {
-      const distribution = rows && rows[0] ? rows[0] : { distribution_id: Number(req.params.id), status }
+          if (!wasCompleted && isNowCompleted) {
+            // Transitioning TO Completed → deduct from inventory
+            db.query(
+              'UPDATE food_supplies SET total_quantity = GREATEST(0, total_quantity - ?) WHERE food_id = ?',
+              [current.quantity, current.food_id],
+              (foodErr) => { if (foodErr) console.error('Failed to deduct food supply on completion:', foodErr) },
+            )
+          } else if (wasCompleted && !isNowCompleted) {
+            // Reverting FROM Completed → restore inventory
+            db.query(
+              'UPDATE food_supplies SET total_quantity = total_quantity + ? WHERE food_id = ?',
+              [current.quantity, current.food_id],
+              (foodErr) => { if (foodErr) console.error('Failed to restore food supply on revert:', foodErr) },
+            )
+          }
+        }
 
-      // Recalculate priority score for the affected family so score reflects
-      // whether they've just been served (equity rotation) or un-served.
-      if (distribution.family_id) {
-        recalculateFamilyPriorityScore(distribution.family_id, db)
-      }
+        const selectSql = `
+          SELECT
+            dist.*,
+            b.name AS barangay_name,
+            f.food_name,
+            f.unit,
+            fam.family_name,
+            i.name AS individual_name
+          FROM distribution dist
+          LEFT JOIN barangays b ON dist.barangay_id = b.barangay_id
+          LEFT JOIN food_supplies f ON dist.food_id = f.food_id
+          LEFT JOIN families fam ON dist.family_id = fam.family_id
+          LEFT JOIN individuals i ON dist.individual_id = i.individual_id
+          WHERE dist.distribution_id = ?
+        `
 
-      persistActivityLog(db, distribution, determineDistributionAction(status, 'updated'), actor, (logErr) => {
-        if (logErr) console.error('Failed to write distribution activity log:', logErr)
-        if (selectErr) console.error('Failed to reload distribution for activity log:', selectErr)
-        res.json({ message: 'Distribution status updated!' })
+        db.query(selectSql, [req.params.id], (selectErr, rows) => {
+          const distribution = rows && rows[0] ? rows[0] : { distribution_id: Number(req.params.id), status: newStatus }
+
+          // Recalculate priority score for the affected family so score reflects
+          // whether they've just been served (equity rotation) or un-served.
+          if (distribution.family_id) {
+            recalculateFamilyPriorityScore(distribution.family_id, db)
+          }
+
+          persistActivityLog(db, distribution, determineDistributionAction(newStatus, 'updated'), actor, (logErr) => {
+            if (logErr) console.error('Failed to write distribution activity log:', logErr)
+            if (selectErr) console.error('Failed to reload distribution for activity log:', selectErr)
+            res.json({ message: 'Distribution status updated!' })
+          })
+        })
       })
-    })
-  })
+    },
+  )
 })
 
 // DELETE distribution
@@ -1028,7 +1231,8 @@ app.delete('/api/distributions/:id', (req, res) => {
   db.query(selectSql, [req.params.id], (selectErr, rows) => {
     const distribution = rows && rows[0] ? rows[0] : { distribution_id: Number(req.params.id) }
 
-    if (distribution.food_id && distribution.quantity) {
+    // Only restore inventory if the distribution was actually Completed (inventory was deducted)
+    if (distribution.food_id && distribution.quantity && String(distribution.status || '').toLowerCase() === 'completed') {
       db.query(
         'UPDATE food_supplies SET total_quantity = total_quantity + ? WHERE food_id = ?',
         [distribution.quantity, distribution.food_id],

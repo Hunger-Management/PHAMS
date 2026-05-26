@@ -1,4 +1,4 @@
-const MOCK_DB_STORAGE_KEY = 'phams-mock-db-v1'
+const MOCK_DB_STORAGE_KEY = 'phams-mock-db-v2'
 
 const BARANGAYS = [
   { barangay_id: 1, name: 'Aguho' },
@@ -190,21 +190,30 @@ function buildSeedDb() {
       },
     ],
     donors: [
-      { donor_id: 1, donor_name: 'Barangay Council', contact_info: 'N/A' },
-      { donor_id: 2, donor_name: 'Private Citizen', contact_info: 'N/A' },
+      { donor_id: 1, donor_name: 'Barangay Council', contact_info: 'N/A', email: null, phone: null },
+      { donor_id: 2, donor_name: 'Private Citizen', contact_info: 'N/A', email: null, phone: null },
     ],
     foodSupplies: [
-      { food_id: 1, food_name: 'Rice', unit: 'kg', total_quantity: 1200 },
-      { food_id: 2, food_name: 'Canned Goods', unit: 'packs', total_quantity: 450 },
-      { food_id: 3, food_name: 'Noodles', unit: 'boxes', total_quantity: 320 },
+      { food_id: 1, food_name: 'Rice', unit: 'kg', total_quantity: 1200, barangay_id: 1, type: 'food' },
+      { food_id: 2, food_name: 'Canned Goods', unit: 'packs', total_quantity: 450, barangay_id: 1, type: 'food' },
+      { food_id: 3, food_name: 'Noodles', unit: 'boxes', total_quantity: 320, barangay_id: 1, type: 'food' },
     ],
     donations: [
       {
         donation_id: 1,
         donor_id: 1,
         food_id: 1,
+        food_description: 'Rice',
+        donation_type: 'food',
         quantity: 200,
+        quantity_unit: 'kg',
         date_given: nowIso(),
+        barangay_id: 1,
+        status: 'approved',
+        tracking_number: 'DON-20260101-SEED',
+        approved_by: 1,
+        approved_at: nowIso(),
+        rejection_reason: null,
       },
     ],
     distributions: [
@@ -314,6 +323,7 @@ function withJoins(db) {
       donor_name: donor?.donor_name || 'Unknown donor',
       food_name: food?.food_name || 'Unknown food',
       unit: food?.unit || 'unit',
+      barangay_name: item.barangay_id ? getBarangayName(item.barangay_id) : null,
     }
   })
 
@@ -375,6 +385,20 @@ function makeError(message, status = 400) {
   return error
 }
 
+function generateMockTrackingNumber() {
+  const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+  const suffix = Math.random().toString(36).slice(2, 6).toUpperCase()
+  return `DON-${datePart}-${suffix}`
+}
+
+function getMockTokenUser(db) {
+  const stored = typeof window !== 'undefined' ? localStorage.getItem('phams-token') : null
+  if (!stored) return null
+  const match = stored.match(/^mock-token-(\d+)$/)
+  if (!match) return null
+  return db.users.find((u) => u.user_id === Number(match[1])) || null
+}
+
 function updateFoodQuantity(db, foodId, delta) {
   db.foodSupplies = db.foodSupplies.map((item) => {
     if (item.food_id !== Number(foodId)) return item
@@ -424,7 +448,12 @@ function handleGet(path, db, originalPath = path) {
 
   if (path === '/api/individuals') return db.individuals
   if (path === '/api/donors') return db.donors
-  if (path === '/api/food-supplies') return db.foodSupplies
+  if (path === '/api/food-supplies') {
+    const url = new URL(`http://local${originalPath}`)
+    const barangayId = url.searchParams.get('barangay_id') ? Number(url.searchParams.get('barangay_id')) : null
+    if (barangayId) return db.foodSupplies.filter((item) => item.barangay_id === barangayId)
+    return db.foodSupplies
+  }
   if (path === '/api/donations') return joins.donations
   if (path === '/api/distributions') return joins.distributions
   if (path === '/api/activity-logs') {
@@ -446,7 +475,7 @@ function handleGet(path, db, originalPath = path) {
   throw makeError('Endpoint not found.', 404)
 }
 
-function handlePost(path, db, body) {
+function handlePost(path, db, body, options = {}) {
   if (path === '/api/auth/login') {
     const email = String(body.email || '').trim().toLowerCase()
     const password = String(body.password || '')
@@ -610,60 +639,123 @@ function handlePost(path, db, body) {
   }
 
   if (path === '/api/donors') {
+    const nameNorm = String(body.donor_name || '').trim()
+    const emailNorm = body.email ? String(body.email).trim().toLowerCase() : null
+    const phoneNorm = body.phone ? String(body.phone).trim() : null
+    const contactNorm = body.contact_info ? String(body.contact_info).trim() : null
+
+    // Deduplication: match by name + any contact field
+    const existing = db.donors.find((d) => {
+      const nameMatch = d.donor_name.trim().toLowerCase() === nameNorm.toLowerCase()
+      if (!nameMatch) return false
+      if (emailNorm && d.email && d.email.toLowerCase() === emailNorm) return true
+      if (phoneNorm && d.phone && d.phone === phoneNorm) return true
+      if (contactNorm && d.contact_info && d.contact_info === contactNorm) return true
+      return false
+    })
+    if (existing) {
+      return { message: 'Existing donor found.', donor_id: existing.donor_id, existing: true }
+    }
+
     const donor_id = nextId(db.donors, 'donor_id')
     const item = {
       donor_id,
-      donor_name: body.donor_name || `Donor ${donor_id}`,
-      contact_info: body.contact_info || '',
+      donor_name: nameNorm || `Donor ${donor_id}`,
+      contact_info: contactNorm || '',
+      email: emailNorm,
+      phone: phoneNorm,
     }
     db.donors.unshift(item)
     saveDb(db)
-    return item
+    return { message: 'Donor added!', donor_id: item.donor_id, existing: false }
   }
 
   if (path === '/api/donations') {
-    let foodId = Number(body.food_id)
-    let foodUnit = 'unit'
+    const initialStatus = body.admin_log === 'true' || body.admin_log === true ? 'approved' : 'pending'
+    const donationTypeRaw = String(body.donation_type || 'food').toLowerCase()
+    const donationTypeValue = ['food', 'monetary', 'equipment'].includes(donationTypeRaw) ? donationTypeRaw : 'food'
+    const barangayId = body.barangay_id ? Number(body.barangay_id) : null
+    const quantityValue = Number(body.quantity || 0)
+    const tracking = generateMockTrackingNumber()
 
-    if (!foodId && body.food_description) {
-      const foodSupplyId = nextId(db.foodSupplies, 'food_id')
-      const newFood = {
-        food_id: foodSupplyId,
-        food_name: body.food_description,
-        unit: body.quantity_unit || 'unit',
-        total_quantity: 0,
+    let foodId = body.food_id ? Number(body.food_id) : 0
+    let foodUnit = body.quantity_unit || 'unit'
+
+    if (donationTypeValue !== 'monetary') {
+      if (!foodId && body.food_description) {
+        const existingFood = db.foodSupplies.find(
+          (f) => f.food_name.toLowerCase().trim() === String(body.food_description).toLowerCase().trim()
+            && f.barangay_id === barangayId,
+        )
+        if (existingFood) {
+          foodId = existingFood.food_id
+          foodUnit = existingFood.unit
+        } else {
+          const foodSupplyId = nextId(db.foodSupplies, 'food_id')
+          const newFood = {
+            food_id: foodSupplyId,
+            food_name: body.food_description,
+            unit: body.quantity_unit || 'unit',
+            total_quantity: 0,
+            barangay_id: barangayId,
+            type: donationTypeValue === 'equipment' ? 'equipment' : 'food',
+          }
+          db.foodSupplies.unshift(newFood)
+          foodId = foodSupplyId
+          foodUnit = newFood.unit
+        }
+      } else if (foodId) {
+        const food = db.foodSupplies.find((f) => f.food_id === foodId)
+        foodUnit = food?.unit || foodUnit
       }
-      db.foodSupplies.unshift(newFood)
-      foodId = foodSupplyId
-      foodUnit = newFood.unit
-    } else if (foodId) {
-      const food = db.foodSupplies.find((f) => f.food_id === foodId)
-      foodUnit = food?.unit || 'unit'
+    } else {
+      foodId = 0 // monetary: no food_id
     }
 
     const item = {
       donation_id: nextId(db.donations, 'donation_id'),
       donor_id: Number(body.donor_id),
-      food_id: foodId,
+      food_id: foodId || null,
       food_description: body.food_description || '',
-      quantity: Number(body.quantity || 0),
+      donation_type: donationTypeValue,
+      quantity: quantityValue,
       quantity_unit: foodUnit,
       date_given: body.date_given || nowIso(),
       image: body.image_data || null,
+      barangay_id: barangayId,
+      status: initialStatus,
+      tracking_number: tracking,
+      approved_by: initialStatus === 'approved' ? (getMockTokenUser(db)?.user_id || null) : null,
+      approved_at: initialStatus === 'approved' ? nowIso() : null,
+      rejection_reason: null,
     }
     db.donations.unshift(item)
-    updateFoodQuantity(db, item.food_id, item.quantity)
-    saveDb(db)
-    // Monetary donations are stored in `donations` only. Do not auto-create
-    // distribution records for monetary donations so we can track a central
-    // fund balance separately from recorded distributions.
 
-    return item
+    // Only update food inventory when admin auto-approves a food/equipment donation
+    if (initialStatus === 'approved' && item.food_id && quantityValue && donationTypeValue !== 'monetary') {
+      updateFoodQuantity(db, item.food_id, quantityValue)
+    }
+
+    saveDb(db)
+    return { message: 'Donation recorded!', donation_id: item.donation_id, tracking_number: tracking, status: initialStatus }
   }
 
   if (path === '/api/distributions') {
     const distribution_id = nextId(db.distributions, 'distribution_id')
     const distributionType = String(body.distribution_type || 'Food').trim() || 'Food'
+    const foodValue = distributionType === 'Food' && body.food_id ? Number(body.food_id) : null
+    const quantityValue = Number(body.quantity || 0)
+    const statusValue = String(body.status || 'Pending').trim()
+
+    // Validate available quantity before creating
+    if (distributionType === 'Food' && foodValue && quantityValue) {
+      const supply = db.foodSupplies.find((f) => f.food_id === foodValue)
+      const available = supply ? Number(supply.total_quantity || 0) : 0
+      if (quantityValue > available) {
+        throw makeError(`Insufficient stock. Available: ${available}, Requested: ${quantityValue}`, 400)
+      }
+    }
+
     const item = {
       distribution_id,
       recipient_type: body.recipient_type || 'Family',
@@ -671,19 +763,22 @@ function handlePost(path, db, body) {
       individual_id: body.individual_id ? Number(body.individual_id) : null,
       barangay_id: Number(body.barangay_id) || 1,
       distribution_type: distributionType,
-      food_id: distributionType === 'Food' && body.food_id ? Number(body.food_id) : null,
-      quantity: Number(body.quantity || 0),
+      food_id: foodValue,
+      quantity: quantityValue,
       date_given: body.date_given || nowIso(),
-      status: body.status || 'Pending',
+      status: statusValue,
       image: body.image_data || null,
     }
     db.distributions.unshift(item)
-    if (item.distribution_type === 'Food' && item.food_id) {
-      updateFoodQuantity(db, item.food_id, -item.quantity)
+
+    // Only deduct inventory when status is Completed
+    if (statusValue === 'Completed' && distributionType === 'Food' && foodValue) {
+      updateFoodQuantity(db, foodValue, -quantityValue)
     }
+
     const enriched = withJoins(db).distributions.find((distribution) => distribution.distribution_id === distribution_id) || item
     const actor = normalizeActor(body)
-    const action = determineDistributionAction(item.status, 'created')
+    const action = determineDistributionAction(statusValue, 'created')
     db.activityLogs = db.activityLogs || []
     db.activityLogs.unshift(createActivityLogEntry(db, enriched, action, actor))
     saveDb(db)
@@ -715,7 +810,8 @@ function handleDelete(path, db, body = {}) {
     const donation_id = Number(match[1])
     const existing = db.donations.find((item) => item.donation_id === donation_id)
     db.donations = db.donations.filter((item) => item.donation_id !== donation_id)
-    if (existing) {
+    // Only reverse food inventory if the donation was approved (meaning inventory was added)
+    if (existing && existing.food_id && existing.quantity && existing.status === 'approved' && existing.donation_type !== 'monetary') {
       updateFoodQuantity(db, existing.food_id, -Number(existing.quantity || 0))
     }
     saveDb(db)
@@ -728,7 +824,10 @@ function handleDelete(path, db, body = {}) {
     const existing = db.distributions.find((item) => item.distribution_id === distribution_id)
     db.distributions = db.distributions.filter((item) => item.distribution_id !== distribution_id)
     if (existing) {
-      updateFoodQuantity(db, existing.food_id, Number(existing.quantity || 0))
+      // Only restore inventory if the distribution was Completed (inventory was deducted)
+      if (existing.food_id && existing.quantity && String(existing.status || '').toLowerCase() === 'completed') {
+        updateFoodQuantity(db, existing.food_id, Number(existing.quantity || 0))
+      }
       const enriched = withJoins({ ...db, distributions: [existing] }).distributions[0] || existing
       const actor = normalizeActor(body)
       db.activityLogs = db.activityLogs || []
@@ -764,7 +863,7 @@ function handleDelete(path, db, body = {}) {
   throw makeError('Endpoint not found.', 404)
 }
 
-function handlePut(path, db, body) {
+function handlePut(path, db, body, options = {}) {
   let match = path.match(/^\/api\/families\/(\d+)$/)
   if (match) {
     const family_id = Number(match[1])
@@ -805,10 +904,50 @@ function handlePut(path, db, body) {
     return { ok: true }
   }
 
+  match = path.match(/^\/api\/donations\/(\d+)\/approve$/)
+  if (match) {
+    const reqUser = getMockTokenUser(db)
+    if (!reqUser || reqUser.role !== 'Admin') throw makeError('Admin access required.', 403)
+    const donation_id = Number(match[1])
+    const donation = db.donations.find((item) => item.donation_id === donation_id)
+    if (!donation) throw makeError('Donation not found.', 404)
+    if (donation.status === 'approved') throw makeError('Donation is already approved.', 400)
+    db.donations = db.donations.map((item) =>
+      item.donation_id === donation_id
+        ? { ...item, status: 'approved', approved_by: reqUser.user_id, approved_at: nowIso() }
+        : item,
+    )
+    if (donation.food_id && donation.quantity && donation.donation_type !== 'monetary') {
+      updateFoodQuantity(db, donation.food_id, Number(donation.quantity))
+    }
+    saveDb(db)
+    return { message: 'Donation approved.' }
+  }
+
+  match = path.match(/^\/api\/donations\/(\d+)\/reject$/)
+  if (match) {
+    const reqUser = getMockTokenUser(db)
+    if (!reqUser || reqUser.role !== 'Admin') throw makeError('Admin access required.', 403)
+    const donation_id = Number(match[1])
+    const donation = db.donations.find((item) => item.donation_id === donation_id)
+    if (!donation) throw makeError('Donation not found.', 404)
+    if (donation.status === 'rejected') throw makeError('Donation is already rejected.', 400)
+    db.donations = db.donations.map((item) =>
+      item.donation_id === donation_id
+        ? { ...item, status: 'rejected', rejection_reason: body.rejection_reason || null }
+        : item,
+    )
+    saveDb(db)
+    return { message: 'Donation rejected.' }
+  }
+
   match = path.match(/^\/api\/distributions\/(\d+)$/)
   if (match) {
     const distribution_id = Number(match[1])
     const existing = db.distributions.find((item) => item.distribution_id === distribution_id)
+    const newStatus = body.status !== undefined ? String(body.status) : (existing?.status ?? '')
+    const oldStatus = existing ? String(existing.status || '') : ''
+
     db.distributions = db.distributions.map((item) => {
       if (item.distribution_id !== distribution_id) return item
       return {
@@ -817,6 +956,17 @@ function handlePut(path, db, body) {
         image: body.image_data || item.image || null,
       }
     })
+
+    if (existing && existing.distribution_type === 'Food' && existing.food_id && existing.quantity) {
+      const wasCompleted = oldStatus.toLowerCase() === 'completed'
+      const isNowCompleted = newStatus.toLowerCase() === 'completed'
+      if (!wasCompleted && isNowCompleted) {
+        updateFoodQuantity(db, existing.food_id, -Number(existing.quantity))
+      } else if (wasCompleted && !isNowCompleted) {
+        updateFoodQuantity(db, existing.food_id, Number(existing.quantity))
+      }
+    }
+
     if (existing) {
       const updated = db.distributions.find((item) => item.distribution_id === distribution_id) || existing
       const enriched = withJoins({ ...db, distributions: [updated] }).distributions[0] || updated
@@ -865,8 +1015,8 @@ export async function mockApiFetch(path, options = {}) {
   })
 
   if (method === 'GET') return handleGet(cleanPath, db, rawPath)
-  if (method === 'POST') return handlePost(cleanPath, db, body)
-  if (method === 'PUT') return handlePut(cleanPath, db, body)
+  if (method === 'POST') return handlePost(cleanPath, db, body, options)
+  if (method === 'PUT') return handlePut(cleanPath, db, body, options)
   if (method === 'DELETE') return handleDelete(cleanPath, db, body)
 
   throw makeError('Method not supported.', 405)
