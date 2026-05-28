@@ -1171,15 +1171,17 @@ function DonationPage() {
 
                 <div>
                   <label htmlFor="supplies-quantity" className={`mb-1 block text-base md:text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
-                    Quantity/Description
+                    Quantity
                   </label>
                   <input
                     id="supplies-quantity"
                     name="quantity"
-                    type="text"
+                    type="number"
+                    min="0.01"
+                    step="any"
                     value={suppliesForm.quantity}
                     onChange={handleSuppliesChange}
-                    placeholder="e.g., 10 large pots, 50 containers"
+                    placeholder="e.g., 10"
                     className={`w-full rounded-lg border px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-blue-500/40 ${
                       isDarkMode
                         ? 'border-slate-600 bg-slate-800 text-slate-100 placeholder-slate-400'

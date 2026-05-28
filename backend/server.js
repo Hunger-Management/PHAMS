@@ -666,7 +666,7 @@ app.get('/api/food-supplies', (req, res) => {
 app.post('/api/food-supplies', (req, res) => {
   const { food_name, unit, total_quantity, barangay_id } = req.body
   if (total_quantity !== undefined && total_quantity !== null && total_quantity !== '' && Number(total_quantity) < 0) {
-    return res.status(400).json({ error: 'Quantity cannot be negative.' })
+    return res.status(400).json({ message: 'Quantity cannot be negative.' })
   }
   const barangayValue = barangay_id ? Number(barangay_id) : null
   const sql = `INSERT INTO food_supplies (food_name, unit, total_quantity, barangay_id) VALUES (?, ?, ?, ?)`
@@ -680,7 +680,7 @@ app.post('/api/food-supplies', (req, res) => {
 app.put('/api/food-supplies/:id', (req, res) => {
   const { food_name, unit, total_quantity, barangay_id } = req.body
   if (total_quantity !== undefined && total_quantity !== null && total_quantity !== '' && Number(total_quantity) < 0) {
-    return res.status(400).json({ error: 'Quantity cannot be negative.' })
+    return res.status(400).json({ message: 'Quantity cannot be negative.' })
   }
   const barangayValue = barangay_id ? Number(barangay_id) : null
   const sql = `UPDATE food_supplies SET food_name=?, unit=?, total_quantity=?, barangay_id=? WHERE food_id=?`
@@ -1098,8 +1098,8 @@ app.post('/api/distributions', upload.single('image'), (req, res) => {
   const quantityValue = quantity === undefined || quantity === null || quantity === '' ? null : Number(quantity)
   const statusValue = String(status || 'Pending').trim()
 
-  if (quantityValue !== null && quantityValue <= 0) {
-    return res.status(400).json({ error: 'Quantity must be greater than zero.' })
+  if (quantityValue !== null && (isNaN(quantityValue) || quantityValue <= 0)) {
+    return res.status(400).json({ message: 'Quantity must be a positive number.' })
   }
 
   // Validate available quantity before inserting
