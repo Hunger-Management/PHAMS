@@ -100,6 +100,11 @@ CREATE TABLE IF NOT EXISTS donations (
   approved_by      INT NULL,
   approved_at      DATETIME NULL,
   rejection_reason TEXT NULL,
+  payment_method   VARCHAR(50) NULL,
+  donor_message    TEXT NULL,
+  is_archived      TINYINT(1) NOT NULL DEFAULT 0,
+  archived_at      DATETIME NULL,
+  archived_by      INT NULL,
   CONSTRAINT fk_donations_donor
     FOREIGN KEY (donor_id) REFERENCES donors(donor_id)
     ON UPDATE CASCADE
@@ -185,6 +190,13 @@ INSERT IGNORE INTO barangays (name) VALUES
   ('Santo Rosario-Kanluran'),
   ('Santo Rosario-Silangan'),
   ('Tabacalera');
+
+-- ─── MIGRATIONS (run one at a time on existing Railway DB) ───────────────────
+-- ALTER TABLE donations ADD COLUMN payment_method VARCHAR(50) NULL;
+-- ALTER TABLE donations ADD COLUMN donor_message TEXT NULL;
+-- ALTER TABLE donations ADD COLUMN is_archived TINYINT(1) NOT NULL DEFAULT 0;
+-- ALTER TABLE donations ADD COLUMN archived_at DATETIME NULL;
+-- ALTER TABLE donations ADD COLUMN archived_by INT NULL;
 
 -- ─── DEFAULT ADMIN USER (password: admin123) ─────────────────────────────────
 INSERT IGNORE INTO users (name, email, password, role, barangay_id) VALUES

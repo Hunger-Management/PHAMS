@@ -733,13 +733,16 @@ app.post('/api/donors', (req, res) => {
 // ─── DONATIONS ───────────────────────────────────────────────────────────────
 
 // GET all donations (with donor, food, and barangay names)
+// ?include_archived=true returns archived records too (admin use)
 app.get('/api/donations', (req, res) => {
+  const includeArchived = req.query.include_archived === 'true'
   const sql = `
     SELECT dn.*, d.donor_name, f.food_name, f.unit, b.name AS barangay_name
     FROM donations dn
     LEFT JOIN donors d ON dn.donor_id = d.donor_id
     LEFT JOIN food_supplies f ON dn.food_id = f.food_id
     LEFT JOIN barangays b ON dn.barangay_id = b.barangay_id
+    ${includeArchived ? '' : 'WHERE dn.is_archived = 0'}
   `
   db.query(sql, (err, results) => {
     if (err) return res.status(500).json({ error: err.message })
@@ -749,7 +752,7 @@ app.get('/api/donations', (req, res) => {
 
 // POST add donation
 app.post('/api/donations', upload.single('image'), (req, res) => {
-  const { donor_id, food_id, food_description, donation_type, quantity, quantity_unit, date_given, barangay_id } = req.body
+  const { donor_id, food_id, food_description, donation_type, quantity, quantity_unit, date_given, barangay_id, payment_method, donor_message } = req.body
   const image = req.file ? req.file.buffer : null
   const donorValue = donor_id === undefined || donor_id === null || donor_id === '' ? null : Number(donor_id)
   const quantityValue = quantity === undefined || quantity === null || quantity === '' ? null : Number(quantity)
@@ -759,6 +762,8 @@ app.post('/api/donations', upload.single('image'), (req, res) => {
   const barangayValue = barangay_id === undefined || barangay_id === null || barangay_id === '' ? null : Number(barangay_id)
   const donationTypeValue = ['food', 'monetary', 'equipment'].includes(String(donation_type || '').toLowerCase())
     ? String(donation_type).toLowerCase() : 'food'
+  const paymentMethodValue = payment_method ? String(payment_method).trim() : null
+  const donorMessageValue = donor_message ? String(donor_message).trim() : null
 
   getUserFromToken(req, db, (authErr, reqUser) => {
     if (authErr) return res.status(500).json({ error: authErr.message })
@@ -772,12 +777,12 @@ app.post('/api/donations', upload.single('image'), (req, res) => {
       const tracking = generateTrackingNumber()
       const sql = `
         INSERT INTO donations
-          (donor_id, food_id, food_description, donation_type, quantity, quantity_unit, date_given, image, barangay_id, status, tracking_number, approved_by, approved_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (donor_id, food_id, food_description, donation_type, quantity, quantity_unit, date_given, image, barangay_id, status, tracking_number, approved_by, approved_at, payment_method, donor_message)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `
       db.query(
         sql,
-        [donorValue, resolvedFoodId, typedFoodDescription || null, donationTypeValue, quantityValue, unitValue, date_given, image, barangayValue, initialStatus, tracking, approvedBy, approvedAt],
+        [donorValue, resolvedFoodId, typedFoodDescription || null, donationTypeValue, quantityValue, unitValue, date_given, image, barangayValue, initialStatus, tracking, approvedBy, approvedAt, paymentMethodValue, donorMessageValue],
         (err, results) => {
           if (err) return res.status(500).json({ error: err.message })
 
@@ -914,25 +919,32 @@ app.put('/api/donations/:id/reject', (req, res) => {
   })
 })
 
-// DELETE donation
+// ARCHIVE donation (admin only — soft delete for data retention compliance)
+// Records are never hard-deleted; archived records are excluded from normal views.
 app.delete('/api/donations/:id', (req, res) => {
-  db.query('SELECT food_id, quantity, status FROM donations WHERE donation_id = ?', [req.params.id], (fetchErr, rows) => {
-    const existing = rows && rows[0] ? rows[0] : null
+  getUserFromToken(req, db, (authErr, reqUser) => {
+    if (authErr) return res.status(500).json({ error: authErr.message })
+    if (!reqUser || reqUser.role !== 'Admin') return res.status(403).json({ error: 'Admin access required.' })
 
-    db.query('DELETE FROM donations WHERE donation_id = ?', [req.params.id], (err) => {
-      if (err) return res.status(500).json({ error: err.message })
+    db.query(
+      'SELECT donation_id, is_archived FROM donations WHERE donation_id = ?',
+      [req.params.id],
+      (fetchErr, rows) => {
+        if (fetchErr) return res.status(500).json({ error: fetchErr.message })
+        const existing = rows && rows[0] ? rows[0] : null
+        if (!existing) return res.status(404).json({ error: 'Donation not found.' })
+        if (existing.is_archived) return res.status(400).json({ error: 'Donation is already archived.' })
 
-      // Only reverse food inventory if the donation was already approved
-      if (existing && existing.food_id && existing.quantity && existing.status === 'approved') {
         db.query(
-          'UPDATE food_supplies SET total_quantity = GREATEST(0, total_quantity - ?) WHERE food_id = ?',
-          [existing.quantity, existing.food_id],
-          (foodErr) => { if (foodErr) console.error('Failed to update food supply on donation delete:', foodErr) },
+          'UPDATE donations SET is_archived = 1, archived_at = NOW(), archived_by = ? WHERE donation_id = ?',
+          [reqUser.user_id, req.params.id],
+          (err) => {
+            if (err) return res.status(500).json({ error: err.message })
+            res.json({ message: 'Donation archived.' })
+          },
         )
-      }
-
-      res.json({ message: 'Donation deleted!' })
-    })
+      },
+    )
   })
 })
 

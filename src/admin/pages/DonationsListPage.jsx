@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, AlertTriangle, Trash2, Gift, RefreshCw, CheckCircle, XCircle } from 'lucide-react'
+import { Search, AlertTriangle, Archive, Gift, RefreshCw, CheckCircle, XCircle } from 'lucide-react'
 import { useDarkMode } from '../../hooks/useDarkMode'
 import { useAdminAuth } from '../../context/AdminAuthContext'
 import AdminSidebar from '../components/AdminSidebar'
@@ -70,16 +70,16 @@ function DonationsListPage() {
         }
     }
 
-    const handleDelete = async (donationId) => {
-        if (!confirm('Delete this donation record? This cannot be undone.')) return
+    const handleArchive = async (donationId) => {
+        if (!confirm('Archive this donation record? It will be hidden from the main list but preserved for audit and compliance purposes.')) return
         setDeletingId(donationId)
         setError(''); setSuccessMessage('')
         try {
             await apiFetch(`/api/donations/${donationId}`, { method: 'DELETE' })
-            setSuccessMessage('Donation deleted.')
+            setSuccessMessage('Donation archived.')
             await fetchDonations()
         } catch (err) {
-            setError(err.message || 'Failed to delete donation.')
+            setError(err.message || 'Failed to archive donation.')
         } finally {
             setDeletingId(null)
         }
@@ -317,12 +317,13 @@ function DonationsListPage() {
                                                                 </button>
                                                             )}
                                                             <button
-                                                                onClick={() => handleDelete(donation.donation_id)}
+                                                                onClick={() => handleArchive(donation.donation_id)}
                                                                 disabled={deletingId === donation.donation_id}
-                                                                className="inline-flex items-center gap-1 rounded-lg border border-red-300 text-red-600 hover:bg-red-50 px-2.5 py-1 text-xs font-semibold transition disabled:opacity-50"
+                                                                className="inline-flex items-center gap-1 rounded-lg border border-slate-300 text-slate-500 hover:bg-slate-50 px-2.5 py-1 text-xs font-semibold transition disabled:opacity-50"
+                                                                title="Archive (record preserved for compliance)"
                                                             >
-                                                                <Trash2 size={11} />
-                                                                {deletingId === donation.donation_id ? '...' : 'Delete'}
+                                                                <Archive size={11} />
+                                                                {deletingId === donation.donation_id ? '...' : 'Archive'}
                                                             </button>
                                                         </div>
                                                     </td>
