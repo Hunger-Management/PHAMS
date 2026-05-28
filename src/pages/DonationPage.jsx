@@ -358,7 +358,7 @@ function DonationPage() {
         donationPayload.append('image', monetaryImageFile)
       }
 
-      const result = await apiFetch('/api/donations', { method: 'POST', body: donationPayload })
+      const result = await apiFetch('/api/donations', { method: 'POST', body: donationPayload, noAuth: true })
 
       const trackingMsg = result?.tracking_number ? ` Your tracking number is ${result.tracking_number}.` : ''
       setMonetarySuccess(`Thank you! Your donation has been recorded and is pending review.${trackingMsg}`)
@@ -414,7 +414,7 @@ function DonationPage() {
         donationPayload.append('image', foodImageFile)
       }
 
-      const result = await apiFetch('/api/donations', { method: 'POST', body: donationPayload })
+      const result = await apiFetch('/api/donations', { method: 'POST', body: donationPayload, noAuth: true })
 
       const trackingMsg = result?.tracking_number ? ` Your tracking number is ${result.tracking_number}.` : ''
       setFoodSuccess(`Thank you! Your food donation has been recorded and is pending review.${trackingMsg}`)
@@ -478,7 +478,7 @@ function DonationPage() {
         donationPayload.append('image', suppliesImageFile)
       }
 
-      const result = await apiFetch('/api/donations', { method: 'POST', body: donationPayload })
+      const result = await apiFetch('/api/donations', { method: 'POST', body: donationPayload, noAuth: true })
 
       const trackingMsg = result?.tracking_number ? ` Your tracking number is ${result.tracking_number}.` : ''
       setSuppliesSuccess(`Thank you! Your supplies donation has been recorded and is pending review.${trackingMsg}`)
