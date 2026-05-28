@@ -297,7 +297,7 @@ function HomePage() {
             const items = [
               { label: 'Total Registered Families', value: stats.totalFamilies ?? '0', icon: <i className="fi fi-sr-users" aria-hidden="true" /> },
               { label: '4Ps (No Permanent Address)', value: stats.fourPsNoPermanentAddress ?? stats.noPermanentAddress ?? '0', icon: '📍' },
-              { label: 'Active Food Supply (Tons)', value: stats.totalFoodSupply ?? '0', icon: '📦' },
+              { label: 'Active Food Supply', value: stats.totalFoodSupply ?? '0', icon: '📦' },
               { label: 'Pending Distributions', value: stats.pendingDistributions ?? '0', icon: '🚚' },
             ]
             return items.map((item) => (
