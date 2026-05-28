@@ -23,7 +23,7 @@ function IndividualsListPage() {
     const [profileIndividual, setProfileIndividual] = useState(null)
     const [editForm, setEditForm] = useState({
         name: '',
-        age: '',
+        date_of_birth: '',
         gender: 'Male',
         barangay_id: '',
         status: 'Registered',
@@ -86,11 +86,21 @@ function IndividualsListPage() {
         }
     }
 
+    const calcAge = (dob) => {
+        if (!dob) return '—'
+        const birth = new Date(dob)
+        const today = new Date()
+        let age = today.getFullYear() - birth.getFullYear()
+        const m = today.getMonth() - birth.getMonth()
+        if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
+        return age
+    }
+
     const openEditModal = (individual) => {
         setEditingIndividual(individual)
         setEditForm({
             name: individual.name || '',
-            age: individual.age ?? '',
+            date_of_birth: individual.date_of_birth ? individual.date_of_birth.slice(0, 10) : '',
             gender: individual.gender || 'Male',
             barangay_id: individual.barangay_id || '',
             status: individual.status || 'Registered',
@@ -131,7 +141,7 @@ function IndividualsListPage() {
         try {
             const payload = {
                 name: editForm.name,
-                age: editForm.age === '' ? null : Number(editForm.age),
+                date_of_birth: editForm.date_of_birth || null,
                 gender: editForm.gender,
                 barangay_id: editForm.barangay_id ? Number(editForm.barangay_id) : null,
                 status: editForm.status,
@@ -299,7 +309,7 @@ function IndividualsListPage() {
                                                     {individual.name || '—'}
                                                 </td>
                                                 <td className={`px-6 py-4 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
-                                                    {individual.age ?? '—'}
+                                                    {calcAge(individual.date_of_birth)}
                                                 </td>
                                                 <td className={`px-6 py-4 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
                                                     {individual.gender || '—'}
@@ -416,12 +426,12 @@ function IndividualsListPage() {
                                         ? 'text-slate-300'
                                         : 'text-slate-600'
                                     }`}>
-                                        Age
+                                        Date of Birth
                                     </label>
                                     <input
-                                        type="number"
-                                        name="age"
-                                        value={editForm.age}
+                                        type="date"
+                                        name="date_of_birth"
+                                        value={editForm.date_of_birth}
                                         onChange={handleEditChange}
                                         className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/40 ${isDarkMode
                                             ? 'border-slate-600 bg-slate-900 text-slate-100'
@@ -556,7 +566,7 @@ function IndividualsListPage() {
                             </div>
                             <div className="flex items-center justify-between">
                                 <span className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>Age</span>
-                                <span>{profileIndividual.age ?? '—'}</span>
+                                <span>{calcAge(profileIndividual.date_of_birth)}</span>
                             </div>
                             <div className="flex items-center justify-between">
                                 <span className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>Gender</span>

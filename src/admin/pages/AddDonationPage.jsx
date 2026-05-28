@@ -38,7 +38,7 @@ function AddDonationPage() {
       setLoadingError('')
       try {
         const [donorsData, foodsData, barangaysData] = await Promise.all([
-          apiFetch('/api/donors'),
+          apiFetch('/api/donors?approved_only=true'),
           apiFetch('/api/food-supplies'),
           apiFetch('/api/barangays'),
         ])

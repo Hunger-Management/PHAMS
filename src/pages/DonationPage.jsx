@@ -226,10 +226,11 @@ function DonationPage() {
       .then((data) => {
         const list = (Array.isArray(data) ? data : []).filter((item) => (item.status || 'approved') === 'approved')
         const mapped = list.map((item, index) => {
-          const isMonetary = !item.food_id || Number(item.food_id) === 0
+          const isMonetary = (item.donation_type || '').toLowerCase() === 'monetary'
+          const isFood = (item.donation_type || 'food').toLowerCase() === 'food'
           return {
             name: item.donor_name || 'Anonymous',
-            type: isMonetary ? 'Donation' : `Donation: ${item.food_name || 'Unknown food'}`,
+            type: isMonetary ? 'Monetary Donation' : isFood ? `Donation: ${item.food_name || 'Unknown food'}` : `Donation: ${item.food_name || item.food_description || 'Equipment'}`,
             amount: isMonetary
               ? (item.quantity ? `₱${formatPhpAmount(Number(item.quantity))}` : '—')
               : (item.quantity ? `${item.quantity} ${item.quantity_unit || item.unit || ''}`.trim() : '—'),
