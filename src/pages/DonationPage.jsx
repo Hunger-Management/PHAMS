@@ -224,7 +224,7 @@ function DonationPage() {
   const loadRecentDonors = () => {
     apiFetch('/api/donations')
       .then((data) => {
-        const list = (Array.isArray(data) ? data : []).filter((item) => (item.status || 'approved') === 'approved')
+        const list = (Array.isArray(data) ? data : []).filter((item) => item.status === 'approved')
         const mapped = list.map((item, index) => {
           const isMonetary = (item.donation_type || '').toLowerCase() === 'monetary'
           const isFood = (item.donation_type || 'food').toLowerCase() === 'food'
