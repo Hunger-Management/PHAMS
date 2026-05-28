@@ -1,4 +1,4 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import { apiFetch } from '../../api/api'
 import { useDarkMode } from '../../hooks/useDarkMode'
@@ -436,10 +436,8 @@ function StaffDashboardPage() {
     return months.map((m) => ({ ...m, heightPct: (m.count / max) * 100 }))
   }, [filteredDistributions])
 
-  const navigate = useNavigate()
   const [familyForm, setFamilyForm] = useState({
     familyName: '',
-    barangay: staffUser?.barangay || 'Aguho',
     address: '',
     headOfFamily: '',
     contactNumber: '',
@@ -456,16 +454,6 @@ function StaffDashboardPage() {
       setFamilyForm(prev => ({ ...prev, headOfFamily: fullName }))
     }
   }, [members])
-
-  const getAgeInYears = (dateOfBirth) => {
-    if (!dateOfBirth) return null
-    const today = new Date()
-    const dob = new Date(dateOfBirth)
-    let age = today.getFullYear() - dob.getFullYear()
-    const m = today.getMonth() - dob.getMonth()
-    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--
-    return age
-  }
 
   const computeBMI = (heightCm, weightKg) => {
     const h = parseFloat(heightCm)
@@ -537,15 +525,6 @@ function StaffDashboardPage() {
   }
 
 
-  // Initialize form with staff user's barangay name when available
-  useEffect(() => {
-    if (staffBarangayName) {
-      setFamilyForm((prev) => ({
-        ...prev,
-        barangay: staffBarangayName,
-      }))
-    }
-  }, [staffBarangayName])
 
   function toggleProgram(program) {
     setFamilyForm((s) => ({
@@ -566,7 +545,10 @@ function StaffDashboardPage() {
     setFormSubmitting(true)
 
     try {
-      const barangayId = BARANGAY_MAP[staffBarangayName] || 1
+      const barangayId = BARANGAY_MAP[staffBarangayName]
+      if (!barangayId) {
+        throw new Error('Unable to determine your barangay. Please refresh and try again.')
+      }
 
       if (!familyForm.familyName.trim()) {
         throw new Error('Family name is required.')
@@ -645,7 +627,7 @@ function StaffDashboardPage() {
     }`}>
       <StaffSidebar isDarkMode={isDarkMode} />
 
-      <main className="ml-72 min-h-screen p-8">
+      <div className="ml-72 min-h-screen p-8">
         <div className="mx-auto max-w-[1450px]">
           <div id="dashboard-top" className="mb-8">
             <h2 className={`text-5xl font-black leading-tight tracking-tight ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
@@ -1320,7 +1302,7 @@ function StaffDashboardPage() {
             </div>
           </section>
         </div>
-      </main>
+      </div>
 
       <button
         onClick={toggleDarkMode}
