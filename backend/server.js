@@ -1316,7 +1316,7 @@ app.get('/api/stats', (req, res) => {
     totalFamilies: 'SELECT COUNT(*) AS count FROM families',
     totalIndividuals: 'SELECT COUNT(*) AS count FROM individuals',
     pendingDistributions: "SELECT COUNT(*) AS count FROM distribution WHERE status = 'Pending'",
-    totalFoodSupply: 'SELECT SUM(total_quantity) AS count FROM food_supplies',
+    totalFoodSupply: "SELECT COALESCE(SUM(total_quantity), 0) AS count FROM food_supplies WHERE type = 'food'",
   }
 
   const results = {}
