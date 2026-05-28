@@ -316,15 +316,17 @@ function DonationsListPage() {
                                                                     <XCircle size={11} /> Reject
                                                                 </button>
                                                             )}
-                                                            <button
-                                                                onClick={() => handleArchive(donation.donation_id)}
-                                                                disabled={deletingId === donation.donation_id}
-                                                                className="inline-flex items-center gap-1 rounded-lg border border-slate-300 text-slate-500 hover:bg-slate-50 px-2.5 py-1 text-xs font-semibold transition disabled:opacity-50"
-                                                                title="Archive (record preserved for compliance)"
-                                                            >
-                                                                <Archive size={11} />
-                                                                {deletingId === donation.donation_id ? '...' : 'Archive'}
-                                                            </button>
+                                                            {!isPending && (
+                                                                <button
+                                                                    onClick={() => handleArchive(donation.donation_id)}
+                                                                    disabled={deletingId === donation.donation_id}
+                                                                    className="inline-flex items-center gap-1 rounded-lg border border-slate-300 text-slate-500 hover:bg-slate-50 px-2.5 py-1 text-xs font-semibold transition disabled:opacity-50"
+                                                                    title="Archive (record preserved for compliance)"
+                                                                >
+                                                                    <Archive size={11} />
+                                                                    {deletingId === donation.donation_id ? '...' : 'Archive'}
+                                                                </button>
+                                                            )}
                                                         </div>
                                                     </td>
                                                 </tr>

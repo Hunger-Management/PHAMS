@@ -10,7 +10,16 @@ const app = express()
 app.use(cors())
 app.use(express.json())
 
-const upload = multer({ storage: multer.memoryStorage() })
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) {
+      return cb(new Error('Only image files are allowed.'))
+    }
+    cb(null, true)
+  },
+})
 
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`)
@@ -656,6 +665,9 @@ app.get('/api/food-supplies', (req, res) => {
 // POST add food supply
 app.post('/api/food-supplies', (req, res) => {
   const { food_name, unit, total_quantity, barangay_id } = req.body
+  if (total_quantity !== undefined && total_quantity !== null && total_quantity !== '' && Number(total_quantity) < 0) {
+    return res.status(400).json({ error: 'Quantity cannot be negative.' })
+  }
   const barangayValue = barangay_id ? Number(barangay_id) : null
   const sql = `INSERT INTO food_supplies (food_name, unit, total_quantity, barangay_id) VALUES (?, ?, ?, ?)`
   db.query(sql, [food_name, unit, total_quantity, barangayValue], (err, results) => {
@@ -667,6 +679,9 @@ app.post('/api/food-supplies', (req, res) => {
 // PUT update food supply
 app.put('/api/food-supplies/:id', (req, res) => {
   const { food_name, unit, total_quantity, barangay_id } = req.body
+  if (total_quantity !== undefined && total_quantity !== null && total_quantity !== '' && Number(total_quantity) < 0) {
+    return res.status(400).json({ error: 'Quantity cannot be negative.' })
+  }
   const barangayValue = barangay_id ? Number(barangay_id) : null
   const sql = `UPDATE food_supplies SET food_name=?, unit=?, total_quantity=?, barangay_id=? WHERE food_id=?`
   db.query(sql, [food_name, unit, total_quantity, barangayValue, req.params.id], (err) => {
@@ -686,8 +701,15 @@ app.delete('/api/food-supplies/:id', (req, res) => {
 // ─── DONORS ──────────────────────────────────────────────────────────────────
 
 // GET all donors
+// ?approved_only=true returns only donors with at least one approved, non-archived donation
 app.get('/api/donors', (req, res) => {
-  db.query('SELECT * FROM donors', (err, results) => {
+  const approvedOnly = req.query.approved_only === 'true'
+  const sql = approvedOnly
+    ? `SELECT DISTINCT d.* FROM donors d
+       INNER JOIN donations dn ON d.donor_id = dn.donor_id
+       WHERE dn.status = 'approved' AND dn.is_archived = 0`
+    : 'SELECT * FROM donors'
+  db.query(sql, (err, results) => {
     if (err) return res.status(500).json({ error: err.message })
     res.json(results)
   })
@@ -905,6 +927,7 @@ app.put('/api/donations/:id/reject', (req, res) => {
         const donation = rows && rows[0] ? rows[0] : null
         if (!donation) return res.status(404).json({ error: 'Donation not found.' })
         if (donation.status === 'rejected') return res.status(400).json({ error: 'Donation is already rejected.' })
+        if (donation.status === 'approved') return res.status(400).json({ error: 'Cannot reject an already approved donation. Use Archive instead.' })
 
         db.query(
           'UPDATE donations SET status = ?, rejection_reason = ? WHERE donation_id = ?',
@@ -927,7 +950,7 @@ app.delete('/api/donations/:id', (req, res) => {
     if (!reqUser || reqUser.role !== 'Admin') return res.status(403).json({ error: 'Admin access required.' })
 
     db.query(
-      'SELECT donation_id, is_archived FROM donations WHERE donation_id = ?',
+      'SELECT donation_id, is_archived, status, food_id, quantity, donation_type FROM donations WHERE donation_id = ?',
       [req.params.id],
       (fetchErr, rows) => {
         if (fetchErr) return res.status(500).json({ error: fetchErr.message })
@@ -935,14 +958,31 @@ app.delete('/api/donations/:id', (req, res) => {
         if (!existing) return res.status(404).json({ error: 'Donation not found.' })
         if (existing.is_archived) return res.status(400).json({ error: 'Donation is already archived.' })
 
-        db.query(
-          'UPDATE donations SET is_archived = 1, archived_at = NOW(), archived_by = ? WHERE donation_id = ?',
-          [reqUser.user_id, req.params.id],
-          (err) => {
-            if (err) return res.status(500).json({ error: err.message })
-            res.json({ message: 'Donation archived.' })
-          },
-        )
+        const doArchive = () => {
+          db.query(
+            'UPDATE donations SET is_archived = 1, archived_at = NOW(), archived_by = ? WHERE donation_id = ?',
+            [reqUser.user_id, req.params.id],
+            (err) => {
+              if (err) return res.status(500).json({ error: err.message })
+              res.json({ message: 'Donation archived.' })
+            },
+          )
+        }
+
+        // Reverse food inventory if archiving an approved food/equipment donation
+        if (existing.status === 'approved' && existing.food_id && existing.quantity && existing.donation_type !== 'monetary') {
+          db.query(
+            'UPDATE food_supplies SET total_quantity = GREATEST(0, total_quantity - ?) WHERE food_id = ?',
+            [existing.quantity, existing.food_id],
+            (foodErr) => {
+              if (foodErr) return res.status(500).json({ error: foodErr.message })
+              doArchive()
+            },
+          )
+          return
+        }
+
+        doArchive()
       },
     )
   })
@@ -1057,6 +1097,10 @@ app.post('/api/distributions', upload.single('image'), (req, res) => {
   const foodValue = food_id === undefined || food_id === null || food_id === '' ? null : Number(food_id)
   const quantityValue = quantity === undefined || quantity === null || quantity === '' ? null : Number(quantity)
   const statusValue = String(status || 'Pending').trim()
+
+  if (quantityValue !== null && quantityValue <= 0) {
+    return res.status(400).json({ error: 'Quantity must be greater than zero.' })
+  }
 
   // Validate available quantity before inserting
   const checkAndInsert = () => {

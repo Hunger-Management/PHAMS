@@ -178,7 +178,6 @@ function UsersListPage() {
                                         <tr className={`border-b text-xs uppercase tracking-wide ${isDarkMode ? 'border-white/10 text-slate-400' : 'border-slate-200 text-slate-500'}`}>
                                             <th className="px-6 py-4 text-left font-semibold">Name</th>
                                             <th className="px-6 py-4 text-left font-semibold">Email</th>
-                                            <th className="px-6 py-4 text-left font-semibold">Password</th>
                                             <th className="px-6 py-4 text-left font-semibold">Role</th>
                                             <th className="px-6 py-4 text-left font-semibold">Barangay</th>
                                             <th className="px-6 py-4 text-left font-semibold">Created</th>
@@ -199,12 +198,6 @@ function UsersListPage() {
                                                     <td className={`px-6 py-4 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
                                                         {userItem.email || '—'}
                                                     </td>
-                                                                                                        <td className={`px-6 py-4 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
-                                                                                                                {userItem.role && String(userItem.role).toLowerCase() === 'staff'
-                                                                                                                    ? (userItem.password || '—')
-                                                                                                                    : '—'
-                                                                                                                }
-                                                                                                        </td>
                                                     <td className={`px-6 py-4 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
                                                         {userItem.role || '—'}
                                                     </td>
