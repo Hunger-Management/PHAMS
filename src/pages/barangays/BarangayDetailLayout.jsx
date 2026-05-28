@@ -140,6 +140,7 @@ function BarangayDetailLayout({ barangayName }) {
 
         // ── Municipal food supply inventory ─────────────────────────────
         const liveInventory = (Array.isArray(foodSupplies) ? foodSupplies : [])
+          .filter((item) => Number(item.total_quantity) > 0)
           .slice(0, 4)
           .map((item) => ({
             label: item.food_name || 'Supply',
