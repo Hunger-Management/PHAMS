@@ -105,7 +105,7 @@ function DonationPage() {
 
   // Crop the image to the QR area (detect dark pixels bounding box)
   async function cropToQr(src) {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const img = new Image()
       img.crossOrigin = 'anonymous'
       img.onload = () => {
@@ -156,7 +156,7 @@ function DonationPage() {
           const outCtx = out.getContext('2d')
           outCtx.drawImage(canvas, minX, minY, w, h, 0, 0, w, h)
           resolve(out.toDataURL('image/png'))
-        } catch (err) {
+        } catch {
           resolve(src)
         }
       }
@@ -346,6 +346,10 @@ function DonationPage() {
       donationPayload.append('quantity', String(resolvedAmount))
       donationPayload.append('quantity_unit', 'PHP')
       donationPayload.append('date_given', new Date().toISOString().split('T')[0])
+      donationPayload.append('payment_method', paymentMethod)
+      if (monetaryForm.message.trim()) {
+        donationPayload.append('donor_message', monetaryForm.message.trim())
+      }
       if (monetaryBarangayId) {
         donationPayload.append('barangay_id', String(Number(monetaryBarangayId)))
       }

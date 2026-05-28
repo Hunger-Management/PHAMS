@@ -310,27 +310,6 @@ function AddDistributionPage() {
     }).format(amount)
   }
 
-  const resetMonetaryTotal = async () => {
-    if (!activeBarangayId) {
-      setErrorMessage('Please select a barangay first before resetting the monetary fund.')
-      return
-    }
-
-    if (!confirm('Reset monetary fund? This will remove monetary donations (mock) or delete them on the backend.')) return
-    try {
-      // Delete only monetary donations for the active barangay.
-      for (const d of monetaryDonations) {
-        await apiFetch(`/api/donations/${d.donation_id}`, { method: 'DELETE' })
-      }
-
-      await Promise.all([loadDonations(), loadDistributions()])
-      setSuccessMessage('Monetary fund reset.')
-      setTimeout(() => setSuccessMessage(''), 3000)
-    } catch (err) {
-      setErrorMessage(err.message || 'Failed to reset monetary fund.')
-      setTimeout(() => setErrorMessage(''), 5000)
-    }
-  }
 
   return (
     <div className={`flex min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-[#0b1220] text-slate-100' : 'bg-[#e5e7eb] text-slate-900'}`}>
@@ -596,19 +575,9 @@ function AddDistributionPage() {
                       Fund balance for the selected barangay only.
                     </p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className={`rounded-full px-3 py-1 text-sm font-bold ${isDarkMode ? 'bg-amber-500/20 text-amber-300' : 'bg-amber-100 text-amber-700'}`}>
-                      {formatPhpAmount(fundBalance)}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={resetMonetaryTotal}
-                      disabled={!activeBarangayId}
-                      className={`rounded-full px-3 py-1 text-xs font-semibold transition ${isDarkMode ? 'bg-red-700 text-white hover:bg-red-600' : 'bg-red-100 text-red-800 hover:bg-red-200'}`}
-                    >
-                      Reset
-                    </button>
-                  </div>
+                  <span className={`rounded-full px-3 py-1 text-sm font-bold ${isDarkMode ? 'bg-amber-500/20 text-amber-300' : 'bg-amber-100 text-amber-700'}`}>
+                    {formatPhpAmount(fundBalance)}
+                  </span>
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
