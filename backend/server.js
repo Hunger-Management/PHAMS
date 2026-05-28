@@ -333,7 +333,7 @@ app.get('/api/families/:id', (req, res) => {
 })
 
 // POST add new family
-app.post('/api/families', (req, res) => {
+app.post('/api/families', upload.none(), (req, res) => {
   const {
     barangay_id, family_name, address, head_of_family, phone,
     monthly_income, food_assistance_status, is_npa, priority_score,
@@ -461,7 +461,7 @@ app.post('/api/families', (req, res) => {
 })
 
 // PUT update family
-app.put('/api/families/:id', (req, res) => {
+app.put('/api/families/:id', upload.none(), (req, res) => {
   const {
     barangay_id, family_name, address, head_of_family, phone,
     monthly_income, food_assistance_status, is_npa, priority_score,
@@ -511,7 +511,7 @@ app.get('/api/families/:id/members', (req, res) => {
 })
 
 // POST add member to a family
-app.post('/api/families/:id/members', (req, res) => {
+app.post('/api/families/:id/members', upload.none(), (req, res) => {
   const {
     first_name, last_name, date_of_birth, gender,
     relationship, is_pwd, height_cm, weight_kg, nutritional_status,
