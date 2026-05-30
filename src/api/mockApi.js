@@ -414,7 +414,7 @@ function getStats(db) {
     totalFamilies: db.families.length,
     totalIndividuals: db.individuals.length,
     pendingDistributions: db.distributions.filter((item) => String(item.status).toLowerCase() === 'pending').length,
-    totalFoodSupply: db.foodSupplies.reduce((sum, item) => sum + (Number(item.total_quantity) || 0), 0),
+    totalFoodSupply: db.foodSupplies.filter((item) => item.type === 'food').reduce((sum, item) => sum + (Number(item.total_quantity) || 0), 0),
   }
 }
 

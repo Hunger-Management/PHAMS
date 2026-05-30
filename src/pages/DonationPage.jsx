@@ -224,7 +224,7 @@ function DonationPage() {
   const loadRecentDonors = () => {
     apiFetch('/api/donations')
       .then((data) => {
-        const list = (Array.isArray(data) ? data : []).filter((item) => (item.status || 'approved') === 'approved')
+        const list = (Array.isArray(data) ? data : []).filter((item) => item.status === 'approved')
         const mapped = list.map((item, index) => {
           const isMonetary = (item.donation_type || '').toLowerCase() === 'monetary'
           const isFood = (item.donation_type || 'food').toLowerCase() === 'food'
@@ -358,7 +358,7 @@ function DonationPage() {
         donationPayload.append('image', monetaryImageFile)
       }
 
-      const result = await apiFetch('/api/donations', { method: 'POST', body: donationPayload })
+      const result = await apiFetch('/api/donations', { method: 'POST', body: donationPayload, noAuth: true })
 
       const trackingMsg = result?.tracking_number ? ` Your tracking number is ${result.tracking_number}.` : ''
       setMonetarySuccess(`Thank you! Your donation has been recorded and is pending review.${trackingMsg}`)
@@ -414,7 +414,7 @@ function DonationPage() {
         donationPayload.append('image', foodImageFile)
       }
 
-      const result = await apiFetch('/api/donations', { method: 'POST', body: donationPayload })
+      const result = await apiFetch('/api/donations', { method: 'POST', body: donationPayload, noAuth: true })
 
       const trackingMsg = result?.tracking_number ? ` Your tracking number is ${result.tracking_number}.` : ''
       setFoodSuccess(`Thank you! Your food donation has been recorded and is pending review.${trackingMsg}`)
@@ -478,7 +478,7 @@ function DonationPage() {
         donationPayload.append('image', suppliesImageFile)
       }
 
-      const result = await apiFetch('/api/donations', { method: 'POST', body: donationPayload })
+      const result = await apiFetch('/api/donations', { method: 'POST', body: donationPayload, noAuth: true })
 
       const trackingMsg = result?.tracking_number ? ` Your tracking number is ${result.tracking_number}.` : ''
       setSuppliesSuccess(`Thank you! Your supplies donation has been recorded and is pending review.${trackingMsg}`)
@@ -1171,15 +1171,17 @@ function DonationPage() {
 
                 <div>
                   <label htmlFor="supplies-quantity" className={`mb-1 block text-base md:text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
-                    Quantity/Description
+                    Quantity
                   </label>
                   <input
                     id="supplies-quantity"
                     name="quantity"
-                    type="text"
+                    type="number"
+                    min="0.01"
+                    step="any"
                     value={suppliesForm.quantity}
                     onChange={handleSuppliesChange}
-                    placeholder="e.g., 10 large pots, 50 containers"
+                    placeholder="e.g., 10"
                     className={`w-full rounded-lg border px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-blue-500/40 ${
                       isDarkMode
                         ? 'border-slate-600 bg-slate-800 text-slate-100 placeholder-slate-400'

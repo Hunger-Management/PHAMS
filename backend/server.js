@@ -333,7 +333,7 @@ app.get('/api/families/:id', (req, res) => {
 })
 
 // POST add new family
-app.post('/api/families', (req, res) => {
+app.post('/api/families', upload.none(), (req, res) => {
   const {
     barangay_id, family_name, address, head_of_family, phone,
     monthly_income, food_assistance_status, is_npa, priority_score,
@@ -461,7 +461,7 @@ app.post('/api/families', (req, res) => {
 })
 
 // PUT update family
-app.put('/api/families/:id', (req, res) => {
+app.put('/api/families/:id', upload.none(), (req, res) => {
   const {
     barangay_id, family_name, address, head_of_family, phone,
     monthly_income, food_assistance_status, is_npa, priority_score,
@@ -511,7 +511,7 @@ app.get('/api/families/:id/members', (req, res) => {
 })
 
 // POST add member to a family
-app.post('/api/families/:id/members', (req, res) => {
+app.post('/api/families/:id/members', upload.none(), (req, res) => {
   const {
     first_name, last_name, date_of_birth, gender,
     relationship, is_pwd, height_cm, weight_kg, nutritional_status,
@@ -665,8 +665,11 @@ app.get('/api/food-supplies', (req, res) => {
 // POST add food supply
 app.post('/api/food-supplies', (req, res) => {
   const { food_name, unit, total_quantity, barangay_id } = req.body
-  if (total_quantity !== undefined && total_quantity !== null && total_quantity !== '' && Number(total_quantity) < 0) {
+  if (total_quantity !== undefined && total_quantity !== null && total_quantity !== '') {
+    const quantityValue = Number(total_quantity)
+    if (!Number.isFinite(quantityValue) || quantityValue < 0) {
     return res.status(400).json({ error: 'Quantity cannot be negative.' })
+    }
   }
   const barangayValue = barangay_id ? Number(barangay_id) : null
   const sql = `INSERT INTO food_supplies (food_name, unit, total_quantity, barangay_id) VALUES (?, ?, ?, ?)`
@@ -679,8 +682,11 @@ app.post('/api/food-supplies', (req, res) => {
 // PUT update food supply
 app.put('/api/food-supplies/:id', (req, res) => {
   const { food_name, unit, total_quantity, barangay_id } = req.body
-  if (total_quantity !== undefined && total_quantity !== null && total_quantity !== '' && Number(total_quantity) < 0) {
+  if (total_quantity !== undefined && total_quantity !== null && total_quantity !== '') {
+    const quantityValue = Number(total_quantity)
+    if (!Number.isFinite(quantityValue) || quantityValue < 0) {
     return res.status(400).json({ error: 'Quantity cannot be negative.' })
+    }
   }
   const barangayValue = barangay_id ? Number(barangay_id) : null
   const sql = `UPDATE food_supplies SET food_name=?, unit=?, total_quantity=?, barangay_id=? WHERE food_id=?`
@@ -1098,7 +1104,7 @@ app.post('/api/distributions', upload.single('image'), (req, res) => {
   const quantityValue = quantity === undefined || quantity === null || quantity === '' ? null : Number(quantity)
   const statusValue = String(status || 'Pending').trim()
 
-  if (quantityValue !== null && quantityValue <= 0) {
+  if (quantityValue !== null && (!Number.isFinite(quantityValue) || quantityValue <= 0)) {
     return res.status(400).json({ error: 'Quantity must be greater than zero.' })
   }
 
@@ -1316,7 +1322,7 @@ app.get('/api/stats', (req, res) => {
     totalFamilies: 'SELECT COUNT(*) AS count FROM families',
     totalIndividuals: 'SELECT COUNT(*) AS count FROM individuals',
     pendingDistributions: "SELECT COUNT(*) AS count FROM distribution WHERE status = 'Pending'",
-    totalFoodSupply: 'SELECT SUM(total_quantity) AS count FROM food_supplies',
+    totalFoodSupply: "SELECT COALESCE(SUM(total_quantity), 0) AS count FROM food_supplies WHERE type = 'food'",
   }
 
   const results = {}
