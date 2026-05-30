@@ -296,6 +296,7 @@ app.get('/api/families', (req, res) => {
       (SELECT COUNT(*) FROM family_members fm WHERE fm.family_id = f.family_id) AS member_count
     FROM families f
     LEFT JOIN barangays b ON f.barangay_id = b.barangay_id
+    WHERE f.is_active = 1
   `
   db.query(sql, (err, results) => {
     if (err) return res.status(500).json({ error: err.message })
@@ -492,11 +493,11 @@ app.put('/api/families/:id', upload.none(), (req, res) => {
   })
 })
 
-// DELETE family
+// DELETE (deactivate) family — soft delete via is_active flag
 app.delete('/api/families/:id', (req, res) => {
-  db.query('DELETE FROM families WHERE family_id = ?', [req.params.id], (err) => {
+  db.query('UPDATE families SET is_active = 0 WHERE family_id = ?', [req.params.id], (err) => {
     if (err) return res.status(500).json({ error: err.message })
-    res.json({ message: 'Family deleted!' })
+    res.json({ message: 'Family deactivated.' })
   })
 })
 

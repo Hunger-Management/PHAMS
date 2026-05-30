@@ -100,7 +100,7 @@ function FamilyListPage() {
     }
 
     const handleDelete = async (familyId) => {
-        if (!confirm('Delete this family record? This cannot be undone.')) {
+        if (!confirm('Deactivate this family record? They will no longer appear in active lists but their data will be retained.')) {
             return
         }
 
@@ -113,14 +113,14 @@ function FamilyListPage() {
                 const local = loadLocal().filter((f) => f.family_id !== familyId)
                 localStorage.setItem(LOCAL_KEY, JSON.stringify(local))
                 setFamilies((prev) => prev.filter((f) => f.family_id !== familyId))
-                setSuccessMessage('Family deleted.')
+                setSuccessMessage('Family deactivated.')
             } else {
                 await apiFetch(`/api/families/${familyId}`, { method: 'DELETE' })
                 await fetchFamilies()
-                setSuccessMessage('Family deleted.')
+                setSuccessMessage('Family deactivated.')
             }
         } catch (err) {
-            setError(err.message || 'Failed to delete family.')
+            setError(err.message || 'Failed to deactivate family.')
         } finally {
             setDeletingId(null)
         }
@@ -422,7 +422,7 @@ function FamilyListPage() {
                                                             className="inline-flex items-center gap-1 rounded-lg border border-red-300 text-red-600 hover:bg-red-50 px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50"
                                                         >
                                                             <Trash2 size={12} />
-                                                            {deletingId === family.family_id ? 'Deleting...' : 'Delete'}
+                                                            {deletingId === family.family_id ? 'Deactivating...' : 'Deactivate'}
                                                         </button>
                                                     </div>
                                                 </td>
