@@ -668,7 +668,7 @@ app.post('/api/food-supplies', (req, res) => {
   if (total_quantity !== undefined && total_quantity !== null && total_quantity !== '') {
     const quantityValue = Number(total_quantity)
     if (!Number.isFinite(quantityValue) || quantityValue < 0) {
-    return res.status(400).json({ error: 'Quantity cannot be negative.' })
+      return res.status(400).json({ error: 'Quantity must be a valid non-negative number.' })
     }
   }
   const barangayValue = barangay_id ? Number(barangay_id) : null
@@ -685,7 +685,7 @@ app.put('/api/food-supplies/:id', (req, res) => {
   if (total_quantity !== undefined && total_quantity !== null && total_quantity !== '') {
     const quantityValue = Number(total_quantity)
     if (!Number.isFinite(quantityValue) || quantityValue < 0) {
-    return res.status(400).json({ error: 'Quantity cannot be negative.' })
+      return res.status(400).json({ error: 'Quantity must be a valid non-negative number.' })
     }
   }
   const barangayValue = barangay_id ? Number(barangay_id) : null
