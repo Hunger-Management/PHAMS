@@ -34,7 +34,7 @@ export async function apiFetch(path, options = {}) {
 
     const headers = {
         ...(options.headers || {}),
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(token && !options.noAuth ? { Authorization: `Bearer ${token}` } : {}),
     }
 
     if (!isFormData && !headers['Content-Type']) {

@@ -126,6 +126,7 @@ function TransparencyPage() {
 
   const allocationData = useMemo(() => {
     return foodSupplies
+      .filter((item) => Number(item.total_quantity) > 0)
       .map((item) => ({
         label: item.food_name || 'Food Supply',
         value: Number(item.total_quantity) || 0,
@@ -206,7 +207,7 @@ function TransparencyPage() {
   const allocationAxisMax = Math.ceil(maxAllocationValue / 1000) * 1000 || 100
 
   const hasDistributions = distributions.length > 0
-  const hasFood = foodSupplies.length > 0
+  const hasFood = allocationData.length > 0
 
   return (
     <main className={`min-h-screen transition-colors ${
