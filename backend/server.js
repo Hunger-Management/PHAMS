@@ -654,7 +654,7 @@ app.get('/api/members/nutritional-stats', (req, res) => {
 app.get('/api/food-supplies', (req, res) => {
   const barangayId = req.query.barangay_id ? Number(req.query.barangay_id) : null
   const sql = barangayId
-    ? 'SELECT * FROM food_supplies WHERE barangay_id = ?'
+    ? 'SELECT * FROM food_supplies WHERE (barangay_id = ? OR barangay_id IS NULL)'
     : 'SELECT * FROM food_supplies'
   const params = barangayId ? [barangayId] : []
   db.query(sql, params, (err, results) => {
